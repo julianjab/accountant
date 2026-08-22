@@ -1,0 +1,15 @@
+{
+  "app": {
+    "name": "Accountant"
+  },
+  "clients": {
+    "title": "Clients",
+    "empty": "No clients registered yet.",
+    "register": "Register client",
+    "fields": {
+      "name": "Name",
+      "taxId": "Tax id",
+      "email": "Email"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractedData:
+    id: str
+    document_id: str
+    fields: dict[str, Any]
+    confidence: float | None
+    created_at: datetime

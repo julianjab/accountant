@@ -1,0 +1,24 @@
+# Node / Bun
+node_modules
+.output
+.nuxt
+.nitro
+.cache
+dist
+
+# Python
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# OS / editors
+.DS_Store
+.idea
+.fleet

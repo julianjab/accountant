@@ -1,0 +1,19 @@
+{
+  "name": "accountant",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "web:dev": "bun run --cwd apps/web dev",
+    "web:build": "bun run --cwd apps/web build",
+    "web:lint": "bun run --cwd apps/web lint",
+    "web:typecheck": "bun run --cwd apps/web typecheck",
+    "web:test": "bun run --cwd apps/web test",
+    "server:dev": "cd apps/server && uv run server",
+    "server:lint": "cd apps/server && uv run ruff format . && uv run ruff check --fix .",
+    "server:test": "cd apps/server && uv run pytest",
+    "lint": "bun run web:lint && bun run server:lint",
+    "test": "bun run web:test && bun run server:test"
+  }
+}

@@ -1,0 +1,85 @@
+# Accountant
+
+Monorepo for an OCR-driven document intake tool for accountants: a preparer uploads client
+documents to Google Drive; the server auto-detects the document type and extracts structured
+data from it via a multimodal AI.
+
+## Domain
+
+- **Client** — a person/company whose tax documents are being processed.
+- **Document** — a file uploaded for a client (linked to a Drive file).
+- **Extracted data** — the structured fields an OCR run produced for a document.
+
+## Config
+
+- **Document type** — defines how a kind of document (e.g. "Bancolombia statement") is
+  recognized and extracted. Created by showing an AI a sample document; it proposes the
+  extraction prompt + JSON schema, which are stored and reused for every future document of
+  that type.
+
+## How processing works
+
+1. A document lands in Drive → the server's webhook fires.
+2. A fast/cheap AI call classifies the document against the active document types.
+3. The OCR engine (a multimodal AI call) extracts fields using that type's prompt + schema.
+4. The result is persisted as the document's extracted data.
+
+## Stack
+
+- `apps/server` — Python 3.12 + FastAPI + `uv`. OCR/classification via Anthropic (Claude vision).
+  Drive access via `google-api-python-client`.
+- `apps/web` — Nuxt (Vue) + Nuxt UI + `bun`. Talks to the server's HTTP API; will also handle
+  Drive/Sheets integration (uploading documents, exporting extracted data).
+- Root: `bun` workspaces (JS side only — `apps/server` is managed independently via `uv`).
+
+## Architecture — hexagonal, in both apps
+
+Both `apps/server` and `apps/web` follow ports & adapters, SOLID-first:
+
+- **domain/** — entities and value objects. No framework imports, no I/O.
+- **application/** — use cases (one class per use case, single responsibility) and **ports**
+  (interfaces/Protocols) that use cases depend on. Depends only on `domain/`.
+- **infrastructure/** — adapters implementing the ports (Claude clients, Google Drive, HTTP
+  repositories, in-memory/DB repositories) and the driving side (FastAPI routers, Nuxt
+  pages/composables). This is the only layer allowed to import frameworks/SDKs.
+
+Dependency rule: `infrastructure` → `application` → `domain`, never the other way. New
+integrations (a DB, a different OCR/LLM provider, a different storage) are new adapters behind
+an existing port — the use cases don't change.
+
+There is currently no real persistence layer — repositories are in-memory adapters
+(`apps/server/src/server/infrastructure/adapters/in_memory_repositories.py`), swappable behind
+the same `domain/ports` without touching use cases once a DB is chosen.
+
+## Conventions
+
+- **All code (identifiers, comments, commit messages) is in English.** User-facing text is
+  never hardcoded — it goes through i18n.
+  - `apps/web`: `@nuxtjs/i18n`, locale files in `apps/web/i18n/locales/*.json` (`es` is the
+    default locale, `en` is the fallback). Use `useI18n().t(...)` in components, never inline
+    Spanish/English strings in templates.
+  - `apps/server`: API payload keys are snake_case (see `infrastructure/api/schemas.py`); the
+    server has no UI-facing strings today.
+- Python identifiers/payload keys: snake_case. TypeScript: camelCase, `PascalCase` for
+  types/classes.
+
+## Commands
+
+```bash
+# web (apps/web)
+bun run dev / build / lint / typecheck / test
+
+# server (apps/server)
+uv run server                              # dev server (uvicorn --reload)
+uv run ruff format . && uv run ruff check --fix .
+uv run pytest
+
+# from repo root
+bun run web:dev / web:lint / web:test
+bun run server:dev / server:lint / server:test
+bun run lint   # both apps
+bun run test   # both apps
+```
+
+Follow the global pre-push checklist (lint + tests for every changed package) before any
+`git push` — see `~/.claude/CLAUDE.md`.
