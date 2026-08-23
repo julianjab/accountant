@@ -47,9 +47,27 @@ Dependency rule: `infrastructure` → `application` → `domain`, never the othe
 integrations (a DB, a different OCR/LLM provider, a different storage) are new adapters behind
 an existing port — the use cases don't change.
 
-There is currently no real persistence layer — repositories are in-memory adapters
-(`apps/server/src/server/infrastructure/adapters/in_memory_repositories.py`), swappable behind
-the same `domain/ports` without touching use cases once a DB is chosen.
+Persistence is **Firestore**
+(`apps/server/src/server/infrastructure/adapters/firestore_repositories.py`) for clients,
+documents, document types, extracted data and login sessions. Document *files* themselves stay
+in Google Drive (`GoogleDriveStorage`); Firestore holds only their metadata and extracted
+fields. With `ACCOUNTANT_FIRESTORE_PROJECT` unset the server falls back to the in-memory
+adapters (`in_memory_repositories.py`), which is what the tests use — both sit behind the same
+`domain/ports`, so use cases never change.
+
+### Google login
+
+Users sign in with Google via the **authorization-code** flow, owned entirely by `apps/server`
+(`infrastructure/api/routers/auth.py` + `adapters/google_oauth_client.py`). The browser never
+sees an access token: the server holds the access *and* refresh tokens, keyed by an opaque
+session id delivered as an httpOnly cookie, and renews the access token on demand
+(`GetGoogleSession`). This is what makes a login survive reloads, and it is the same grant the
+server will use to read a user's Drive on their behalf.
+
+The `state` nonce is stored in its own short-lived cookie and compared in the callback, so a
+forged callback cannot establish a session. Sessions live in the `sessions` Firestore
+collection and hold refresh tokens — never expose it through an API, and deny all client access
+in its security rules.
 
 ### Talking to Anthropic
 
