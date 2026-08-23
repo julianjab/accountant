@@ -21,6 +21,17 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2026-06-30',
 
+  vite: {
+    server: {
+      // Vite refuses requests whose Host header it does not recognise, which
+      // is what a tunnel arrives as. Quick tunnels get a new random hostname
+      // every run, so the whole domain is allowed rather than one name that
+      // stops being right on the next restart. Dev server only — it has no
+      // effect on a build.
+      allowedHosts: ['.trycloudflare.com', '.ngrok-free.app', '.ngrok.io']
+    }
+  },
+
   eslint: {
     config: {
       stylistic: {
