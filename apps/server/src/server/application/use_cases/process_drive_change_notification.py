@@ -178,8 +178,18 @@ class ProcessDriveChangeNotification:
     def _give_up_document(
         self, channel: DriveWatchChannel, file: DriveChangedFile, error: str
     ) -> Document:
+        # Reuse the row an earlier attempt (e.g. one that got past download
+        # and failed classify/OCR instead) may have already left behind,
+        # exactly like ProcessUploadedDocument does: otherwise this file
+        # would end up with two FAILED rows instead of one.
+        existing = self._documents.get_by_drive_file_id_and_client(file.id, channel.client_id)
+        document_id = (
+            existing.id
+            if existing is not None and existing.status != DocumentStatus.PROCESSED
+            else str(uuid.uuid4())
+        )
         document = Document(
-            id=str(uuid.uuid4()),
+            id=document_id,
             client_id=channel.client_id,
             document_type_id=None,
             drive_file_id=file.id,

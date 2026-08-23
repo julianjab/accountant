@@ -246,7 +246,12 @@ def get_subscribe_drive_webhook_use_case() -> SubscribeDriveWebhook:
     return SubscribeDriveWebhook(get_drive_watcher(), get_drive_watch_channel_repository())
 
 
+@lru_cache
 def get_process_drive_change_notification_use_case() -> ProcessDriveChangeNotification:
+    # Must be a singleton: its per-channel locks (guarding against two
+    # concurrent Drive notifications racing on the same cursor) only work if
+    # every request shares the same instance instead of getting a fresh one
+    # with an empty lock table.
     return ProcessDriveChangeNotification(
         channels=get_drive_watch_channel_repository(),
         change_reader=get_drive_watcher(),

@@ -21,6 +21,7 @@ def clear_caches():
         deps.get_session_repository,
         deps.get_drive_watch_channel_repository,
         deps.get_drive_file_claim_repository,
+        deps.get_process_drive_change_notification_use_case,
     ):
         provider.cache_clear()
     yield
@@ -34,6 +35,7 @@ def clear_caches():
         deps.get_session_repository,
         deps.get_drive_watch_channel_repository,
         deps.get_drive_file_claim_repository,
+        deps.get_process_drive_change_notification_use_case,
     ):
         provider.cache_clear()
 
@@ -158,3 +160,20 @@ def test_get_process_drive_change_notification_use_case_is_wired_with_the_drive_
     use_case = deps.get_process_drive_change_notification_use_case()
 
     assert isinstance(use_case, ProcessDriveChangeNotification)
+
+
+def test_get_process_drive_change_notification_use_case_is_a_singleton(monkeypatch):
+    # Its per-channel locks (guarding concurrent Drive notifications for the
+    # same channel) only work if every request shares one instance instead of
+    # getting a fresh one with an empty lock table.
+    monkeypatch.setattr(deps.get_settings(), "google_service_account_file", "sa.json")
+    monkeypatch.setattr(
+        "server.infrastructure.adapters.google_drive_storage._build_drive_client",
+        lambda service_account_file: object(),
+    )
+    deps.get_drive_watcher.cache_clear()
+
+    assert (
+        deps.get_process_drive_change_notification_use_case()
+        is deps.get_process_drive_change_notification_use_case()
+    )

@@ -460,6 +460,37 @@ def test_a_download_that_keeps_failing_also_frees_the_cursor_after_the_cap():
     assert channels.saved[-1].page_token == "token-2"
 
 
+def test_giving_up_reuses_an_existing_non_processed_row_instead_of_duplicating():
+    channels = FakeDriveWatchChannelRepository(_CHANNEL)
+    change_reader = FakeDriveChangeReader(
+        DriveChangesPage(
+            files=[
+                DriveChangedFile(
+                    id="file-1",
+                    name="broken.pdf",
+                    mime_type="application/pdf",
+                    parents=["folder-1"],
+                    trashed=False,
+                )
+            ],
+            next_page_token="token-2",
+        )
+    )
+    process_document = FakeProcessUploadedDocument(raise_for={"file-1"})
+    claims = FakeDriveFileClaimRepository()
+    # An earlier attempt got past download and left a FAILED row behind.
+    documents = FakeDocumentRepository(existing={"file-1": ("client-1", DocumentStatus.FAILED)})
+
+    result = None
+    for _ in range(3):
+        use_case = _use_case(channels, change_reader, process_document, claims, documents)
+        result = use_case.execute(channel_id="channel-1", resource_state="update")
+
+    [document] = result
+    assert document.id == "existing-doc"
+    assert document.status == DocumentStatus.FAILED
+
+
 def test_concurrent_notifications_for_the_same_channel_are_serialized():
     # Drive can deliver more than one notification for the same channel at
     # once, and BackgroundTasks callbacks run in FastAPI's threadpool. Two
