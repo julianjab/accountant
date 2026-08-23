@@ -20,7 +20,7 @@ class FakeFiles:
         page = self._pages[len(self.calls) - 1]
 
         class _Request:
-            def execute(self_inner):
+            def execute(self) -> dict:
                 return page
 
         return _Request()
