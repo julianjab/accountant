@@ -1,3 +1,9 @@
+from server.application.use_cases.approve_document import (
+    ApproveDocument,
+    ApproveDocumentInput,
+    DocumentNotApprovable,
+    DocumentNotFound,
+)
 from server.application.use_cases.define_document_type import (
     DefineDocumentType,
     DefineDocumentTypeInput,
@@ -13,8 +19,12 @@ from server.application.use_cases.register_client import (
 )
 
 __all__ = [
+    "ApproveDocument",
+    "ApproveDocumentInput",
     "DefineDocumentType",
     "DefineDocumentTypeInput",
+    "DocumentNotApprovable",
+    "DocumentNotFound",
     "GetExtractedData",
     "ProcessUploadedDocument",
     "ProcessUploadedDocumentInput",

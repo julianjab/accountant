@@ -1,6 +1,7 @@
 from functools import lru_cache
 
 from server.application.use_cases import (
+    ApproveDocument,
     DefineDocumentType,
     GetExtractedData,
     ProcessUploadedDocument,
@@ -112,3 +113,7 @@ def get_process_uploaded_document_use_case() -> ProcessUploadedDocument:
 
 def get_extracted_data_use_case() -> GetExtractedData:
     return GetExtractedData(get_extracted_data_repository())
+
+
+def get_approve_document_use_case() -> ApproveDocument:
+    return ApproveDocument(get_document_repository())

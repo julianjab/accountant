@@ -2,10 +2,22 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from server.application.use_cases import DefineDocumentType, DefineDocumentTypeInput
 from server.domain.ports import DocumentContent
-from server.infrastructure.api.deps import get_define_document_type_use_case
+from server.infrastructure.api.deps import (
+    get_define_document_type_use_case,
+    get_document_type_repository,
+)
 from server.infrastructure.api.schemas import DocumentTypeResponse
 
 router = APIRouter(prefix="/document-types", tags=["document-types"])
+
+
+@router.get("", response_model=list[DocumentTypeResponse])
+def list_document_types(
+    active_only: bool = True,
+    document_types=Depends(get_document_type_repository),
+) -> list[DocumentTypeResponse]:
+    items = document_types.list_active() if active_only else document_types.list_all()
+    return [DocumentTypeResponse.model_validate(t, from_attributes=True) for t in items]
 
 
 @router.post("", response_model=DocumentTypeResponse, status_code=201)

@@ -95,6 +95,9 @@ def _with_status(document: Document, status: DocumentStatus, document_type_id: s
         status=status,
         error=None,
         created_at=document.created_at,
+        processed_at=datetime.now(UTC)
+        if status == DocumentStatus.PROCESSED
+        else document.processed_at,
     )
 
 
@@ -109,4 +112,5 @@ def _with_error(document: Document, error: str) -> Document:
         status=DocumentStatus.FAILED,
         error=error,
         created_at=document.created_at,
+        processed_at=document.processed_at,
     )

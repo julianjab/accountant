@@ -1,4 +1,4 @@
-from server.domain.entities import Client, Document, DocumentType, ExtractedData
+from server.domain.entities import Client, Document, DocumentStatus, DocumentType, ExtractedData
 
 
 class InMemoryClientRepository:
@@ -28,6 +28,11 @@ class InMemoryDocumentRepository:
     def list_by_client(self, client_id: str) -> list[Document]:
         return [d for d in self._items.values() if d.client_id == client_id]
 
+    def list_all(self, status: DocumentStatus | None = None) -> list[Document]:
+        if status is None:
+            return list(self._items.values())
+        return [d for d in self._items.values() if d.status == status]
+
 
 class InMemoryDocumentTypeRepository:
     def __init__(self) -> None:
@@ -41,6 +46,9 @@ class InMemoryDocumentTypeRepository:
 
     def list_active(self) -> list[DocumentType]:
         return [t for t in self._items.values() if t.active]
+
+    def list_all(self) -> list[DocumentType]:
+        return list(self._items.values())
 
 
 class InMemoryExtractedDataRepository:

@@ -8,6 +8,7 @@ class DocumentStatus(StrEnum):
     CLASSIFYING = "classifying"
     RUNNING_OCR = "running_ocr"
     PROCESSED = "processed"
+    APPROVED = "approved"
     FAILED = "failed"
 
 
@@ -22,3 +23,6 @@ class Document:
     status: DocumentStatus
     error: str | None
     created_at: datetime
+    processed_at: datetime | None = None
+    reviewed_at: datetime | None = None
+    approved_by: str | None = None
