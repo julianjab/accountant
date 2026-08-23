@@ -1,4 +1,5 @@
 import io
+import re
 from datetime import UTC, datetime, timedelta
 
 from google.oauth2 import service_account
@@ -16,6 +17,25 @@ _SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 
 _FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 _PAGE_SIZE = 100
+
+# Drive ids are URL-safe base64. Anything else cannot be a real id, and must
+# not reach a query string.
+_DRIVE_ID = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _require_drive_id(value: str) -> str:
+    """Rejects anything that is not a Drive id before it reaches a query.
+
+    The folder id arrives from `POST /clients`, so it is caller-controlled, and
+    it is interpolated into Drive's query language. A single quote would let a
+    caller rewrite the filter — `x' in parents or name != '` lists files
+    outside the client's folder, and the import would then run OCR over another
+    client's documents. Validating the shape closes that: a real id has no
+    quotes to escape.
+    """
+    if not _DRIVE_ID.match(value or ""):
+        raise ValueError(f"Not a valid Drive id: {value!r}")
+    return value
 
 
 def _build_drive_client(service_account_file: str):
@@ -52,13 +72,14 @@ class GoogleDriveStorage:
         )
 
     def list_files(self, folder_reference: str) -> list[StoredFile]:
+        folder_id = _require_drive_id(folder_reference)
         files: list[StoredFile] = []
         page_token: str | None = None
         while True:
             response = (
                 self._drive.files()
                 .list(
-                    q=f"'{folder_reference}' in parents and trashed = false",
+                    q=f"'{folder_id}' in parents and trashed = false",
                     fields="nextPageToken, files(id, name, mimeType)",
                     # A client folder can sit in a shared drive; without these
                     # the listing silently comes back empty rather than failing.

@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from server.infrastructure.adapters import google_drive_storage
 from server.infrastructure.adapters.google_drive_storage import (
     GoogleDriveStorage,
@@ -317,3 +319,54 @@ def test_google_drive_storage_downloads_a_file(monkeypatch):
     assert content.file_name == "invoice.pdf"
     assert fake_client.files_obj.get_calls[0]["supportsAllDrives"] is True
     assert fake_client.files_obj.get_media_calls[0]["supportsAllDrives"] is True
+
+
+def test_list_files_refuses_a_folder_id_that_could_rewrite_the_query() -> None:
+    """The folder id is caller-controlled via POST /clients and lands inside
+    Drive's query language. A quote would let it list another client's files,
+    which the import would then run OCR over."""
+    storage = GoogleDriveStorage.__new__(GoogleDriveStorage)
+    for hostile in ("x' in parents or name != '", "abc def", "", "../etc", "a'b"):
+        with pytest.raises(ValueError, match="valid Drive id"):
+            storage.list_files(hostile)
+
+
+def test_list_files_pages_through_the_folder_and_skips_subfolders() -> None:
+    pages = [
+        {
+            "files": [
+                {"id": "f1", "name": "a.pdf", "mimeType": "application/pdf"},
+                {"id": "sub", "name": "sub", "mimeType": "application/vnd.google-apps.folder"},
+            ],
+            "nextPageToken": "p2",
+        },
+        {"files": [{"id": "f2", "name": "b.xlsx", "mimeType": "application/vnd.ms-excel"}]},
+    ]
+    calls: list[dict] = []
+
+    class _Files:
+        def list(self, **kwargs):
+            calls.append(kwargs)
+            return _Execute(pages[len(calls) - 1])
+
+    class _Execute:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def execute(self):
+            return self._payload
+
+    class _Drive:
+        def files(self):
+            return _Files()
+
+    storage = GoogleDriveStorage.__new__(GoogleDriveStorage)
+    storage._drive = _Drive()
+
+    files = storage.list_files("folder-abc")
+
+    assert [f.id for f in files] == ["f1", "f2"]
+    assert calls[1]["pageToken"] == "p2"
+    # A client folder can live in a shared drive; without these the listing
+    # comes back empty instead of failing.
+    assert calls[0]["supportsAllDrives"] and calls[0]["includeItemsFromAllDrives"]
