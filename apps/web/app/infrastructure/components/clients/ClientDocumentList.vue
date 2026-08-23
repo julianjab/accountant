@@ -14,6 +14,7 @@ const STATUS_COLOR: Record<DocumentStatus, 'warning' | 'info' | 'primary' | 'suc
   classifying: 'info',
   running_ocr: 'primary',
   processed: 'success',
+  approved: 'success',
   failed: 'error'
 }
 

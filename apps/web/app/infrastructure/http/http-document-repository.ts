@@ -1,4 +1,5 @@
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
+import type { ExtractedData } from '~/domain/entities/extracted-data'
 import type { DocumentRepository } from '~/application/ports/document-repository'
 
 interface DocumentDto {
@@ -10,6 +11,14 @@ interface DocumentDto {
   mime_type: string
   status: DocumentStatus
   error: string | null
+  created_at: string
+}
+
+interface ExtractedDataDto {
+  id: string
+  document_id: string
+  fields: Record<string, unknown>
+  confidence: number | null
   created_at: string
 }
 
@@ -27,8 +36,47 @@ function toClientDocument(dto: DocumentDto): ClientDocument {
   }
 }
 
+function toExtractedData(dto: ExtractedDataDto): ExtractedData {
+  return {
+    id: dto.id,
+    documentId: dto.document_id,
+    fields: dto.fields,
+    confidence: dto.confidence,
+    createdAt: dto.created_at
+  }
+}
+
+function isNotFoundError(error: unknown): boolean {
+  const status = (error as { statusCode?: number, response?: { status?: number } })?.statusCode
+    ?? (error as { statusCode?: number, response?: { status?: number } })?.response?.status
+  return status === 404
+}
+
 export class HttpDocumentRepository implements DocumentRepository {
   constructor(private readonly baseUrl: string) {}
+
+  async getById(id: string): Promise<ClientDocument> {
+    const dto = await $fetch<DocumentDto>(`/documents/${id}`, {
+      baseURL: this.baseUrl,
+      credentials: 'include'
+    })
+    return toClientDocument(dto)
+  }
+
+  async getExtractedData(id: string): Promise<ExtractedData | null> {
+    try {
+      const dto = await $fetch<ExtractedDataDto>(`/documents/${id}/extracted-data`, {
+        baseURL: this.baseUrl,
+        credentials: 'include'
+      })
+      return toExtractedData(dto)
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null
+      }
+      throw error
+    }
+  }
 
   async listByClient(clientId: string): Promise<ClientDocument[]> {
     const dtos = await $fetch<DocumentDto[]>(`/clients/${clientId}/documents`, {

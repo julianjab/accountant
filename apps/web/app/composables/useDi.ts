@@ -7,6 +7,8 @@ import { ListClients } from '~/application/use-cases/list-clients'
 import { ListClientDocuments } from '~/application/use-cases/list-client-documents'
 import { ListActiveDocumentTypes } from '~/application/use-cases/list-active-document-types'
 import { RegisterClient } from '~/application/use-cases/register-client'
+import { GetDocument } from '~/application/use-cases/get-document'
+import { GetDocumentExtractedData } from '~/application/use-cases/get-document-extracted-data'
 import { ImportClientsFromDrive } from '~/application/use-cases/import-clients-from-drive'
 import { GetCurrentUser } from '~/application/use-cases/get-current-user'
 import { SignInWithGoogle } from '~/application/use-cases/sign-in-with-google'
@@ -46,6 +48,14 @@ export function useListActiveDocumentTypesUseCase() {
 
 export function useRegisterClientUseCase() {
   return new RegisterClient(useClientRepository())
+}
+
+export function useGetDocumentUseCase() {
+  return new GetDocument(useDocumentRepository())
+}
+
+export function useGetDocumentExtractedDataUseCase() {
+  return new GetDocumentExtractedData(useDocumentRepository())
 }
 
 export function useImportClientsUseCase() {

@@ -3,6 +3,7 @@ export type DocumentStatus
     | 'classifying'
     | 'running_ocr'
     | 'processed'
+    | 'approved'
     | 'failed'
 
 export interface ClientDocument {

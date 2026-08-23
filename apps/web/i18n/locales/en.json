@@ -61,12 +61,35 @@
     }
   },
   "documents": {
+    "title": "Document review",
+    "notFound": "Document not found",
+    "unknownType": "Unknown document type",
+    "headerConfidence": "Average confidence",
+    "averageConfidence": "Average confidence",
+    "approveAndSend": "Approve and send to sheet",
+    "approveDisabledHint": "Will be enabled once approval is wired up (#11)",
+    "errorTitle": "Could not process this document",
+    "errorFallback": "An error occurred while processing this document",
+    "extractionMissing": "The document was processed but no extracted data was found",
+    "extractedDataLoadError": "An error occurred while loading the extracted data",
+    "pipeline": {
+      "detected": "Detected",
+      "classified": "Classified",
+      "ocr": "OCR",
+      "ready": "Ready"
+    },
     "status": {
       "pending": "Pending",
       "classifying": "Classifying",
       "running_ocr": "OCR",
+      "runningOcr": "Running OCR",
       "processed": "Processed",
+      "approved": "Approved",
       "failed": "Failed"
+    },
+    "viewer": {
+      "openInDrive": "Open in Drive",
+      "unsupportedMime": "No preview available for this file type"
     }
   },
   "auth": {
