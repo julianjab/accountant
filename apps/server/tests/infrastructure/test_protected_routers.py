@@ -4,6 +4,8 @@ They expose tax documents and extracted data, so an open API would make the
 login decorative.
 """
 
+from datetime import timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -78,3 +80,36 @@ def test_the_drive_webhook_stays_open(client):
     app.dependency_overrides.clear()
 
     assert response.status_code != 401
+
+
+def test_a_session_store_failure_answers_503_not_401(client, monkeypatch):
+    """A broken session store is not the caller's fault.
+
+    Answering 401 would tell the user to sign in again, which cannot help, and
+    the raw exception would put a stack trace in the response.
+    """
+
+    class ExplodingSessions:
+        def get(self, session_id):
+            raise RuntimeError("firestore project is misconfigured")
+
+        def save(self, session):
+            pass
+
+        def delete(self, session_id):
+            pass
+
+        def delete_for_user(self, email):
+            pass
+
+    from server.application.use_cases import GetGoogleSession
+    from server.infrastructure.api import deps
+
+    app.dependency_overrides[deps.get_google_session_use_case] = lambda: GetGoogleSession(
+        None, ExplodingSessions(), timedelta(days=30)
+    )
+    client.cookies.set("accountant_session", "whatever")
+
+    assert client.get("/clients").status_code == 503
+
+    app.dependency_overrides.clear()
