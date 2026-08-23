@@ -69,6 +69,7 @@ from server.infrastructure.providers.ai_provider import AIProvider
 from server.infrastructure.providers.anthropic_provider import AnthropicProvider
 from server.reconciliation.application import (
     ConceptMappingRepository,
+    GetConceptMapping,
     GetReconciliationReport,
     ReconcileClientPeriod,
     ReconciliationReportRepository,
@@ -344,6 +345,10 @@ def get_reconcile_client_period_use_case() -> ReconcileClientPeriod:
         facts=get_reconciliation_fact_provider(),
         reports=get_reconciliation_report_repository(),
     )
+
+
+def get_concept_mapping_use_case() -> GetConceptMapping:
+    return GetConceptMapping(get_reconciliation_registry(), get_concept_mapping_repository())
 
 
 def get_reconciliation_report_use_case() -> GetReconciliationReport:

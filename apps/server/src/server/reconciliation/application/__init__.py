@@ -1,3 +1,7 @@
+from server.reconciliation.application.get_concept_mapping import (
+    GetConceptMapping,
+    GetConceptMappingInput,
+)
 from server.reconciliation.application.get_reconciliation_report import (
     GetReconciliationReport,
     GetReconciliationReportInput,
@@ -20,6 +24,8 @@ from server.reconciliation.application.save_concept_mapping import (
 __all__ = [
     "ConceptMappingRepository",
     "FactProvider",
+    "GetConceptMapping",
+    "GetConceptMappingInput",
     "GetReconciliationReport",
     "GetReconciliationReportInput",
     "ReconcileClientPeriod",

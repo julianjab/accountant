@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
-    get_concept_mapping_repository,
+    get_concept_mapping_use_case,
     get_reconcile_client_period_use_case,
     get_reconciliation_registry,
     get_reconciliation_report_use_case,
@@ -33,6 +33,8 @@ from server.infrastructure.api.schemas import (
     ReconciliationSummaryResponse,
 )
 from server.reconciliation.application import (
+    GetConceptMapping,
+    GetConceptMappingInput,
     GetReconciliationReport,
     GetReconciliationReportInput,
     ReconcileClientPeriod,
@@ -42,7 +44,7 @@ from server.reconciliation.application import (
     UnknownMappedConcept,
 )
 from server.reconciliation.core.findings import ReconciliationFinding, ReconciliationReport
-from server.reconciliation.core.projection import ConceptMapping
+from server.reconciliation.core.projection import ConceptMapping, ConceptMappingEntry
 from server.reconciliation.core.registry import KindRegistry, UnknownReconciliationKind
 from server.shared import FinancialFact, Period
 
@@ -141,11 +143,14 @@ def run_reconciliation(
 def get_concept_mapping(
     kind_id: str,
     document_type_id: str,
-    registry: KindRegistry = Depends(get_reconciliation_registry),
-    mappings=Depends(get_concept_mapping_repository),
+    use_case: GetConceptMapping = Depends(get_concept_mapping_use_case),
 ) -> ConceptMappingResponse:
-    _resolve_kind(registry, kind_id)
-    mapping = mappings.get(document_type_id, kind_id)
+    try:
+        mapping = use_case.execute(
+            GetConceptMappingInput(document_type_id=document_type_id, kind_id=kind_id)
+        )
+    except UnknownReconciliationKind as exc:
+        raise HTTPException(status_code=404, detail="Reconciliation kind not found") from exc
     if mapping is None:
         raise HTTPException(status_code=404, detail="Concept mapping not found")
     return _to_mapping_response(mapping)
@@ -178,9 +183,7 @@ def save_concept_mapping(
     return _to_mapping_response(saved)
 
 
-def _entry_from_payload(payload: ConceptMappingEntryPayload):
-    from server.reconciliation.core.projection import ConceptMappingEntry
-
+def _entry_from_payload(payload: ConceptMappingEntryPayload) -> ConceptMappingEntry:
     return ConceptMappingEntry(
         field_path=payload.field_path,
         concept_id=payload.concept_id,
