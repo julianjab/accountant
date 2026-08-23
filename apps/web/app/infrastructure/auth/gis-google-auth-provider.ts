@@ -85,6 +85,7 @@ export class GisGoogleAuthProvider implements GoogleAuthProvider {
   private accessToken: string | null = null
   private tokenExpiresAt: number | null = null
   private changeCallbacks: Array<(session: GoogleAuthSession | null) => void> = []
+  private pendingTokenRequest: Promise<TokenResult> | null = null
 
   constructor(private readonly clientId: string) {}
 
@@ -99,7 +100,19 @@ export class GisGoogleAuthProvider implements GoogleAuthProvider {
     }
   }
 
-  private async requestToken(prompt: string): Promise<TokenResult> {
+  private requestToken(prompt: string): Promise<TokenResult> {
+    if (this.pendingTokenRequest) {
+      return this.pendingTokenRequest
+    }
+
+    const request = this.performTokenRequest(prompt).finally(() => {
+      this.pendingTokenRequest = null
+    })
+    this.pendingTokenRequest = request
+    return request
+  }
+
+  private async performTokenRequest(prompt: string): Promise<TokenResult> {
     if (!this.clientId) {
       throw new GoogleAuthError('missingClientId')
     }
@@ -134,10 +147,18 @@ export class GisGoogleAuthProvider implements GoogleAuthProvider {
 
   async signIn(): Promise<GoogleAuthSession> {
     const { accessToken, expiresAt } = await this.requestToken('consent')
+
+    let user: GoogleUser
+    try {
+      user = await this.fetchUser(accessToken)
+    } catch (error) {
+      this.accessToken = null
+      this.tokenExpiresAt = null
+      throw error
+    }
+
     this.accessToken = accessToken
     this.tokenExpiresAt = expiresAt
-
-    const user = await this.fetchUser(accessToken)
     const session: GoogleAuthSession = { user, accessToken }
     this.notifyChange(session)
     return session
