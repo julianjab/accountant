@@ -1,4 +1,16 @@
-from server.domain.entities import Client, Document, DocumentStatus, DocumentType, ExtractedData
+import threading
+from datetime import UTC, datetime
+
+from server.domain.entities import (
+    Client,
+    Document,
+    DocumentStatus,
+    DocumentType,
+    DriveWatchChannel,
+    ExtractedData,
+    GoogleSession,
+)
+from server.domain.ports.repositories import CLAIM_STALE_AFTER
 
 
 class InMemoryClientRepository:
@@ -33,6 +45,20 @@ class InMemoryDocumentRepository:
             return list(self._items.values())
         return [d for d in self._items.values() if d.status == status]
 
+    def get_by_drive_file_id_and_client(
+        self, drive_file_id: str, client_id: str
+    ) -> Document | None:
+        # A retried Drive file can have more than one row for the same
+        # (drive_file_id, client_id): each attempt gets a fresh id. The most
+        # recent one must win so an eventual PROCESSED is not shadowed by an
+        # earlier FAILED attempt.
+        matches = [
+            d
+            for d in self._items.values()
+            if d.drive_file_id == drive_file_id and d.client_id == client_id
+        ]
+        return max(matches, key=lambda d: d.created_at, default=None)
+
 
 class InMemoryDocumentTypeRepository:
     def __init__(self) -> None:
@@ -60,3 +86,65 @@ class InMemoryExtractedDataRepository:
 
     def get_by_document(self, document_id: str) -> ExtractedData | None:
         return self._items.get(document_id)
+
+
+class InMemorySessionRepository:
+    def __init__(self) -> None:
+        self._items: dict[str, GoogleSession] = {}
+
+    def save(self, session: GoogleSession) -> None:
+        self._items[session.id] = session
+
+    def get(self, session_id: str) -> GoogleSession | None:
+        return self._items.get(session_id)
+
+    def delete(self, session_id: str) -> None:
+        self._items.pop(session_id, None)
+
+    def delete_for_user(self, email: str) -> None:
+        for session_id in [k for k, v in self._items.items() if v.user.email == email]:
+            del self._items[session_id]
+
+
+class InMemoryDriveWatchChannelRepository:
+    def __init__(self) -> None:
+        self._items: dict[str, DriveWatchChannel] = {}
+
+    def save(self, channel: DriveWatchChannel) -> None:
+        self._items[channel.id] = channel
+
+    def get_by_channel_id(self, channel_id: str) -> DriveWatchChannel | None:
+        return self._items.get(channel_id)
+
+
+class InMemoryDriveFileClaimRepository:
+    """Dev-only fallback. Sync FastAPI route handlers (including the ones a
+    BackgroundTasks callback runs from) execute in the threadpool, not the
+    event loop, so a plain check-then-add on a set is not atomic; a lock makes
+    it so within this single process."""
+
+    def __init__(self) -> None:
+        self._claimed: dict[str, datetime] = {}
+        self._failures: dict[str, int] = {}
+        self._lock = threading.Lock()
+
+    def try_claim(self, key: str) -> bool:
+        with self._lock:
+            claimed_at = self._claimed.get(key)
+            if claimed_at is not None and datetime.now(UTC) - claimed_at < CLAIM_STALE_AFTER:
+                return False
+            self._claimed[key] = datetime.now(UTC)
+            return True
+
+    def release(self, key: str) -> None:
+        with self._lock:
+            self._claimed.pop(key, None)
+
+    def record_failure(self, key: str) -> int:
+        with self._lock:
+            self._failures[key] = self._failures.get(key, 0) + 1
+            return self._failures[key]
+
+    def clear_failures(self, key: str) -> None:
+        with self._lock:
+            self._failures.pop(key, None)

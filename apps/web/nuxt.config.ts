@@ -15,8 +15,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      serverApiBase: 'http://localhost:8000',
-      googleClientId: ''
+      serverApiBase: 'http://localhost:8000'
     }
   },
 

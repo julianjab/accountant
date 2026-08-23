@@ -1,32 +1,17 @@
-import { describe, expect, it } from 'vitest'
-import type { GoogleAuthSession, GoogleAuthProvider } from '~/application/ports/google-auth-provider'
-import { SignOut } from '~/application/use-cases/sign-out'
-
-class FakeGoogleAuthProvider implements GoogleAuthProvider {
-  signOutCalled = false
-
-  signIn(): Promise<GoogleAuthSession> {
-    throw new Error('not implemented')
-  }
-
-  signOut(): void {
-    this.signOutCalled = true
-  }
-
-  getAccessToken(): Promise<string> {
-    throw new Error('not implemented')
-  }
-
-  onChange(): void {}
-}
+import { describe, expect, it, vi } from 'vitest'
+import { SignOut } from './sign-out'
+import type { GoogleAuthProvider } from '~/application/ports/google-auth-provider'
 
 describe('SignOut', () => {
-  it('delegates to the auth provider', () => {
-    const provider = new FakeGoogleAuthProvider()
-    const useCase = new SignOut(provider)
+  it('delegates to the provider', async () => {
+    const provider: GoogleAuthProvider = {
+      startSignIn: vi.fn(),
+      getCurrentUser: vi.fn(),
+      signOut: vi.fn().mockResolvedValue(undefined)
+    }
 
-    useCase.execute()
+    await new SignOut(provider).execute()
 
-    expect(provider.signOutCalled).toBe(true)
+    expect(provider.signOut).toHaveBeenCalledOnce()
   })
 })

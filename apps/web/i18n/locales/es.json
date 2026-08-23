@@ -16,23 +16,32 @@
   },
   "clients": {
     "title": "Clientes",
-    "empty": "Aún no hay clientes registrados.",
+    "empty": "Aún no hay clientes. Sincroniza con Drive para traerlos.",
     "register": "Registrar cliente",
     "fields": {
       "name": "Nombre",
       "taxId": "Identificación",
       "email": "Correo"
-    }
+    },
+    "signInRequired": "Inicia sesión con Google para ver tus clientes.",
+    "importFromDrive": "Sincronizar con Drive",
+    "importFailed": "No se pudo leer la carpeta de clientes en Drive"
   },
   "auth": {
     "signIn": "Iniciar sesión con Google",
     "signOut": "Cerrar sesión",
     "signedInAs": "Sesión iniciada como {email}",
     "driveReadOnly": "Drive · solo lectura",
+    "loading": "Verificando sesión…",
     "errors": {
-      "missingClientId": "Falta configurar NUXT_PUBLIC_GOOGLE_CLIENT_ID",
-      "popupClosed": "Se cerró la ventana de Google antes de completar el inicio de sesión",
-      "driveDenied": "No se otorgaron permisos de lectura sobre Google Drive"
+      "sessionUnavailable": "No se pudo verificar la sesión con el servidor",
+      "denied": "No se otorgaron permisos de lectura sobre Google Drive",
+      "state": "La respuesta de Google no coincidió con la solicitud; intenta de nuevo",
+      "no_refresh": "Google no entregó un token de actualización; revoca el acceso de la app en tu cuenta y vuelve a intentarlo",
+      "exchange": "No se pudo completar el intercambio de credenciales con Google",
+      "not_allowed": "Esta cuenta de Google no tiene acceso a la aplicación",
+      "drive_denied": "No se otorgaron permisos de lectura sobre Google Drive",
+      "server": "El servidor no pudo completar el inicio de sesión; revisa sus logs"
     }
   }
 }

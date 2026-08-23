@@ -3,7 +3,7 @@ import type { GoogleAuthProvider } from '~/application/ports/google-auth-provide
 export class SignOut {
   constructor(private readonly authProvider: GoogleAuthProvider) {}
 
-  execute(): void {
-    this.authProvider.signOut()
+  execute(): Promise<void> {
+    return this.authProvider.signOut()
   }
 }

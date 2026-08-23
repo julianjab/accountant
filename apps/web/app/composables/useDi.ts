@@ -1,12 +1,12 @@
 import { HttpClientRepository } from '~/infrastructure/http/http-client-repository'
-import { DriveApiRepository } from '~/infrastructure/http/drive-api-repository'
-import { GisGoogleAuthProvider } from '~/infrastructure/auth/gis-google-auth-provider'
+import { ServerSessionAuthProvider } from '~/infrastructure/auth/server-session-auth-provider'
 import { ListClients } from '~/application/use-cases/list-clients'
 import { RegisterClient } from '~/application/use-cases/register-client'
+import { ImportClientsFromDrive } from '~/application/use-cases/import-clients-from-drive'
+import { GetCurrentUser } from '~/application/use-cases/get-current-user'
 import { SignInWithGoogle } from '~/application/use-cases/sign-in-with-google'
 import { SignOut } from '~/application/use-cases/sign-out'
 import type { GoogleAuthProvider } from '~/application/ports/google-auth-provider'
-import type { DriveRepository } from '~/application/ports/drive-repository'
 
 export function useClientRepository() {
   const config = useRuntimeConfig()
@@ -21,22 +21,17 @@ export function useRegisterClientUseCase() {
   return new RegisterClient(useClientRepository())
 }
 
-let googleAuthProvider: GoogleAuthProvider | null = null
-
-export function useGoogleAuthProvider(): GoogleAuthProvider {
-  if (!import.meta.client) {
-    throw new Error('GoogleAuthProvider is only available on the client')
-  }
-
-  if (!googleAuthProvider) {
-    const config = useRuntimeConfig()
-    googleAuthProvider = new GisGoogleAuthProvider(config.public.googleClientId)
-  }
-  return googleAuthProvider
+export function useImportClientsUseCase() {
+  return new ImportClientsFromDrive(useClientRepository())
 }
 
-export function useDriveRepository(): DriveRepository {
-  return new DriveApiRepository()
+export function useGoogleAuthProvider(): GoogleAuthProvider {
+  const config = useRuntimeConfig()
+  return new ServerSessionAuthProvider(config.public.serverApiBase)
+}
+
+export function useGetCurrentUserUseCase() {
+  return new GetCurrentUser(useGoogleAuthProvider())
 }
 
 export function useSignInWithGoogleUseCase() {

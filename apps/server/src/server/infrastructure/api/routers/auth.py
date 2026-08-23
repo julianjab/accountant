@@ -1,0 +1,141 @@
+import logging
+import secrets
+
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
+from fastapi.responses import RedirectResponse
+
+from server.application.use_cases import (
+    CompleteGoogleSignIn,
+    GetGoogleSession,
+    MissingRefreshToken,
+    SignInNotAllowed,
+    SignOutGoogle,
+    StartGoogleSignIn,
+)
+from server.domain.ports import DriveAccessNotGranted, OAuthTransportError
+from server.infrastructure.api.auth_dependency import SESSION_COOKIE
+from server.infrastructure.api.deps import (
+    get_complete_google_sign_in_use_case,
+    get_google_session_use_case,
+    get_settings,
+    get_sign_out_google_use_case,
+    get_start_google_sign_in_use_case,
+)
+from server.infrastructure.api.schemas import GoogleUserResponse
+from server.infrastructure.config.settings import Settings
+
+_logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/auth/google", tags=["auth"])
+
+STATE_COOKIE = "accountant_oauth_state"
+
+# The cookie is what makes the login survive a browser restart; its lifetime is
+# derived from the server-side cap so the two can never drift apart.
+STATE_MAX_AGE = 60 * 10
+
+
+def _set_cookie(response: Response, key: str, value: str, max_age: int, settings: Settings) -> None:
+    response.set_cookie(
+        key=key,
+        value=value,
+        max_age=max_age,
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite=settings.session_cookie_samesite,
+        path="/",
+    )
+
+
+@router.get("/login")
+def login(
+    use_case: StartGoogleSignIn = Depends(get_start_google_sign_in_use_case),
+    settings: Settings = Depends(get_settings),
+) -> RedirectResponse:
+    if not settings.google_oauth_client_id or not settings.google_oauth_client_secret:
+        raise HTTPException(status_code=500, detail="Google OAuth is not configured")
+
+    redirect = use_case.execute()
+    response = RedirectResponse(redirect.authorization_url, status_code=307)
+    # Echoed back by Google and compared in the callback, so a forged callback
+    # cannot establish a session.
+    _set_cookie(response, STATE_COOKIE, redirect.state, STATE_MAX_AGE, settings)
+    return response
+
+
+def _failed(settings: Settings, reason: str) -> RedirectResponse:
+    response = RedirectResponse(f"{settings.web_app_url}?auth_error={reason}", status_code=307)
+    # The state nonce is single-use; leaving it behind would let a later forged
+    # callback replay it.
+    response.delete_cookie(STATE_COOKIE, path="/")
+    return response
+
+
+@router.get("/callback")
+def callback(
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    accountant_oauth_state: str | None = Cookie(default=None),
+    use_case: CompleteGoogleSignIn = Depends(get_complete_google_sign_in_use_case),
+    settings: Settings = Depends(get_settings),
+) -> RedirectResponse:
+    if error is not None or code is None:
+        return _failed(settings, "denied")
+
+    if (
+        not state
+        or not accountant_oauth_state
+        or not secrets.compare_digest(state, accountant_oauth_state)
+    ):
+        return _failed(settings, "state")
+
+    try:
+        session = use_case.execute(code)
+    except SignInNotAllowed:
+        return _failed(settings, "not_allowed")
+    except DriveAccessNotGranted:
+        return _failed(settings, "drive_denied")
+    except MissingRefreshToken:
+        return _failed(settings, "no_refresh")
+    except OAuthTransportError:
+        return _failed(settings, "exchange")
+    except Exception:
+        # Storage or any other unexpected failure: the sign-in itself succeeded,
+        # so a stack trace in the browser is both useless and a disclosure.
+        _logger.exception("Could not complete the Google sign-in")
+        return _failed(settings, "server")
+
+    response = RedirectResponse(settings.web_app_url, status_code=307)
+    session_max_age = settings.session_max_age_days * 24 * 60 * 60
+    _set_cookie(response, SESSION_COOKIE, session.id, session_max_age, settings)
+    response.delete_cookie(STATE_COOKIE, path="/")
+    return response
+
+
+@router.get("/me", response_model=GoogleUserResponse)
+def me(
+    accountant_session: str | None = Cookie(default=None),
+    use_case: GetGoogleSession = Depends(get_google_session_use_case),
+) -> GoogleUserResponse:
+    if accountant_session is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    session = use_case.execute(accountant_session)
+    if session is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    return GoogleUserResponse.model_validate(session.user, from_attributes=True)
+
+
+@router.post("/logout", status_code=204)
+def logout(
+    accountant_session: str | None = Cookie(default=None),
+    use_case: SignOutGoogle = Depends(get_sign_out_google_use_case),
+) -> Response:
+    if accountant_session is not None:
+        use_case.execute(accountant_session)
+
+    response = Response(status_code=204)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response

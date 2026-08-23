@@ -8,16 +8,23 @@ from server.domain.entities import DocumentStatus
 
 class ClientCreateRequest(BaseModel):
     name: str
-    tax_id: str
+    tax_id: str | None = None
     email: str | None = None
 
 
 class ClientResponse(BaseModel):
     id: str
     name: str
-    tax_id: str
+    tax_id: str | None
     email: str | None
     created_at: datetime
+    drive_folder_id: str | None = None
+
+
+class ClientImportResponse(BaseModel):
+    created: list[ClientResponse]
+    renamed: list[ClientResponse]
+    unchanged: int
 
 
 class DocumentTypeResponse(BaseModel):
@@ -71,7 +78,15 @@ class ExtractedDataResponse(BaseModel):
     created_at: datetime
 
 
-class DriveWebhookPayload(BaseModel):
+class DriveWatchChannelResponse(BaseModel):
+    id: str
+    resource_id: str
+    folder_id: str
     client_id: str
-    drive_file_id: str
-    file_reference: str
+    expires_at: datetime
+
+
+class GoogleUserResponse(BaseModel):
+    email: str
+    name: str
+    picture: str | None

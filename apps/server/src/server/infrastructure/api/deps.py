@@ -1,12 +1,33 @@
+from datetime import timedelta
 from functools import lru_cache
+
+from google.cloud.firestore import Client as FirestoreClient
 
 from server.application.use_cases import (
     ApproveDocument,
+    CompleteGoogleSignIn,
     DefineDocumentType,
     GetDocumentMetrics,
     GetExtractedData,
+    GetGoogleSession,
+    ImportClientsFromDrive,
+    ProcessDriveChangeNotification,
     ProcessUploadedDocument,
     RegisterClient,
+    SignOutGoogle,
+    StartGoogleSignIn,
+    SubscribeDriveWebhook,
+)
+from server.domain.ports import (
+    ClientRepository,
+    DocumentRepository,
+    DocumentTypeRepository,
+    DriveFileClaimRepository,
+    DriveWatchChannelRepository,
+    DriveWatcher,
+    ExtractedDataRepository,
+    GoogleOAuthClient,
+    SessionRepository,
 )
 from server.infrastructure.adapters.claude_document_classifier import (
     ClaudeDocumentClassifier,
@@ -15,12 +36,31 @@ from server.infrastructure.adapters.claude_document_type_configurator import (
     ClaudeDocumentTypeConfigurator,
 )
 from server.infrastructure.adapters.claude_ocr_engine import ClaudeOcrEngine
-from server.infrastructure.adapters.google_drive_storage import GoogleDriveStorage
+from server.infrastructure.adapters.firestore_repositories import (
+    FirestoreClientRepository,
+    FirestoreDocumentRepository,
+    FirestoreDocumentTypeRepository,
+    FirestoreDriveFileClaimRepository,
+    FirestoreDriveWatchChannelRepository,
+    FirestoreExtractedDataRepository,
+    FirestoreSessionRepository,
+)
+from server.infrastructure.adapters.google_drive_client_directory import (
+    GoogleDriveClientDirectory,
+)
+from server.infrastructure.adapters.google_drive_storage import (
+    GoogleDriveStorage,
+    GoogleDriveWatcher,
+)
+from server.infrastructure.adapters.google_oauth_client import HttpGoogleOAuthClient
 from server.infrastructure.adapters.in_memory_repositories import (
     InMemoryClientRepository,
     InMemoryDocumentRepository,
     InMemoryDocumentTypeRepository,
+    InMemoryDriveFileClaimRepository,
+    InMemoryDriveWatchChannelRepository,
     InMemoryExtractedDataRepository,
+    InMemorySessionRepository,
 )
 from server.infrastructure.config.prompts import PromptsConfig, get_prompts
 from server.infrastructure.config.settings import Settings
@@ -38,33 +78,73 @@ def get_prompts_config() -> PromptsConfig:
 
 
 @lru_cache
+def get_firestore() -> FirestoreClient | None:
+    """The Firestore client, or None when no project is configured.
+
+    Returning None here is what keeps the in-memory fallback a one-line decision
+    at each repository provider instead of a parallel wiring path.
+    """
+    settings = get_settings()
+    if not settings.firestore_project:
+        return None
+    return FirestoreClient(project=settings.firestore_project, database=settings.firestore_database)
+
+
+@lru_cache
 def get_ai_provider() -> AIProvider:
     return AnthropicProvider()
 
 
 @lru_cache
-def get_client_repository() -> InMemoryClientRepository:
-    return InMemoryClientRepository()
+def get_client_repository() -> ClientRepository:
+    db = get_firestore()
+    return InMemoryClientRepository() if db is None else FirestoreClientRepository(db)
 
 
 @lru_cache
-def get_document_repository() -> InMemoryDocumentRepository:
-    return InMemoryDocumentRepository()
+def get_document_repository() -> DocumentRepository:
+    db = get_firestore()
+    return InMemoryDocumentRepository() if db is None else FirestoreDocumentRepository(db)
 
 
 @lru_cache
-def get_document_type_repository() -> InMemoryDocumentTypeRepository:
-    return InMemoryDocumentTypeRepository()
+def get_document_type_repository() -> DocumentTypeRepository:
+    db = get_firestore()
+    return InMemoryDocumentTypeRepository() if db is None else FirestoreDocumentTypeRepository(db)
 
 
 @lru_cache
-def get_extracted_data_repository() -> InMemoryExtractedDataRepository:
-    return InMemoryExtractedDataRepository()
+def get_extracted_data_repository() -> ExtractedDataRepository:
+    db = get_firestore()
+    return InMemoryExtractedDataRepository() if db is None else FirestoreExtractedDataRepository(db)
+
+
+@lru_cache
+def get_drive_watch_channel_repository() -> DriveWatchChannelRepository:
+    db = get_firestore()
+    return (
+        InMemoryDriveWatchChannelRepository()
+        if db is None
+        else FirestoreDriveWatchChannelRepository(db)
+    )
+
+
+@lru_cache
+def get_drive_file_claim_repository() -> DriveFileClaimRepository:
+    db = get_firestore()
+    return (
+        InMemoryDriveFileClaimRepository() if db is None else FirestoreDriveFileClaimRepository(db)
+    )
 
 
 @lru_cache
 def get_document_storage() -> GoogleDriveStorage:
     return GoogleDriveStorage(get_settings().google_service_account_file)
+
+
+@lru_cache
+def get_drive_watcher() -> DriveWatcher:
+    return GoogleDriveWatcher(get_settings().google_service_account_file)
 
 
 @lru_cache
@@ -122,3 +202,72 @@ def get_approve_document_use_case() -> ApproveDocument:
 
 def get_document_metrics_use_case() -> GetDocumentMetrics:
     return GetDocumentMetrics(get_document_repository())
+
+
+@lru_cache
+def get_session_repository() -> SessionRepository:
+    db = get_firestore()
+    return InMemorySessionRepository() if db is None else FirestoreSessionRepository(db)
+
+
+@lru_cache
+def get_google_oauth_client() -> GoogleOAuthClient:
+    settings = get_settings()
+    return HttpGoogleOAuthClient(
+        client_id=settings.google_oauth_client_id,
+        client_secret=settings.google_oauth_client_secret,
+        redirect_uri=settings.google_oauth_redirect_uri,
+    )
+
+
+def get_start_google_sign_in_use_case() -> StartGoogleSignIn:
+    return StartGoogleSignIn(get_google_oauth_client())
+
+
+def get_complete_google_sign_in_use_case() -> CompleteGoogleSignIn:
+    return CompleteGoogleSignIn(
+        get_google_oauth_client(), get_session_repository(), get_settings().allows
+    )
+
+
+def get_google_session_use_case() -> GetGoogleSession:
+    return GetGoogleSession(
+        get_google_oauth_client(),
+        get_session_repository(),
+        timedelta(days=get_settings().session_max_age_days),
+    )
+
+
+def get_sign_out_google_use_case() -> SignOutGoogle:
+    return SignOutGoogle(get_google_oauth_client(), get_session_repository())
+
+
+def get_subscribe_drive_webhook_use_case() -> SubscribeDriveWebhook:
+    return SubscribeDriveWebhook(get_drive_watcher(), get_drive_watch_channel_repository())
+
+
+@lru_cache
+def get_process_drive_change_notification_use_case() -> ProcessDriveChangeNotification:
+    # Must be a singleton: its per-channel locks (guarding against two
+    # concurrent Drive notifications racing on the same cursor) only work if
+    # every request shares the same instance instead of getting a fresh one
+    # with an empty lock table.
+    return ProcessDriveChangeNotification(
+        channels=get_drive_watch_channel_repository(),
+        change_reader=get_drive_watcher(),
+        claims=get_drive_file_claim_repository(),
+        documents=get_document_repository(),
+        process_document=get_process_uploaded_document_use_case(),
+    )
+
+
+@lru_cache
+def get_client_directory() -> GoogleDriveClientDirectory:
+    settings = get_settings()
+    return GoogleDriveClientDirectory(
+        settings.google_service_account_file, settings.google_drive_clients_folder_id
+    )
+
+
+def get_import_clients_use_case() -> ImportClientsFromDrive:
+    return ImportClientsFromDrive(get_client_directory(), get_client_repository())
