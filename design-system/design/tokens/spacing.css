@@ -1,0 +1,20 @@
+:root {
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 9px;
+  --space-4: 12px;
+  --space-5: 14px;
+  --space-6: 16px;
+  --space-7: 20px;
+  --space-8: 22px;
+  --space-9: 30px;
+  --space-10: 44px;
+
+  --row-pad-dense: 9px;
+  --row-pad-comfy: 14px;
+  --gutter-page: 30px;
+  --gutter-card: 16px;
+  --sidebar-width: 238px;
+  --topbar-height: 62px;
+  --content-max: 1180px;
+}

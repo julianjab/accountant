@@ -1,0 +1,4 @@
+/* Public Sans is the app's --font-sans (apps/web/app/assets/css/main.css).
+   JetBrains Mono is the numeric/identifier face added for this system.
+   No font binaries were provided, so both are loaded from Google Fonts. */
+@import url("https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300..800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap");

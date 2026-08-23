@@ -1,0 +1,67 @@
+:root {
+  /* Brand green — copied verbatim from apps/web/app/assets/css/main.css */
+  --color-green-50: #EFFDF5;
+  --color-green-100: #D9FBE8;
+  --color-green-200: #B3F5D1;
+  --color-green-300: #75EDAE;
+  --color-green-400: #00DC82;
+  --color-green-500: #00C16A;
+  --color-green-600: #00A155;
+  --color-green-700: #007F45;
+  --color-green-800: #016538;
+  --color-green-900: #0A5331;
+  --color-green-950: #052E16;
+
+  /* Neutrals — warm slate-green, the paper the app is printed on */
+  --color-ink-950: #0C1512;
+  --color-ink-900: #0F1A14;
+  --color-ink-700: #3E4A43;
+  --color-ink-500: #6B7770;
+  --color-ink-400: #8A948C;
+  --color-ink-300: #98A29B;
+  --color-line-300: #C9D2CC;
+  --color-line-200: #D8D8D2;
+  --color-line-150: #DEDED8;
+  --color-line-100: #E4E4DF;
+  --color-line-50: #EDEDE8;
+  --color-line-25: #F1F1EC;
+  --color-paper-100: #F7F7F5;
+  --color-paper-50: #FAFAF8;
+  --color-paper-25: #FCFCFA;
+  --color-white: #FFFFFF;
+  --color-invert: #E6EDE9;
+
+  /* Document status — one hue per DocumentStatus in the domain model */
+  --status-pending-bg: #F4F1E6;
+  --status-pending-fg: #8A7A2E;
+  --status-classifying-bg: #EAF1FB;
+  --status-classifying-fg: #2C5FA8;
+  --status-ocr-bg: #F1EBFA;
+  --status-ocr-fg: #6A45A8;
+  --status-processed-bg: #EFFDF5;
+  --status-processed-fg: #00784A;
+  --status-failed-bg: #FDEEEC;
+  --status-failed-fg: #B03A2B;
+
+  /* Semantic aliases */
+  --surface-app: var(--color-paper-100);
+  --surface-card: var(--color-white);
+  --surface-sunken: var(--color-paper-50);
+  --surface-field: var(--color-paper-25);
+  --surface-deep: var(--color-ink-950);
+  --border-strong: var(--color-line-200);
+  --border-default: var(--color-line-100);
+  --border-subtle: var(--color-line-50);
+  --border-row: var(--color-line-25);
+  --text-1: var(--color-ink-900);
+  --text-2: var(--color-ink-700);
+  --text-3: var(--color-ink-500);
+  --text-muted: var(--color-ink-400);
+  --text-on-deep: var(--color-invert);
+  --text-on-deep-muted: rgba(230, 237, 233, 0.5);
+  --accent: var(--color-green-600);
+  --accent-hover: var(--color-green-500);
+  --accent-bright: var(--color-green-400);
+  --accent-soft: var(--color-green-50);
+  --accent-on-deep: var(--color-green-400);
+}

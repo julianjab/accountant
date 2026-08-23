@@ -1,0 +1,55 @@
+<!-- @dsCard group="Contador" viewport="1440x900" subtitle="Bandeja agrupada por cliente, ficha, revisión de extracción y hojas" name="App Contador" -->
+<!-- @startingPoint section="Contador" subtitle="App completa: bandeja, cliente, documento, hojas" viewport="1440x900" -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Contador — UI kit</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>html,body{margin:0;height:100%;font-family:var(--font-sans);background:var(--surface-app)}#root{height:100%}</style>
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// Loads the kit's ESM sources without a bundler: strips import/export syntax,
+// concatenates in dependency order, transpiles once with Babel.
+const FILES = [
+  '../../components/core/Button.jsx',
+  '../../components/core/StatusBadge.jsx',
+  '../../components/core/Tag.jsx',
+  '../../components/core/Card.jsx',
+  '../../components/core/StatCard.jsx',
+  '../../components/navigation/SidebarNavItem.jsx',
+  '../../components/navigation/FilterChip.jsx',
+  '../../components/data/DocumentRow.jsx',
+  '../../components/data/ClientGroupHeader.jsx',
+  '../../components/data/FieldRow.jsx',
+  './data.js',
+  './Sidebar.jsx',
+  './Topbar.jsx',
+  './QueueScreen.jsx',
+  './ClientScreen.jsx',
+  './DocumentScreen.jsx',
+  './SheetsScreen.jsx',
+  './App.jsx'
+];
+
+(async () => {
+  const parts = await Promise.all(FILES.map(async (p) => {
+    const src = await (await fetch(p)).text();
+    return src
+      .split('\n')
+      .filter(l => !/^\s*import\s/.test(l))
+      .join('\n')
+      .replace(/^export\s+(function|const|class)/gm, '$1');
+  }));
+  const code = parts.join('\n\n') + '\nReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));';
+  const out = Babel.transform(code, { presets: ['react'] }).code;
+  new Function('React', 'ReactDOM', out)(window.React, window.ReactDOM);
+})();
+</script>
+</body>
+</html>
