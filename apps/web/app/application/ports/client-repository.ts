@@ -8,5 +8,6 @@ export interface RegisterClientInput {
 
 export interface ClientRepository {
   list: () => Promise<Client[]>
+  get: (id: string) => Promise<Client | null>
   register: (input: RegisterClientInput) => Promise<Client>
 }

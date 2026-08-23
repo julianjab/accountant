@@ -4,4 +4,5 @@ export interface Client {
   taxId: string
   email: string | null
   createdAt: string
+  driveFolderUrl: string | null
 }

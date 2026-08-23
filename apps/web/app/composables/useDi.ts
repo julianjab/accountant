@@ -1,7 +1,12 @@
 import { HttpClientRepository } from '~/infrastructure/http/http-client-repository'
+import { HttpDocumentRepository } from '~/infrastructure/http/http-document-repository'
+import { HttpDocumentTypeRepository } from '~/infrastructure/http/http-document-type-repository'
 import { DriveApiRepository } from '~/infrastructure/http/drive-api-repository'
 import { GisGoogleAuthProvider } from '~/infrastructure/auth/gis-google-auth-provider'
+import { GetClient } from '~/application/use-cases/get-client'
 import { ListClients } from '~/application/use-cases/list-clients'
+import { ListClientDocuments } from '~/application/use-cases/list-client-documents'
+import { ListActiveDocumentTypes } from '~/application/use-cases/list-active-document-types'
 import { RegisterClient } from '~/application/use-cases/register-client'
 import { SignInWithGoogle } from '~/application/use-cases/sign-in-with-google'
 import { SignOut } from '~/application/use-cases/sign-out'
@@ -13,8 +18,30 @@ export function useClientRepository() {
   return new HttpClientRepository(config.public.serverApiBase)
 }
 
+export function useDocumentRepository() {
+  const config = useRuntimeConfig()
+  return new HttpDocumentRepository(config.public.serverApiBase)
+}
+
+export function useDocumentTypeRepository() {
+  const config = useRuntimeConfig()
+  return new HttpDocumentTypeRepository(config.public.serverApiBase)
+}
+
 export function useListClientsUseCase() {
   return new ListClients(useClientRepository())
+}
+
+export function useGetClientUseCase() {
+  return new GetClient(useClientRepository())
+}
+
+export function useListClientDocumentsUseCase() {
+  return new ListClientDocuments(useDocumentRepository())
+}
+
+export function useListActiveDocumentTypesUseCase() {
+  return new ListActiveDocumentTypes(useDocumentTypeRepository())
 }
 
 export function useRegisterClientUseCase() {
