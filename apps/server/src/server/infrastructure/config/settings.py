@@ -36,8 +36,11 @@ class Settings(BaseSettings):
     session_cookie_secure: bool = False
 
     # Cross-site deploys (web and API on different registrable domains) need
-    # SameSite=None, which browsers only accept together with Secure.
-    session_cookie_samesite: Literal["lax", "none", "strict"] = "lax"
+    # SameSite=None, which browsers only accept together with Secure. "strict"
+    # is deliberately not offered: the browser would withhold the state cookie
+    # on the way back from accounts.google.com, so the callback could never
+    # succeed.
+    session_cookie_samesite: Literal["lax", "none"] = "lax"
 
     # Sessions stop being valid this long after sign-in regardless of how alive
     # the refresh token is, so a stolen one cannot be used forever.

@@ -1,4 +1,5 @@
 from server.domain.ports.document_storage import DocumentContent, DocumentStorage
+from server.domain.ports.drive_watcher import DriveWatcher
 from server.domain.ports.oauth import (
     GoogleOAuthClient,
     OAuthGrantRevoked,
@@ -27,6 +28,7 @@ __all__ = [
     "DocumentStorage",
     "DocumentTypeConfigurator",
     "DocumentTypeRepository",
+    "DriveWatcher",
     "ExtractedDataRepository",
     "GoogleOAuthClient",
     "OAuthGrantRevoked",

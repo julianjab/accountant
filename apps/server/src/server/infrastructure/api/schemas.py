@@ -77,6 +77,13 @@ class DriveWebhookPayload(BaseModel):
     file_reference: str
 
 
+class DriveWatchChannelResponse(BaseModel):
+    id: str
+    resource_id: str
+    folder_id: str
+    expires_at: datetime
+
+
 class GoogleUserResponse(BaseModel):
     email: str
     name: str
