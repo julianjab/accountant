@@ -78,6 +78,10 @@ class FakeDocumentRepository:
     def __init__(self, existing: dict[str, tuple[str, DocumentStatus]] | None = None) -> None:
         # Maps drive_file_id -> (client_id, status) of the existing document.
         self._existing = dict(existing or {})
+        self.saved: list[Document] = []
+
+    def save(self, document: Document) -> None:
+        self.saved.append(document)
 
     def get_by_drive_file_id_and_client(
         self, drive_file_id: str, client_id: str
@@ -421,8 +425,6 @@ def test_a_file_that_keeps_failing_stops_being_retried_after_the_attempt_cap():
 
 
 def test_a_download_that_keeps_failing_also_frees_the_cursor_after_the_cap():
-    # Unlike a classify/OCR failure, a download failure never produces a
-    # Document to return, but the cursor still must not stay stuck forever.
     channels = FakeDriveWatchChannelRepository(_CHANNEL)
     change_reader = FakeDriveChangeReader(
         DriveChangesPage(
@@ -440,12 +442,66 @@ def test_a_download_that_keeps_failing_also_frees_the_cursor_after_the_cap():
     )
     process_document = FakeProcessUploadedDocument(raise_for={"file-1"})
     claims = FakeDriveFileClaimRepository()
+    documents = FakeDocumentRepository()
 
     results = []
     for _ in range(3):
-        use_case = _use_case(channels, change_reader, process_document, claims)
+        use_case = _use_case(channels, change_reader, process_document, claims, documents)
         results.append(use_case.execute(channel_id="channel-1", resource_state="update"))
 
-    assert results == [[], [], []]
+    # A download failure never gets a Document from ProcessUploadedDocument
+    # (nothing was persisted), so on giving up this use case builds one
+    # itself: an unbounded-retry poison pill must not go completely unlogged.
+    assert results[0] == []
+    assert results[1] == []
+    assert [d.status for d in results[2]] == [DocumentStatus.FAILED]
+    assert documents.saved == results[2]
     assert channels.saved != []
     assert channels.saved[-1].page_token == "token-2"
+
+
+def test_concurrent_notifications_for_the_same_channel_are_serialized():
+    # Drive can deliver more than one notification for the same channel at
+    # once, and BackgroundTasks callbacks run in FastAPI's threadpool. Two
+    # overlapping executions must not both read the same page_token: that is
+    # exactly the race that can lose a file for good.
+    import threading
+    import time
+
+    channels = FakeDriveWatchChannelRepository(_CHANNEL)
+    change_reader = FakeDriveChangeReader(DriveChangesPage(files=[], next_page_token="token-2"))
+    process_document = FakeProcessUploadedDocument()
+
+    in_flight = 0
+    max_in_flight = 0
+    lock = threading.Lock()
+
+    class SlowProcessUploadedDocument:
+        def execute(self, data):
+            return process_document.execute(data)
+
+    class TrackingChangeReader:
+        def list_changes(self, page_token: str) -> DriveChangesPage:
+            nonlocal in_flight, max_in_flight
+            with lock:
+                in_flight += 1
+                max_in_flight = max(max_in_flight, in_flight)
+            time.sleep(0.02)
+            with lock:
+                in_flight -= 1
+            return change_reader.list_changes(page_token)
+
+    use_case = _use_case(channels, TrackingChangeReader(), SlowProcessUploadedDocument())
+
+    threads = [
+        threading.Thread(
+            target=use_case.execute, kwargs={"channel_id": "channel-1", "resource_state": "update"}
+        )
+        for _ in range(5)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert max_in_flight == 1

@@ -1,5 +1,8 @@
 import logging
+import threading
+import uuid
 from dataclasses import replace
+from datetime import UTC, datetime
 
 from server.application.use_cases.process_uploaded_document import (
     ProcessUploadedDocument,
@@ -47,27 +50,42 @@ class ProcessDriveChangeNotification:
         self._claims = claims
         self._documents = documents
         self._process_document = process_document
+        # Drive can deliver more than one notification for the same channel
+        # concurrently, and BackgroundTasks callbacks run on FastAPI's
+        # threadpool. Without serializing per channel, two handlers could both
+        # read the same page_token, one could advance the cursor past a file
+        # the other is still (and later fails) processing, permanently losing
+        # it. This only guards a single process; a multi-instance deployment
+        # would need a distributed lock instead.
+        self._channel_locks: dict[str, threading.Lock] = {}
+        self._channel_locks_guard = threading.Lock()
 
     def execute(self, channel_id: str, resource_state: str) -> list[Document]:
         if resource_state == _SYNC_RESOURCE_STATE:
             return []
 
-        channel = self._channels.get_by_channel_id(channel_id)
-        if channel is None:
-            return []
+        with self._lock_for(channel_id):
+            channel = self._channels.get_by_channel_id(channel_id)
+            if channel is None:
+                return []
 
-        page = self._change_reader.list_changes(channel.page_token)
-        processed, had_failures = self._process_page(channel, page.files)
+            page = self._change_reader.list_changes(channel.page_token)
+            processed, had_failures = self._process_page(channel, page.files)
 
-        # Only move the cursor past a page that fully succeeded. Drive never
-        # re-notifies for a change it already reported, so advancing past a
-        # failure would make that file unprocessable forever; leaving the
-        # cursor in place means the next notification (for any reason) simply
-        # re-lists the same window and retries it, while claims already held
-        # by files that did succeed keep them from being duplicated.
-        if not had_failures:
-            self._channels.save(replace(channel, page_token=page.next_page_token))
-        return processed
+            # Only move the cursor past a page that fully succeeded. Drive
+            # never re-notifies for a change it already reported, so
+            # advancing past a failure would make that file unprocessable
+            # forever; leaving the cursor in place means the next
+            # notification (for any reason) simply re-lists the same window
+            # and retries it, while claims already held by files that did
+            # succeed keep them from being duplicated.
+            if not had_failures:
+                self._channels.save(replace(channel, page_token=page.next_page_token))
+            return processed
+
+    def _lock_for(self, channel_id: str) -> threading.Lock:
+        with self._channel_locks_guard:
+            return self._channel_locks.setdefault(channel_id, threading.Lock())
 
     def _process_page(
         self, channel: DriveWatchChannel, files: list[DriveChangedFile]
@@ -130,13 +148,17 @@ class ProcessDriveChangeNotification:
                     file_reference=file.id,
                 )
             )
-        except Exception:
+        except Exception as exc:
             # Only storage.download can still raise here: nothing was
-            # persisted, so this attempt is a clean, safe-to-retry no-op. If
-            # this was the last allowed attempt, there is no document to
-            # leave behind either way; a log entry is the only record.
+            # persisted, so this attempt is a clean, safe-to-retry no-op.
             logger.exception("Failed to download Drive file %s for channel %s", file.id, channel.id)
-            return None, self._should_retry(claim_key, file.id, channel.id)
+            if self._should_retry(claim_key, file.id, channel.id):
+                return None, True
+            # Giving up with nothing persisted would leave this file with no
+            # record at all besides a log line; persist a terminal FAILED
+            # document directly (ProcessUploadedDocument never got the
+            # chance to) so it stays inspectable like every other outcome.
+            return self._give_up_document(channel, file, str(exc)), False
 
         if document.status != DocumentStatus.FAILED:
             return document, False
@@ -152,6 +174,23 @@ class ProcessDriveChangeNotification:
         # this was the last attempt, it is the visible, inspectable record of
         # what happened, instead of being discarded silently.
         return document, needs_retry
+
+    def _give_up_document(
+        self, channel: DriveWatchChannel, file: DriveChangedFile, error: str
+    ) -> Document:
+        document = Document(
+            id=str(uuid.uuid4()),
+            client_id=channel.client_id,
+            document_type_id=None,
+            drive_file_id=file.id,
+            file_name=file.name,
+            mime_type=file.mime_type,
+            status=DocumentStatus.FAILED,
+            error=error,
+            created_at=datetime.now(UTC),
+        )
+        self._documents.save(document)
+        return document
 
     def _should_retry(self, claim_key: str, file_id: str, channel_id: str) -> bool:
         attempts = self._claims.record_failure(claim_key)
