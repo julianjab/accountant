@@ -493,3 +493,55 @@ def test_extracted_data_written_under_the_old_key_is_still_readable() -> None:
     assert stored is not None
     assert stored.fields == {"saldo": "1"}
     assert stored.id == "ex-legacy"
+
+
+def test_document_round_trips_its_approval() -> None:
+    """Reconciliation refuses to reprocess an APPROVED document to protect a
+    person's review; that protection is worth nothing if who approved it and
+    when are not stored."""
+    repository = FirestoreDocumentRepository(FakeFirestore())
+    reviewed = NOW + timedelta(hours=2)
+    repository.save(
+        Document(
+            id="doc-1",
+            client_id="c1",
+            document_type_id="t1",
+            drive_file_id="f1",
+            file_name="cert.pdf",
+            mime_type="application/pdf",
+            status=DocumentStatus.APPROVED,
+            error=None,
+            created_at=NOW,
+            processed_at=NOW + timedelta(hours=1),
+            reviewed_at=reviewed,
+            approved_by="preparer@example.com",
+        )
+    )
+
+    stored = repository.get("doc-1")
+
+    assert stored.status == DocumentStatus.APPROVED
+    assert stored.approved_by == "preparer@example.com"
+    assert stored.reviewed_at == reviewed
+    assert stored.processed_at == NOW + timedelta(hours=1)
+
+
+def test_a_document_that_was_never_processed_has_no_timestamps() -> None:
+    repository = FirestoreDocumentRepository(FakeFirestore())
+    repository.save(
+        Document(
+            id="doc-2",
+            client_id="c1",
+            document_type_id=None,
+            drive_file_id="f2",
+            file_name="x.pdf",
+            mime_type="application/pdf",
+            status=DocumentStatus.PENDING,
+            error=None,
+            created_at=NOW,
+        )
+    )
+
+    stored = repository.get("doc-2")
+
+    assert (stored.processed_at, stored.reviewed_at, stored.approved_by) == (None, None, None)

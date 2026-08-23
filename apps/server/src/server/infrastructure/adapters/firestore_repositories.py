@@ -42,6 +42,10 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
+def _as_utc_or_none(value: datetime | None) -> datetime | None:
+    return None if value is None else _as_utc(value)
+
+
 @transactional
 def _increment_attempts(transaction, ref) -> int:
     """Reads-then-writes the attempt counter inside a transaction, so two
@@ -113,6 +117,14 @@ class FirestoreDocumentRepository:
                 "status": str(document.status),
                 "error": document.error,
                 "created_at": document.created_at,
+                # Dropped before this: a document read back after approval
+                # returned approved_by=None, so the approval survived only as
+                # a status. Reconciliation refuses to reprocess an APPROVED
+                # document precisely to protect that review, which is worth
+                # nothing if who approved it and when are not stored.
+                "processed_at": document.processed_at,
+                "reviewed_at": document.reviewed_at,
+                "approved_by": document.approved_by,
             }
         )
 
@@ -159,6 +171,9 @@ class FirestoreDocumentRepository:
             status=DocumentStatus(data["status"]),
             error=data.get("error"),
             created_at=_as_utc(data["created_at"]),
+            processed_at=_as_utc_or_none(data.get("processed_at")),
+            reviewed_at=_as_utc_or_none(data.get("reviewed_at")),
+            approved_by=data.get("approved_by"),
         )
 
 
@@ -185,6 +200,9 @@ class FirestoreDocumentTypeRepository:
     def list_active(self) -> list[DocumentType]:
         query = self._collection.where("active", "==", True)
         return [self._to_entity(d.id, d.to_dict()) for d in query.stream()]
+
+    def list_all(self) -> list[DocumentType]:
+        return [self._to_entity(d.id, d.to_dict()) for d in self._collection.stream()]
 
     @staticmethod
     def _to_entity(doc_id: str, data: dict[str, Any]) -> DocumentType:
