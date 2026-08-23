@@ -9,9 +9,8 @@ const { data: documentTypes } = await useAsyncData<DocumentType[]>('document-typ
 )
 
 function schemaKeys(documentType: DocumentType): string[] {
-  const schema = documentType.extractionSchema as { properties?: Record<string, unknown> }
-  const properties = schema.properties ?? documentType.extractionSchema
-  return Object.keys(properties)
+  const schema = documentType.extractionSchema as { properties?: Record<string, unknown> } | null | undefined
+  return Object.keys(schema?.properties ?? {})
 }
 
 // Placeholder metric until the backend exposes "documents processed per type".

@@ -121,7 +121,9 @@
       "schema": "Extraction schema",
       "save": "Save type",
       "edit": "Edit",
-      "cancelEdit": "Cancel editing"
+      "confirmEdit": "Confirm edit",
+      "cancelEdit": "Cancel editing",
+      "localEditsNotice": "These edits were only kept on this screen, not on the server (there is no way to update an already-saved type yet)."
     }
   },
   "auth": {

@@ -18,6 +18,7 @@ const editing = ref(false)
 const editedPrompt = ref('')
 const editedSchemaText = ref('')
 const jsonError = ref(false)
+const hasUnsyncedLocalEdits = ref(false)
 
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
@@ -66,6 +67,7 @@ function confirmEditing() {
     }
     jsonError.value = false
     editing.value = false
+    hasUnsyncedLocalEdits.value = true
   } catch {
     jsonError.value = true
   }
@@ -199,10 +201,17 @@ function saveType() {
         </p>
       </div>
 
+      <UAlert
+        v-if="hasUnsyncedLocalEdits && !editing"
+        color="warning"
+        variant="soft"
+        :title="t('documentTypes.proposal.localEditsNotice')"
+      />
+
       <div class="flex gap-2">
         <template v-if="editing">
           <UButton @click="confirmEditing">
-            {{ t('documentTypes.proposal.edit') }}
+            {{ t('documentTypes.proposal.confirmEdit') }}
           </UButton>
           <UButton
             color="neutral"

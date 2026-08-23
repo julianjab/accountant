@@ -121,7 +121,9 @@
       "schema": "Esquema de extracción",
       "save": "Guardar tipo",
       "edit": "Editar",
-      "cancelEdit": "Cancelar edición"
+      "confirmEdit": "Confirmar edición",
+      "cancelEdit": "Cancelar edición",
+      "localEditsNotice": "Los cambios de esta edición sólo se guardaron en esta pantalla, no en el servidor (aún no existe una forma de actualizar un tipo ya guardado)."
     }
   },
   "auth": {
