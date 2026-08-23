@@ -16,7 +16,7 @@ const { data: document, error: documentError } = await useAsyncData<ClientDocume
   () => getDocument.execute(documentId)
 )
 
-const { data: extractedData } = await useAsyncData<ExtractedData | null>(
+const { data: extractedData, error: extractedDataError } = await useAsyncData<ExtractedData | null>(
   `document-${documentId}-extracted-data`,
   () => getExtractedData.execute(documentId)
 )
@@ -43,6 +43,7 @@ const { data: extractedData } = await useAsyncData<ExtractedData | null>(
         <ExtractionCard
           :document="document"
           :extracted-data="extractedData ?? null"
+          :extracted-data-error="!!extractedDataError"
         />
       </div>
     </template>

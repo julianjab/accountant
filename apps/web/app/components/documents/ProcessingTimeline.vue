@@ -22,10 +22,10 @@ const failedAt = computed<'classified' | 'ocr' | null>(() => {
 
 const completed = computed<Record<StepKey, boolean>>(() => ({
   detected: true,
-  classified: ['running_ocr', 'processed'].includes(props.status)
+  classified: ['running_ocr', 'processed', 'approved'].includes(props.status)
     || (props.status === 'failed' && props.documentTypeId !== null),
-  ocr: props.status === 'processed',
-  ready: props.status === 'processed'
+  ocr: ['processed', 'approved'].includes(props.status),
+  ready: ['processed', 'approved'].includes(props.status)
 }))
 
 const steps = computed(() => (['detected', 'classified', 'ocr', 'ready'] as StepKey[]).map(key => ({

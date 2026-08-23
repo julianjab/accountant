@@ -35,6 +35,7 @@
     "errorTitle": "Could not process this document",
     "errorFallback": "An error occurred while processing this document",
     "extractionMissing": "The document was processed but no extracted data was found",
+    "extractedDataLoadError": "An error occurred while loading the extracted data",
     "pipeline": {
       "detected": "Detected",
       "classified": "Classified",
@@ -46,6 +47,7 @@
       "classifying": "Classifying",
       "runningOcr": "Running OCR",
       "processed": "Processed",
+      "approved": "Approved",
       "failed": "Failed"
     },
     "viewer": {

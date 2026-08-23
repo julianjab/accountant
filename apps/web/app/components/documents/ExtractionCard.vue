@@ -7,6 +7,7 @@ import ProcessingTimeline from '~/components/documents/ProcessingTimeline.vue'
 const props = defineProps<{
   document: ClientDocument
   extractedData: ExtractedData | null
+  extractedDataError?: boolean
 }>()
 
 const { t } = useI18n()
@@ -16,6 +17,7 @@ const STATUS_COLORS: Record<DocumentStatus, 'info' | 'success' | 'error'> = {
   classifying: 'info',
   running_ocr: 'info',
   processed: 'success',
+  approved: 'success',
   failed: 'error'
 }
 
@@ -24,8 +26,14 @@ const STATUS_I18N_KEYS: Record<DocumentStatus, string> = {
   classifying: 'documents.status.classifying',
   running_ocr: 'documents.status.runningOcr',
   processed: 'documents.status.processed',
+  approved: 'documents.status.approved',
   failed: 'documents.status.failed'
 }
+
+// 'processed' and 'approved' both mean the OCR extraction is done — #11 wires up the actual
+// approve action, but the server can already return a document that was approved before this
+// screen existed (or by another client), so it must render like any other completed document.
+const EXTRACTION_DONE_STATUSES: DocumentStatus[] = ['processed', 'approved']
 
 // The backend's ExtractedDataResponse only carries a single document-level `confidence` —
 // `fields` is a free-form dict shaped by the DocumentType's extraction_schema, with no
@@ -76,15 +84,22 @@ const averageConfidence = computed<number | null>(() => {
 
 const hasExtractionError = computed(() =>
   props.document.status === 'failed'
-  || (props.document.status === 'processed' && props.document.documentTypeId === null)
+  || (EXTRACTION_DONE_STATUSES.includes(props.document.status) && props.document.documentTypeId === null)
 )
 
 const isProcessing = computed(() =>
   (['pending', 'classifying', 'running_ocr'] as DocumentStatus[]).includes(props.document.status)
 )
 
+const hasExtractedDataLoadError = computed(() =>
+  EXTRACTION_DONE_STATUSES.includes(props.document.status) && !hasExtractionError.value && props.extractedDataError
+)
+
 const isMissingExtraction = computed(() =>
-  props.document.status === 'processed' && !hasExtractionError.value && !props.extractedData
+  EXTRACTION_DONE_STATUSES.includes(props.document.status)
+  && !hasExtractionError.value
+  && !hasExtractedDataLoadError.value
+  && !props.extractedData
 )
 </script>
 
@@ -134,6 +149,13 @@ const isMissingExtraction = computed(() =>
         class="h-12 w-full"
       />
     </div>
+
+    <UAlert
+      v-else-if="hasExtractedDataLoadError"
+      color="error"
+      :title="t('documents.errorTitle')"
+      :description="t('documents.extractedDataLoadError')"
+    />
 
     <UAlert
       v-else-if="isMissingExtraction"

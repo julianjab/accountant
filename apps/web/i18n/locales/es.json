@@ -35,6 +35,7 @@
     "errorTitle": "No se pudo procesar el documento",
     "errorFallback": "Ocurrió un error al procesar este documento",
     "extractionMissing": "El documento fue procesado pero no se encontraron datos extraídos",
+    "extractedDataLoadError": "Ocurrió un error al cargar los datos extraídos",
     "pipeline": {
       "detected": "Detectado",
       "classified": "Clasificado",
@@ -46,6 +47,7 @@
       "classifying": "Clasificando",
       "runningOcr": "Extrayendo datos",
       "processed": "Procesado",
+      "approved": "Aprobado",
       "failed": "Falló"
     },
     "viewer": {
