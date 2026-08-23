@@ -93,7 +93,7 @@ test.describe('Google sign-in', () => {
 
     await page.getByTestId('google-auth-sign-in').click()
 
-    await expect(page.getByTestId('google-auth-error')).toBeVisible()
+    await expect(page.getByTestId('google-auth-error')).toContainText('ventana')
     await expect(page.getByTestId('google-auth-sign-in')).toBeVisible()
   })
 })
