@@ -23,6 +23,12 @@ _SYNC_RESOURCE_STATE = "sync"
 # None of them are documents this pipeline can classify or OCR, so skip them.
 _NATIVE_GOOGLE_MIME_PREFIX = "application/vnd.google-apps."
 
+# A file that fails this many times in a row (e.g. a permanently unsupported
+# type, revoked access) stops being retried: without a cap, a poison-pill file
+# would make every future notification re-list and re-attempt the same window
+# forever, at ever-growing cost against the Drive and OCR APIs.
+_MAX_ATTEMPTS = 3
+
 
 class ProcessDriveChangeNotification:
     """Triggered by a Drive push notification: enumerates what actually changed
@@ -94,14 +100,30 @@ class ProcessDriveChangeNotification:
                 logger.exception(
                     "Failed to process Drive file %s for channel %s", file.id, channel.id
                 )
-                had_failures = True
-                # Only undo the claim if nothing was persisted for this file:
-                # ProcessUploadedDocument always creates a fresh Document id
-                # rather than resuming one, so releasing the claim after it
-                # already wrote a partial (CLASSIFYING/RUNNING_OCR) row would
-                # let a retry create a second Document for the same file.
-                if self._documents.get_by_drive_file_id(file.id) is None:
+                # Only undo the claim if nothing was persisted for *this*
+                # channel's client: ProcessUploadedDocument always creates a
+                # fresh Document id rather than resuming one, so releasing the
+                # claim after it already wrote a partial (CLASSIFYING/
+                # RUNNING_OCR) row for this client would let a retry create a
+                # second Document for the same file. A document another
+                # channel/client already has for this same Drive file id does
+                # not count: claims are per-channel, so this channel still owes
+                # its own client a document.
+                existing = self._documents.get_by_drive_file_id(file.id)
+                if existing is not None and existing.client_id == channel.client_id:
+                    continue
+
+                attempts = self._claims.record_failure(claim_key)
+                if attempts < _MAX_ATTEMPTS:
                     self._claims.release(claim_key)
+                    had_failures = True
+                else:
+                    logger.error(
+                        "Giving up on Drive file %s for channel %s after %d attempts",
+                        file.id,
+                        channel.id,
+                        attempts,
+                    )
         return processed, had_failures
 
     @staticmethod

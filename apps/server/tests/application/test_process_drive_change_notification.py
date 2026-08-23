@@ -51,6 +51,7 @@ class FakeDriveChangeReader:
 class FakeDriveFileClaimRepository:
     def __init__(self, already_claimed: set[str] | None = None) -> None:
         self._claimed = set(already_claimed or set())
+        self._failures: dict[str, int] = {}
         self.release_calls: list[str] = []
 
     def try_claim(self, key: str) -> bool:
@@ -63,17 +64,22 @@ class FakeDriveFileClaimRepository:
         self._claimed.discard(key)
         self.release_calls.append(key)
 
+    def record_failure(self, key: str) -> int:
+        self._failures[key] = self._failures.get(key, 0) + 1
+        return self._failures[key]
+
 
 class FakeDocumentRepository:
-    def __init__(self, existing_drive_file_ids: set[str] | None = None) -> None:
-        self._existing_drive_file_ids = set(existing_drive_file_ids or set())
+    def __init__(self, existing: dict[str, str] | None = None) -> None:
+        # Maps drive_file_id -> the client_id the existing document belongs to.
+        self._existing = dict(existing or {})
 
     def get_by_drive_file_id(self, drive_file_id: str) -> Document | None:
-        if drive_file_id not in self._existing_drive_file_ids:
+        if drive_file_id not in self._existing:
             return None
         return Document(
             id="existing-doc",
-            client_id="client-1",
+            client_id=self._existing[drive_file_id],
             document_type_id=None,
             drive_file_id=drive_file_id,
             file_name="invoice.pdf",
@@ -320,9 +326,69 @@ def test_a_failure_keeps_the_claim_when_a_document_was_already_persisted():
     claims = FakeDriveFileClaimRepository()
     # ProcessUploadedDocument always creates a fresh Document id, so a retry
     # after releasing the claim here would duplicate this partial row.
-    documents = FakeDocumentRepository(existing_drive_file_ids={"file-1"})
+    documents = FakeDocumentRepository(existing={"file-1": "client-1"})
     use_case = _use_case(channels, change_reader, process_document, claims, documents)
 
     use_case.execute(channel_id="channel-1", resource_state="update")
 
     assert claims.release_calls == []
+
+
+def test_a_failure_releases_the_claim_when_the_existing_document_belongs_to_another_client():
+    channels = FakeDriveWatchChannelRepository(_CHANNEL)
+    change_reader = FakeDriveChangeReader(
+        DriveChangesPage(
+            files=[
+                DriveChangedFile(
+                    id="file-1",
+                    name="broken.pdf",
+                    mime_type="application/pdf",
+                    parents=["folder-1"],
+                    trashed=False,
+                )
+            ],
+            next_page_token="token-2",
+        )
+    )
+    process_document = FakeProcessUploadedDocument(fail_for={"file-1"})
+    claims = FakeDriveFileClaimRepository()
+    # A file shared into two watched folders: another channel/client already
+    # has a document for it, but this channel's own client still needs one.
+    documents = FakeDocumentRepository(existing={"file-1": "other-client"})
+    use_case = _use_case(channels, change_reader, process_document, claims, documents)
+
+    use_case.execute(channel_id="channel-1", resource_state="update")
+
+    assert claims.release_calls == ["channel-1:file-1"]
+
+
+def test_a_file_that_keeps_failing_stops_being_retried_after_the_attempt_cap():
+    channels = FakeDriveWatchChannelRepository(_CHANNEL)
+    change_reader = FakeDriveChangeReader(
+        DriveChangesPage(
+            files=[
+                DriveChangedFile(
+                    id="file-1",
+                    name="broken.pdf",
+                    mime_type="application/pdf",
+                    parents=["folder-1"],
+                    trashed=False,
+                )
+            ],
+            next_page_token="token-2",
+        )
+    )
+    process_document = FakeProcessUploadedDocument(fail_for={"file-1"})
+    claims = FakeDriveFileClaimRepository()
+
+    # Retry the same notification repeatedly, as Drive would for a channel
+    # stuck on a failing page.
+    for _ in range(5):
+        use_case = _use_case(channels, change_reader, process_document, claims)
+        use_case.execute(channel_id="channel-1", resource_state="update")
+
+    # After the cap, the file is no longer released for retry (given up on),
+    # and the channel's cursor is free to advance instead of retrying forever.
+    assert claims.release_calls == ["channel-1:file-1", "channel-1:file-1"]
+    assert channels.saved != []
+    assert channels.saved[-1].page_token == "token-2"

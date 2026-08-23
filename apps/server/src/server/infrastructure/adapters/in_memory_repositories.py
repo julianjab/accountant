@@ -112,6 +112,7 @@ class InMemoryDriveFileClaimRepository:
 
     def __init__(self) -> None:
         self._claimed: set[str] = set()
+        self._failures: dict[str, int] = {}
         self._lock = threading.Lock()
 
     def try_claim(self, key: str) -> bool:
@@ -124,3 +125,8 @@ class InMemoryDriveFileClaimRepository:
     def release(self, key: str) -> None:
         with self._lock:
             self._claimed.discard(key)
+
+    def record_failure(self, key: str) -> int:
+        with self._lock:
+            self._failures[key] = self._failures.get(key, 0) + 1
+            return self._failures[key]

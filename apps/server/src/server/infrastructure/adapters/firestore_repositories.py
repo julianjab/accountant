@@ -30,6 +30,7 @@ DOCUMENTS = "documents"
 DOCUMENT_TYPES = "document_types"
 DRIVE_WATCH_CHANNELS = "drive_watch_channels"
 DRIVE_FILE_CLAIMS = "drive_file_claims"
+DRIVE_FILE_CLAIM_FAILURES = "drive_file_claim_failures"
 EXTRACTED_DATA = "extracted_data"
 SESSIONS = "sessions"
 
@@ -273,17 +274,31 @@ class FirestoreDriveWatchChannelRepository:
 class FirestoreDriveFileClaimRepository:
     """Backs ``DriveFileClaimRepository.try_claim`` with Firestore's atomic
     document creation: ``create()`` fails with ``AlreadyExists`` instead of
-    overwriting, which is what makes the claim safe under concurrent retries."""
+    overwriting, which is what makes the claim safe under concurrent retries.
+
+    A successful claim is never deleted, which is exactly what keeps a
+    processed file from being picked up again; a Firestore TTL policy on
+    ``claimed_at`` should still be configured so long-abandoned claims for
+    since-deleted channels do not accumulate forever.
+    """
 
     def __init__(self, db: FirestoreClient) -> None:
         self._collection = db.collection(DRIVE_FILE_CLAIMS)
+        self._failures = db.collection(DRIVE_FILE_CLAIM_FAILURES)
 
-    def try_claim(self, drive_file_id: str) -> bool:
+    def try_claim(self, key: str) -> bool:
         try:
-            self._collection.document(drive_file_id).create({"claimed_at": datetime.now(UTC)})
+            self._collection.document(key).create({"claimed_at": datetime.now(UTC)})
         except AlreadyExists:
             return False
         return True
 
-    def release(self, drive_file_id: str) -> None:
-        self._collection.document(drive_file_id).delete()
+    def release(self, key: str) -> None:
+        self._collection.document(key).delete()
+
+    def record_failure(self, key: str) -> int:
+        ref = self._failures.document(key)
+        snapshot = ref.get()
+        attempts = (snapshot.to_dict() or {}).get("attempts", 0) + 1 if snapshot.exists else 1
+        ref.set({"attempts": attempts})
+        return attempts

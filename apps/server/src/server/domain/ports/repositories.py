@@ -72,3 +72,12 @@ class DriveFileClaimRepository(Protocol):
         that file would silently never be processed again.
         """
         ...
+
+    def record_failure(self, key: str) -> int:
+        """Records a failed attempt for a key and returns the running count.
+
+        Lets a caller cap retries: without a limit, a file that fails for a
+        permanent reason (an unsupported type, revoked access, ...) would be
+        re-attempted on every future notification for that channel, forever.
+        """
+        ...
