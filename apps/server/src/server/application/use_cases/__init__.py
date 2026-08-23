@@ -16,6 +16,10 @@ from server.application.use_cases.define_document_type import (
 from server.application.use_cases.get_document_metrics import DocumentMetrics, GetDocumentMetrics
 from server.application.use_cases.get_extracted_data import GetExtractedData
 from server.application.use_cases.get_google_session import GetGoogleSession
+from server.application.use_cases.import_clients_from_drive import (
+    ImportClientsFromDrive,
+    ImportResult,
+)
 from server.application.use_cases.process_drive_change_notification import (
     ProcessDriveChangeNotification,
 )
@@ -46,6 +50,8 @@ __all__ = [
     "GetDocumentMetrics",
     "GetExtractedData",
     "GetGoogleSession",
+    "ImportClientsFromDrive",
+    "ImportResult",
     "MissingRefreshToken",
     "ProcessDriveChangeNotification",
     "ProcessUploadedDocument",

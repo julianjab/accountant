@@ -6,7 +6,11 @@ data from it via a multimodal AI.
 
 ## Domain
 
-- **Client** — a person/company whose tax documents are being processed.
+- **Client** — a person/company whose tax documents are being processed. Clients are
+  imported from Drive: each subfolder of `ACCOUNTANT_GOOGLE_DRIVE_CLIENTS_FOLDER_ID` is one
+  (`POST /clients/import`). Matching is by Drive folder id, so renaming a folder updates the
+  client rather than forking it, and a folder disappearing never deletes one. `tax_id` is
+  therefore optional — a folder carries a name, not a tax id.
 - **Document** — a file uploaded for a client (linked to a Drive file).
 - **Extracted data** — the structured fields an OCR run produced for a document.
 

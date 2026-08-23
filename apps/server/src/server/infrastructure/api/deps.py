@@ -10,6 +10,7 @@ from server.application.use_cases import (
     GetDocumentMetrics,
     GetExtractedData,
     GetGoogleSession,
+    ImportClientsFromDrive,
     ProcessDriveChangeNotification,
     ProcessUploadedDocument,
     RegisterClient,
@@ -43,6 +44,9 @@ from server.infrastructure.adapters.firestore_repositories import (
     FirestoreDriveWatchChannelRepository,
     FirestoreExtractedDataRepository,
     FirestoreSessionRepository,
+)
+from server.infrastructure.adapters.google_drive_client_directory import (
+    GoogleDriveClientDirectory,
 )
 from server.infrastructure.adapters.google_drive_storage import (
     GoogleDriveStorage,
@@ -247,5 +251,18 @@ def get_process_drive_change_notification_use_case() -> ProcessDriveChangeNotifi
         channels=get_drive_watch_channel_repository(),
         change_reader=get_drive_watcher(),
         claims=get_drive_file_claim_repository(),
+        documents=get_document_repository(),
         process_document=get_process_uploaded_document_use_case(),
     )
+
+
+@lru_cache
+def get_client_directory() -> GoogleDriveClientDirectory:
+    settings = get_settings()
+    return GoogleDriveClientDirectory(
+        settings.google_service_account_file, settings.google_drive_clients_folder_id
+    )
+
+
+def get_import_clients_use_case() -> ImportClientsFromDrive:
+    return ImportClientsFromDrive(get_client_directory(), get_client_repository())

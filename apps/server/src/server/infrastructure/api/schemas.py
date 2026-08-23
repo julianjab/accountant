@@ -8,16 +8,23 @@ from server.domain.entities import DocumentStatus
 
 class ClientCreateRequest(BaseModel):
     name: str
-    tax_id: str
+    tax_id: str | None = None
     email: str | None = None
 
 
 class ClientResponse(BaseModel):
     id: str
     name: str
-    tax_id: str
+    tax_id: str | None
     email: str | None
     created_at: datetime
+    drive_folder_id: str | None = None
+
+
+class ClientImportResponse(BaseModel):
+    created: list[ClientResponse]
+    renamed: list[ClientResponse]
+    unchanged: int
 
 
 class DocumentTypeResponse(BaseModel):

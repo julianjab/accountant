@@ -43,6 +43,9 @@ class InMemoryDocumentRepository:
             return list(self._items.values())
         return [d for d in self._items.values() if d.status == status]
 
+    def get_by_drive_file_id(self, drive_file_id: str) -> Document | None:
+        return next((d for d in self._items.values() if d.drive_file_id == drive_file_id), None)
+
 
 class InMemoryDocumentTypeRepository:
     def __init__(self) -> None:
@@ -111,13 +114,13 @@ class InMemoryDriveFileClaimRepository:
         self._claimed: set[str] = set()
         self._lock = threading.Lock()
 
-    def try_claim(self, drive_file_id: str) -> bool:
+    def try_claim(self, key: str) -> bool:
         with self._lock:
-            if drive_file_id in self._claimed:
+            if key in self._claimed:
                 return False
-            self._claimed.add(drive_file_id)
+            self._claimed.add(key)
             return True
 
-    def release(self, drive_file_id: str) -> None:
+    def release(self, key: str) -> None:
         with self._lock:
-            self._claimed.discard(drive_file_id)
+            self._claimed.discard(key)

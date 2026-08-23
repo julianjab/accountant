@@ -50,6 +50,7 @@ class FirestoreClientRepository:
                 "tax_id": client.tax_id,
                 "email": client.email,
                 "created_at": client.created_at,
+                "drive_folder_id": client.drive_folder_id,
             }
         )
 
@@ -65,9 +66,10 @@ class FirestoreClientRepository:
         return Client(
             id=doc_id,
             name=data["name"],
-            tax_id=data["tax_id"],
+            tax_id=data.get("tax_id"),
             email=data.get("email"),
             created_at=_as_utc(data["created_at"]),
+            drive_folder_id=data.get("drive_folder_id"),
         )
 
 
@@ -96,6 +98,12 @@ class FirestoreDocumentRepository:
     def list_by_client(self, client_id: str) -> list[Document]:
         query = self._collection.where("client_id", "==", client_id)
         return [self._to_entity(d.id, d.to_dict()) for d in query.stream()]
+
+    def get_by_drive_file_id(self, drive_file_id: str) -> Document | None:
+        query = self._collection.where("drive_file_id", "==", drive_file_id).limit(1)
+        for snapshot in query.stream():
+            return self._to_entity(snapshot.id, snapshot.to_dict())
+        return None
 
     @staticmethod
     def _to_entity(doc_id: str, data: dict[str, Any]) -> Document:

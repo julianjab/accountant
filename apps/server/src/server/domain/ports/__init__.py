@@ -1,3 +1,4 @@
+from server.domain.ports.client_directory import ClientDirectory, ClientFolder
 from server.domain.ports.document_storage import DocumentContent, DocumentStorage
 from server.domain.ports.drive_watcher import DriveChangeReader, DriveWatcher
 from server.domain.ports.oauth import (
@@ -24,6 +25,8 @@ from server.domain.ports.repositories import (
 )
 
 __all__ = [
+    "ClientDirectory",
+    "ClientFolder",
     "ClientRepository",
     "DocumentClassifier",
     "DocumentContent",

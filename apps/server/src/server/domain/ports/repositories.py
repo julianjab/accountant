@@ -22,6 +22,7 @@ class DocumentRepository(Protocol):
     def get(self, document_id: str) -> Document | None: ...
     def list_by_client(self, client_id: str) -> list[Document]: ...
     def list_all(self, status: DocumentStatus | None = None) -> list[Document]: ...
+    def get_by_drive_file_id(self, drive_file_id: str) -> Document | None: ...
 
 
 class DocumentTypeRepository(Protocol):
@@ -49,17 +50,20 @@ class DriveWatchChannelRepository(Protocol):
 
 
 class DriveFileClaimRepository(Protocol):
-    def try_claim(self, drive_file_id: str) -> bool:
-        """Atomically marks a Drive file as being processed.
+    def try_claim(self, key: str) -> bool:
+        """Atomically marks a claim key (typically ``f"{channel_id}:{drive_file_id}"``)
+        as being processed.
 
-        Returns True the first time it is called for a given ``drive_file_id``
-        and False on every call after, including concurrent ones. This is what
-        makes at-least-once Drive notifications safe to process without
-        creating duplicate documents.
+        Returns True the first time it is called for a given key and False on
+        every call after, including concurrent ones. This is what makes
+        at-least-once Drive notifications safe to process without creating
+        duplicate documents. Keying by channel (not just the raw Drive file
+        id) is what lets the same file be processed once per watched folder
+        when it is shared into more than one.
         """
         ...
 
-    def release(self, drive_file_id: str) -> None:
+    def release(self, key: str) -> None:
         """Undoes a claim after a failed processing attempt.
 
         Without this, a file that fails for a transient reason (a timed-out

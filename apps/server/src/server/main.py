@@ -9,6 +9,7 @@ from server.infrastructure.api.deps import get_settings
 from server.infrastructure.api.routers import (
     auth,
     clients,
+    clients_import,
     document_types,
     documents,
     drive_webhook,
@@ -38,6 +39,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(clients.router)
+app.include_router(clients_import.router)
 app.include_router(document_types.router)
 app.include_router(documents.router)
 app.include_router(drive_webhook.router)

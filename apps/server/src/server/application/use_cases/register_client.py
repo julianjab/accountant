@@ -9,7 +9,7 @@ from server.domain.ports import ClientRepository
 @dataclass(frozen=True, slots=True)
 class RegisterClientInput:
     name: str
-    tax_id: str
+    tax_id: str | None
     email: str | None
 
 

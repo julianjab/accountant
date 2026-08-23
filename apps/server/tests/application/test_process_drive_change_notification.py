@@ -51,12 +51,17 @@ class FakeDriveChangeReader:
 class FakeDriveFileClaimRepository:
     def __init__(self, already_claimed: set[str] | None = None) -> None:
         self._claimed = set(already_claimed or set())
+        self.release_calls: list[str] = []
 
     def try_claim(self, drive_file_id: str) -> bool:
         if drive_file_id in self._claimed:
             return False
         self._claimed.add(drive_file_id)
         return True
+
+    def release(self, drive_file_id: str) -> None:
+        self._claimed.discard(drive_file_id)
+        self.release_calls.append(drive_file_id)
 
 
 class FakeProcessUploadedDocument:
@@ -247,7 +252,8 @@ def test_a_permanently_failing_file_does_not_wedge_the_cursor():
         )
     )
     process_document = FakeProcessUploadedDocument(fail_for={"file-1"})
-    use_case = _use_case(channels, change_reader, process_document)
+    claims = FakeDriveFileClaimRepository()
+    use_case = _use_case(channels, change_reader, process_document, claims)
 
     processed = use_case.execute(channel_id="channel-1", resource_state="update")
 
@@ -255,3 +261,5 @@ def test_a_permanently_failing_file_does_not_wedge_the_cursor():
     # cursor still advances so this channel is not stuck on this page forever.
     assert [d.drive_file_id for d in processed] == ["file-2"]
     assert channels.saved[-1].page_token == "token-2"
+    # Its claim is released so a later manual retry is not blocked forever.
+    assert claims.release_calls == ["file-1"]
