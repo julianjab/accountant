@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ClientDocument } from '~/domain/entities/document'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
-import type { DocumentRepository } from '~/application/ports/document-repository'
+import type { DocumentListFilter, DocumentRepository } from '~/application/ports/document-repository'
 import { GetDocumentExtractedData } from '~/application/use-cases/get-document-extracted-data'
 
 class FakeDocumentRepository implements DocumentRepository {
@@ -16,6 +16,10 @@ class FakeDocumentRepository implements DocumentRepository {
   }
 
   listByClient(_clientId: string): Promise<ClientDocument[]> {
+    throw new Error('not implemented')
+  }
+
+  list(_filter?: DocumentListFilter): Promise<ClientDocument[]> {
     throw new Error('not implemented')
   }
 }

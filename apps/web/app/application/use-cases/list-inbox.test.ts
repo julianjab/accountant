@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { Client } from '~/domain/entities/client'
 import type { ClientDocument } from '~/domain/entities/document'
 import type { DocumentType } from '~/domain/entities/document-type'
-import type { ClientRepository, RegisterClientInput } from '~/application/ports/client-repository'
+import type { ClientRepository, ImportSummary, RegisterClientInput } from '~/application/ports/client-repository'
 import type { DocumentListFilter, DocumentRepository } from '~/application/ports/document-repository'
-import type { DocumentTypeRepository } from '~/application/ports/document-type-repository'
+import type { DefineDocumentTypeInput, DocumentTypeRepository } from '~/application/ports/document-type-repository'
 import { ListInbox } from '~/application/use-cases/list-inbox'
 
 class FakeClientRepository implements ClientRepository {
@@ -14,13 +14,33 @@ class FakeClientRepository implements ClientRepository {
     return Promise.resolve(this.clients)
   }
 
+  get(id: string): Promise<Client | null> {
+    return Promise.resolve(this.clients.find(c => c.id === id) ?? null)
+  }
+
   register(_input: RegisterClientInput): Promise<Client> {
+    throw new Error('not implemented')
+  }
+
+  importFromDrive(): Promise<ImportSummary> {
     throw new Error('not implemented')
   }
 }
 
 class FakeDocumentRepository implements DocumentRepository {
   constructor(private readonly documents: ClientDocument[]) {}
+
+  getById(_id: string): Promise<ClientDocument> {
+    throw new Error('not implemented')
+  }
+
+  getExtractedData(_id: string): Promise<null> {
+    throw new Error('not implemented')
+  }
+
+  listByClient(_clientId: string): Promise<ClientDocument[]> {
+    throw new Error('not implemented')
+  }
 
   list(_filter?: DocumentListFilter): Promise<ClientDocument[]> {
     return Promise.resolve(this.documents)
@@ -30,13 +50,31 @@ class FakeDocumentRepository implements DocumentRepository {
 class FakeDocumentTypeRepository implements DocumentTypeRepository {
   constructor(private readonly types: DocumentType[]) {}
 
+  listActive(): Promise<DocumentType[]> {
+    throw new Error('not implemented')
+  }
+
   list(): Promise<DocumentType[]> {
     return Promise.resolve(this.types)
+  }
+
+  define(_input: DefineDocumentTypeInput): Promise<DocumentType> {
+    throw new Error('not implemented')
   }
 }
 
 function client(overrides: Partial<Client>): Client {
-  return { id: 'c1', name: 'Jane Doe', taxId: '123', email: null, createdAt: '2026-01-01', ...overrides }
+  return {
+    id: 'c1',
+    name: 'Jane Doe',
+    taxId: '123',
+    email: null,
+    createdAt: '2026-01-01',
+    driveFolderId: null,
+    driveFolderUrl: null,
+    spreadsheetUrl: null,
+    ...overrides
+  }
 }
 
 function document(overrides: Partial<ClientDocument>): ClientDocument {
@@ -273,7 +311,15 @@ describe('ListInbox', () => {
   })
 
   it('resolves documentTypesById from the document type repository', async () => {
-    const types = [{ id: 't1', name: 'Bank statement', description: '', active: true, createdAt: '2026-01-01' }]
+    const types = [{
+      id: 't1',
+      name: 'Bank statement',
+      description: '',
+      extractionPrompt: '',
+      extractionSchema: {},
+      active: true,
+      createdAt: '2026-01-01'
+    }]
     const useCase = new ListInbox(
       new FakeDocumentRepository([]),
       new FakeClientRepository([]),

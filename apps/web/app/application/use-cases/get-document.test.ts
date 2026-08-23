@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ClientDocument } from '~/domain/entities/document'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
-import type { DocumentRepository } from '~/application/ports/document-repository'
+import type { DocumentListFilter, DocumentRepository } from '~/application/ports/document-repository'
 import { GetDocument } from '~/application/use-cases/get-document'
 
 class FakeDocumentRepository implements DocumentRepository {
@@ -24,6 +24,10 @@ class FakeDocumentRepository implements DocumentRepository {
   listByClient(_clientId: string): Promise<ClientDocument[]> {
     throw new Error('not implemented')
   }
+
+  list(_filter?: DocumentListFilter): Promise<ClientDocument[]> {
+    throw new Error('not implemented')
+  }
 }
 
 describe('GetDocument', () => {
@@ -37,7 +41,8 @@ describe('GetDocument', () => {
       mimeType: 'application/pdf',
       status: 'processed',
       error: null,
-      createdAt: '2026-01-01'
+      createdAt: '2026-01-01',
+      processedAt: '2026-01-01'
     }
     const useCase = new GetDocument(new FakeDocumentRepository(document))
 
