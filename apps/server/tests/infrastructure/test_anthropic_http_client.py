@@ -15,10 +15,19 @@ def _clear_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
 
-def test_get_auth_mode_prefers_oauth_over_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_auth_mode_prefers_api_key_over_oauth(monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_auth_env(monkeypatch)
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "oauth-token")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "api-key")
+
+    assert get_auth_mode() == "api_key"
+
+
+def test_get_auth_mode_falls_back_to_oauth_without_an_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_auth_env(monkeypatch)
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "oauth-token")
 
     assert get_auth_mode() == "oauth"
 
@@ -26,7 +35,7 @@ def test_get_auth_mode_prefers_oauth_over_api_key(monkeypatch: pytest.MonkeyPatc
 def test_get_auth_mode_raises_without_any_credential(monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_auth_env(monkeypatch)
 
-    with pytest.raises(RuntimeError, match="CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY"):
+    with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN"):
         get_auth_mode()
 
 
