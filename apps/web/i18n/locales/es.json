@@ -11,5 +11,15 @@
       "taxId": "Identificación",
       "email": "Correo"
     }
+  },
+  "auth": {
+    "signIn": "Iniciar sesión con Google",
+    "signOut": "Cerrar sesión",
+    "signedInAs": "Sesión iniciada como {email}",
+    "errors": {
+      "missingClientId": "Falta configurar NUXT_PUBLIC_GOOGLE_CLIENT_ID",
+      "popupClosed": "Se cerró la ventana de Google antes de completar el inicio de sesión",
+      "driveDenied": "No se otorgaron permisos de lectura sobre Google Drive"
+    }
   }
 }
