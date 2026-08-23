@@ -1,11 +1,13 @@
 import { HttpClientRepository } from '~/infrastructure/http/http-client-repository'
 import { HttpDocumentRepository } from '~/infrastructure/http/http-document-repository'
 import { HttpDocumentTypeRepository } from '~/infrastructure/http/http-document-type-repository'
+import { HttpSpreadsheetRepository } from '~/infrastructure/http/http-spreadsheet-repository'
 import { ServerSessionAuthProvider } from '~/infrastructure/auth/server-session-auth-provider'
 import { GetClient } from '~/application/use-cases/get-client'
 import { ListClients } from '~/application/use-cases/list-clients'
 import { ListClientDocuments } from '~/application/use-cases/list-client-documents'
 import { ListActiveDocumentTypes } from '~/application/use-cases/list-active-document-types'
+import { ListClientSheetRows } from '~/application/use-cases/list-client-sheet-rows'
 import { RegisterClient } from '~/application/use-cases/register-client'
 import { GetDocument } from '~/application/use-cases/get-document'
 import { GetDocumentExtractedData } from '~/application/use-cases/get-document-extracted-data'
@@ -32,6 +34,11 @@ export function useDocumentTypeRepository() {
   return new HttpDocumentTypeRepository(config.public.serverApiBase)
 }
 
+export function useSpreadsheetRepository() {
+  const config = useRuntimeConfig()
+  return new HttpSpreadsheetRepository(config.public.serverApiBase)
+}
+
 export function useListClientsUseCase() {
   return new ListClients(useClientRepository())
 }
@@ -54,6 +61,10 @@ export function useListDocumentTypesUseCase() {
 
 export function useDefineDocumentTypeUseCase() {
   return new DefineDocumentType(useDocumentTypeRepository())
+}
+
+export function useListClientSheetRowsUseCase() {
+  return new ListClientSheetRows(useSpreadsheetRepository())
 }
 
 export function useRegisterClientUseCase() {

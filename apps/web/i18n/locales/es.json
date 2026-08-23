@@ -142,5 +142,24 @@
       "drive_denied": "No se otorgaron permisos de lectura sobre Google Drive",
       "server": "El servidor no pudo completar el inicio de sesión; revisa sus logs"
     }
+  },
+  "sheets": {
+    "title": "Hojas de cálculo",
+    "error": "No pudimos cargar la hoja de cálculo.",
+    "emptyRows": "Este cliente todavía no tiene filas aprobadas.",
+    "rowCount": "{count} filas aprobadas",
+    "openInSheets": "Abrir en Google Sheets",
+    "openInSheetsDisabled": "Sin hoja vinculada",
+    "status": {
+      "synced": "Sincronizada",
+      "pendingExport": "Pendiente de exportar"
+    },
+    "columns": {
+      "date": "Fecha",
+      "description": "Descripción",
+      "sourceDocument": "Documento origen",
+      "amount": "Valor",
+      "tax": "IVA"
+    }
   }
 }

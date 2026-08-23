@@ -13,6 +13,7 @@ interface ClientDto {
   created_at: string
   drive_folder_id: string | null
   drive_folder_url: string | null
+  spreadsheet_url: string | null
 }
 
 interface ImportDto {
@@ -29,7 +30,8 @@ function toClient(dto: ClientDto): Client {
     email: dto.email,
     createdAt: dto.created_at,
     driveFolderId: dto.drive_folder_id,
-    driveFolderUrl: dto.drive_folder_url
+    driveFolderUrl: dto.drive_folder_url,
+    spreadsheetUrl: dto.spreadsheet_url
   }
 }
 

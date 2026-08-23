@@ -142,5 +142,24 @@
       "drive_denied": "Read access to Google Drive was not granted",
       "server": "The server could not complete the sign-in; check its logs"
     }
+  },
+  "sheets": {
+    "title": "Spreadsheets",
+    "error": "We couldn't load the spreadsheet.",
+    "emptyRows": "This client doesn't have any approved rows yet.",
+    "rowCount": "{count} approved rows",
+    "openInSheets": "Open in Google Sheets",
+    "openInSheetsDisabled": "No sheet linked",
+    "status": {
+      "synced": "Synced",
+      "pendingExport": "Pending export"
+    },
+    "columns": {
+      "date": "Date",
+      "description": "Description",
+      "sourceDocument": "Source document",
+      "amount": "Amount",
+      "tax": "Tax"
+    }
   }
 }
