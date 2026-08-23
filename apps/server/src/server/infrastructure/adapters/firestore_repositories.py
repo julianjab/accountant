@@ -100,8 +100,14 @@ class FirestoreDocumentRepository:
         query = self._collection.where("client_id", "==", client_id)
         return [self._to_entity(d.id, d.to_dict()) for d in query.stream()]
 
-    def get_by_drive_file_id(self, drive_file_id: str) -> Document | None:
-        query = self._collection.where("drive_file_id", "==", drive_file_id).limit(1)
+    def get_by_drive_file_id_and_client(
+        self, drive_file_id: str, client_id: str
+    ) -> Document | None:
+        query = (
+            self._collection.where("drive_file_id", "==", drive_file_id)
+            .where("client_id", "==", client_id)
+            .limit(1)
+        )
         for snapshot in query.stream():
             return self._to_entity(snapshot.id, snapshot.to_dict())
         return None

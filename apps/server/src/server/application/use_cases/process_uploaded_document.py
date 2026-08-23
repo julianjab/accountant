@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from server.domain.entities import Document, DocumentStatus, ExtractedData
 from server.domain.ports import (
     DocumentClassifier,
+    DocumentContent,
     DocumentRepository,
     DocumentStorage,
     DocumentTypeRepository,
@@ -43,6 +44,9 @@ class ProcessUploadedDocument:
         self._extracted_data = extracted_data
 
     def execute(self, data: ProcessUploadedDocumentInput) -> Document:
+        # Nothing is persisted until this succeeds, so a caller (the Drive
+        # webhook's at-least-once retry) can safely treat a raised exception
+        # here as "nothing happened yet, try again".
         content = self._storage.download(data.file_reference)
 
         document = Document(
@@ -58,6 +62,21 @@ class ProcessUploadedDocument:
         )
         self._documents.save(document)
 
+        # From here on, every step writes to `document`'s row. Letting an
+        # exception (a classifier/OCR timeout, a transient Firestore error, a
+        # 5xx from Anthropic, ...) escape past this point would leave that row
+        # stuck in CLASSIFYING/RUNNING_OCR forever with no visible error and no
+        # safe way for a caller to retry without risking a duplicate document
+        # for the same file. Converting it to a FAILED document instead keeps
+        # `execute` always returning a terminal, inspectable result.
+        try:
+            return self._classify_and_extract(document, content)
+        except Exception as exc:
+            document = _with_error(document, str(exc))
+            self._documents.save(document)
+            return document
+
+    def _classify_and_extract(self, document: Document, content: DocumentContent) -> Document:
         available_types = self._document_types.list_active()
         document_type = self._classifier.classify(content, available_types)
         if document_type is None:

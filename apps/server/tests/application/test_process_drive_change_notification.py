@@ -74,12 +74,14 @@ class FakeDocumentRepository:
         # Maps drive_file_id -> the client_id the existing document belongs to.
         self._existing = dict(existing or {})
 
-    def get_by_drive_file_id(self, drive_file_id: str) -> Document | None:
-        if drive_file_id not in self._existing:
+    def get_by_drive_file_id_and_client(
+        self, drive_file_id: str, client_id: str
+    ) -> Document | None:
+        if self._existing.get(drive_file_id) != client_id:
             return None
         return Document(
             id="existing-doc",
-            client_id=self._existing[drive_file_id],
+            client_id=client_id,
             document_type_id=None,
             drive_file_id=drive_file_id,
             file_name="invoice.pdf",

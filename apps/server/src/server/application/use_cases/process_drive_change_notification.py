@@ -109,8 +109,10 @@ class ProcessDriveChangeNotification:
                 # channel/client already has for this same Drive file id does
                 # not count: claims are per-channel, so this channel still owes
                 # its own client a document.
-                existing = self._documents.get_by_drive_file_id(file.id)
-                if existing is not None and existing.client_id == channel.client_id:
+                existing = self._documents.get_by_drive_file_id_and_client(
+                    file.id, channel.client_id
+                )
+                if existing is not None:
                     continue
 
                 attempts = self._claims.record_failure(claim_key)
