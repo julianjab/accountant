@@ -8,13 +8,15 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "anthropic>=1.0.0",
     "fastapi>=0.141.1",
     "google-api-python-client>=2.199.0",
     "google-auth>=2.56.3",
     "google-auth-oauthlib>=1.4.0",
+    "httpx>=0.28.1",
     "pydantic-settings>=2.15.0",
+    "python-dotenv>=1.2.3",
     "python-multipart>=0.0.32",
+    "pyyaml>=6.0.3",
     "uvicorn[standard]>=0.52.4",
 ]
 

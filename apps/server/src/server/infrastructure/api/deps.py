@@ -1,7 +1,5 @@
 from functools import lru_cache
 
-import anthropic
-
 from server.application.use_cases import (
     DefineDocumentType,
     GetExtractedData,
@@ -22,7 +20,10 @@ from server.infrastructure.adapters.in_memory_repositories import (
     InMemoryDocumentTypeRepository,
     InMemoryExtractedDataRepository,
 )
+from server.infrastructure.config.prompts import PromptsConfig, get_prompts
 from server.infrastructure.config.settings import Settings
+from server.infrastructure.providers.ai_provider import AIProvider
+from server.infrastructure.providers.anthropic_provider import AnthropicProvider
 
 
 @lru_cache
@@ -30,9 +31,13 @@ def get_settings() -> Settings:
     return Settings()
 
 
+def get_prompts_config() -> PromptsConfig:
+    return get_prompts()
+
+
 @lru_cache
-def get_anthropic_client() -> anthropic.Anthropic:
-    return anthropic.Anthropic(api_key=get_settings().anthropic_api_key)
+def get_ai_provider() -> AIProvider:
+    return AnthropicProvider()
 
 
 @lru_cache
@@ -63,19 +68,27 @@ def get_document_storage() -> GoogleDriveStorage:
 @lru_cache
 def get_document_classifier() -> ClaudeDocumentClassifier:
     settings = get_settings()
-    return ClaudeDocumentClassifier(get_anthropic_client(), settings.anthropic_model)
+    return ClaudeDocumentClassifier(
+        get_ai_provider(), settings.anthropic_model, get_prompts_config().document_classification
+    )
 
 
 @lru_cache
 def get_ocr_engine() -> ClaudeOcrEngine:
     settings = get_settings()
-    return ClaudeOcrEngine(get_anthropic_client(), settings.anthropic_model)
+    return ClaudeOcrEngine(
+        get_ai_provider(), settings.anthropic_model, get_prompts_config().ocr_extraction
+    )
 
 
 @lru_cache
 def get_document_type_configurator() -> ClaudeDocumentTypeConfigurator:
     settings = get_settings()
-    return ClaudeDocumentTypeConfigurator(get_anthropic_client(), settings.anthropic_model)
+    return ClaudeDocumentTypeConfigurator(
+        get_ai_provider(),
+        settings.anthropic_model,
+        get_prompts_config().document_type_configuration,
+    )
 
 
 def get_register_client_use_case() -> RegisterClient:

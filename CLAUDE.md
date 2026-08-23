@@ -51,6 +51,27 @@ There is currently no real persistence layer — repositories are in-memory adap
 (`apps/server/src/server/infrastructure/adapters/in_memory_repositories.py`), swappable behind
 the same `domain/ports` without touching use cases once a DB is chosen.
 
+### Talking to Anthropic
+
+`infrastructure/providers/` is a second, lower-level abstraction that sits *inside*
+infrastructure (not `domain/ports` — it's a transport detail, not a business capability):
+
+- `ai_provider.py` — the `AIProvider` `Protocol` (`create_message(...)`) that the three
+  Claude-backed adapters (`ClaudeDocumentClassifier`, `ClaudeOcrEngine`,
+  `ClaudeDocumentTypeConfigurator`) depend on.
+- `anthropic_http_client.py` — the one place that calls `httpx` against the Messages API:
+  URL/version/beta-header constants and header/auth builders. No SDK, no error classification.
+- `anthropic_provider.py` — `AnthropicProvider`, the `AIProvider` implementation built on the
+  above. Auth is a Claude Code OAuth token (`CLAUDE_CODE_OAUTH_TOKEN`, read directly from the
+  process env — not an `ACCOUNTANT_`-prefixed setting), reusing Claude Code/subscription auth
+  instead of a billed API key.
+
+All prompt text (system prompts + instruction templates) lives in `apps/server/config/prompts.yaml`,
+loaded via `infrastructure/config/prompts.py::get_prompts()` — edit the YAML to iterate on
+prompts without touching adapter code. Per-document-type `extraction_prompt`/`extraction_schema`
+(the Config UI output) stay on the `DocumentType` entity itself; the YAML only holds the
+system-level prompts these adapters always send.
+
 ## Conventions
 
 - **All code (identifiers, comments, commit messages) is in English.** User-facing text is

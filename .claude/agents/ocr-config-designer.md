@@ -18,6 +18,9 @@ Read `/CLAUDE.md` first for the domain model and processing flow.
   against a document type's stored prompt + schema.
 - The `extraction_schema`/`extraction_prompt` pairs stored on `DocumentType` entities
   themselves.
+- The system-level prompts in `apps/server/config/prompts.yaml` (`document_classification`,
+  `document_type_configuration`, `ocr_extraction`) — these are what the three adapters above
+  always send; edit the YAML to iterate on them, no code change needed.
 
 ## Design rules
 
@@ -29,8 +32,9 @@ Read `/CLAUDE.md` first for the domain model and processing flow.
   PDF and this prompt — name the document type, call out fields that are easy to
   misread (handwriting, stamps, low-contrast tables), and state how to handle a field that's
   genuinely absent (omit vs. null — match the schema's `required` list).
-- Classification prompts (`_build_prompt` in the classifier) must stay generic — they list
-  whatever document types exist at call time, no document-type-specific hardcoding.
+- The `document_classification.instructions_template` in `prompts.yaml` must stay generic — it
+  lists whatever document types exist at call time (via `{options}`), no document-type-specific
+  hardcoding.
 - Never invent a schema from memory for a document you haven't seen: base every schema/prompt
   change on an actual sample document the user provides, or on the current stored config plus
   a described failure mode.
@@ -38,5 +42,5 @@ Read `/CLAUDE.md` first for the domain model and processing flow.
 ## Before you're done
 
 Run `cd apps/server && uv run ruff format . && uv run ruff check --fix . && uv run pytest`.
-If you changed prompt-building logic (not just a document type's stored config), add/update a
-test with a fake Anthropic response under `tests/`.
+If you changed prompt-building logic (not just a document type's stored config or the YAML
+text), add/update a test with a fake `AIProvider` under `tests/`.

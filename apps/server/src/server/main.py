@@ -1,6 +1,9 @@
+from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from server.infrastructure.api.routers import clients, document_types, documents, drive_webhook
+
+load_dotenv()
 
 app = FastAPI(title="Accountant OCR Server")
 
