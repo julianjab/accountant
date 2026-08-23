@@ -52,7 +52,10 @@ export class HttpClientRepository implements ClientRepository {
 
   async get(id: string): Promise<Client | null> {
     try {
-      const dto = await $fetch<ClientDto>(`/clients/${id}`, { baseURL: this.baseUrl })
+      const dto = await $fetch<ClientDto>(`/clients/${id}`, {
+        baseURL: this.baseUrl,
+        credentials: 'include'
+      })
       return toClient(dto)
     } catch (error) {
       if (isNotFoundError(error)) {

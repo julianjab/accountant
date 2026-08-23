@@ -21,6 +21,7 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
   async listActive(): Promise<DocumentType[]> {
     const dtos = await $fetch<DocumentTypeDto[]>('/document-types', {
       baseURL: this.baseUrl,
+      credentials: 'include',
       query: { active_only: true }
     })
     return dtos.map(toDocumentType)

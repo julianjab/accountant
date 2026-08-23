@@ -32,7 +32,8 @@ export class HttpDocumentRepository implements DocumentRepository {
 
   async listByClient(clientId: string): Promise<ClientDocument[]> {
     const dtos = await $fetch<DocumentDto[]>(`/clients/${clientId}/documents`, {
-      baseURL: this.baseUrl
+      baseURL: this.baseUrl,
+      credentials: 'include'
     })
     return dtos.map(toClientDocument)
   }
