@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DocumentStatus } from '~/domain/entities/document'
 
-const VALID_STATUSES: DocumentStatus[] = ['pending', 'classifying', 'running_ocr', 'processed', 'failed']
+const VALID_STATUSES: DocumentStatus[] = ['pending', 'classifying', 'running_ocr', 'processed', 'approved', 'failed']
 
 const { t } = useI18n()
 const route = useRoute()
