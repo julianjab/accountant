@@ -27,9 +27,8 @@ router = APIRouter(prefix="/auth/google", tags=["auth"])
 
 STATE_COOKIE = "accountant_oauth_state"
 
-# The session lives as long as the refresh token stays valid; the cookie is what
-# makes the login survive a browser restart.
-SESSION_MAX_AGE = 60 * 60 * 24 * 30  # matches the server-side absolute cap
+# The cookie is what makes the login survive a browser restart; its lifetime is
+# derived from the server-side cap so the two can never drift apart.
 STATE_MAX_AGE = 60 * 10
 
 
@@ -98,7 +97,8 @@ def callback(
         return _failed(settings, "exchange")
 
     response = RedirectResponse(settings.web_app_url, status_code=307)
-    _set_cookie(response, SESSION_COOKIE, session.id, SESSION_MAX_AGE, settings)
+    session_max_age = settings.session_max_age_days * 24 * 60 * 60
+    _set_cookie(response, SESSION_COOKIE, session.id, session_max_age, settings)
     response.delete_cookie(STATE_COOKIE, path="/")
     return response
 

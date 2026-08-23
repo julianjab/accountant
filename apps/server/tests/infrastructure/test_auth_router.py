@@ -211,3 +211,26 @@ def test_logout_clears_the_session_and_revokes_the_grant(client, sessions, oauth
 
 def test_logout_without_a_session_is_a_no_op(client):
     assert client.post("/auth/google/logout").status_code == 204
+
+
+def test_the_session_cookie_lifetime_tracks_the_server_side_cap(client, monkeypatch):
+    configure_oauth(monkeypatch)
+    monkeypatch.setattr(deps.get_settings(), "session_max_age_days", 2)
+    client.cookies.set(STATE_COOKIE, "s1")
+
+    response = client.get("/auth/google/callback", params={"code": "c", "state": "s1"})
+
+    # A cookie outliving the server-side cut-off would show 401s instead of a
+    # clean re-login.
+    cookie = response.headers["set-cookie"]
+    assert f"Max-Age={2 * 24 * 60 * 60}" in cookie
+
+
+def test_a_failed_callback_clears_the_single_use_state_cookie(client, monkeypatch):
+    configure_oauth(monkeypatch)
+    client.cookies.set(STATE_COOKIE, "s1")
+
+    response = client.get("/auth/google/callback", params={"code": "c", "state": "forged"})
+
+    # Leaving it behind would let a later forged callback replay it.
+    assert f'{STATE_COOKIE}=""' in response.headers["set-cookie"]
