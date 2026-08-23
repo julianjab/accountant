@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from server.domain.entities import GoogleSession
 from server.domain.ports import GoogleOAuthClient, OAuthGrantRevoked, SessionRepository
@@ -12,16 +12,25 @@ class GetGoogleSession:
     refresh token.
     """
 
-    def __init__(self, oauth: GoogleOAuthClient, sessions: SessionRepository) -> None:
+    def __init__(
+        self, oauth: GoogleOAuthClient, sessions: SessionRepository, max_age: timedelta
+    ) -> None:
         self._oauth = oauth
         self._sessions = sessions
+        self._max_age = max_age
 
     def execute(self, session_id: str) -> GoogleSession | None:
         session = self._sessions.get(session_id)
         if session is None:
             return None
 
-        if not session.is_expired(datetime.now(UTC)):
+        now = datetime.now(UTC)
+        if now - session.created_at >= self._max_age:
+            # An absolute cap, so a stolen session cannot be renewed forever.
+            self._sessions.delete(session_id)
+            return None
+
+        if not session.is_expired(now):
             return session
 
         try:

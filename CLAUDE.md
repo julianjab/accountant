@@ -64,6 +64,12 @@ session id delivered as an httpOnly cookie, and renews the access token on deman
 (`GetGoogleSession`). This is what makes a login survive reloads, and it is the same grant the
 server will use to read a user's Drive on their behalf.
 
+Authentication is not authorization: `ACCOUNTANT_ALLOWED_SIGN_INS` (emails and/or `@domains`)
+gates who may establish a session at all, and it is empty by default so a misconfigured deploy
+locks everyone out rather than letting any Google account read the clients' tax data. Every
+business router carries `require_session`; only `/health` and the Drive webhook (guarded by its
+own shared secret) are open.
+
 The `state` nonce is stored in its own short-lived cookie and compared in the callback, so a
 forged callback cannot establish a session. Sessions live in the `sessions` Firestore
 collection and hold refresh tokens — never expose it through an API, and deny all client access
