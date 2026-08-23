@@ -62,9 +62,11 @@ infrastructure (not `domain/ports` — it's a transport detail, not a business c
 - `anthropic_http_client.py` — the one place that calls `httpx` against the Messages API:
   URL/version/beta-header constants and header/auth builders. No SDK, no error classification.
 - `anthropic_provider.py` — `AnthropicProvider`, the `AIProvider` implementation built on the
-  above. Auth is a Claude Code OAuth token (`CLAUDE_CODE_OAUTH_TOKEN`, read directly from the
-  process env — not an `ACCOUNTANT_`-prefixed setting), reusing Claude Code/subscription auth
-  instead of a billed API key.
+  above. Auth (`get_auth_mode()`) is read directly from the process env, not an
+  `ACCOUNTANT_`-prefixed setting: `ANTHROPIC_API_KEY` (a standard, billed key — the right
+  choice for a server, and preferred when both are set) or, only as a local-dev fallback when
+  no key is configured, `CLAUDE_CODE_OAUTH_TOKEN` (reuses Claude Code/subscription auth; the
+  request then requires the Claude Code identifying system block to be accepted).
 
 All prompt text (system prompts + instruction templates) lives in
 `apps/server/src/server/infrastructure/config/prompts.yaml`, loaded via
