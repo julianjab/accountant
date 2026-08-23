@@ -32,6 +32,14 @@ data from it via a multimodal AI.
   Drive/Sheets integration (uploading documents, exporting extracted data).
 - Root: `bun` workspaces (JS side only — `apps/server` is managed independently via `uv`).
 
+### Running the server during a login
+
+`uv run server` autoreloads, which restarts the process on every file change and
+therefore drops the in-memory repositories mid-flow — an OAuth callback can land on a
+server that no longer remembers the `state` it issued, or the session it just stored.
+Use `uv run server-noreload` (`bun run server:serve`) while exercising the login, or
+configure `ACCOUNTANT_FIRESTORE_PROJECT` so sessions outlive a restart.
+
 ## Architecture — hexagonal, in both apps
 
 Both `apps/server` and `apps/web` follow ports & adapters, SOLID-first:
@@ -119,12 +127,13 @@ bun run dev / build / lint / typecheck / test
 
 # server (apps/server)
 uv run server                              # dev server (uvicorn --reload)
+uv run server-noreload                     # same, without autoreload (see below)
 uv run ruff format . && uv run ruff check --fix .
 uv run pytest
 
 # from repo root
 bun run web:dev / web:lint / web:test
-bun run server:dev / server:lint / server:test
+bun run server:dev / server:serve / server:lint / server:test
 bun run lint   # both apps
 bun run test   # both apps
 ```

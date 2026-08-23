@@ -23,6 +23,7 @@ dependencies = [
 
 [project.scripts]
 server = "server:main"
+server-noreload = "server:serve"
 
 [build-system]
 requires = ["uv_build>=0.9.7,<0.10.0"]
