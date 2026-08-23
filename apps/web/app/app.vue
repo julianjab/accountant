@@ -12,24 +12,8 @@ useSeoMeta({
 
 <template>
   <UApp>
-    <UHeader>
-      <template #left>
-        <NuxtLink
-          to="/"
-          class="font-semibold"
-        >
-          {{ t('app.name') }}
-        </NuxtLink>
-      </template>
-
-      <template #right>
-        <GoogleSignInButton />
-        <UColorModeButton />
-      </template>
-    </UHeader>
-
-    <UMain>
+    <NuxtLayout>
       <NuxtPage />
-    </UMain>
+    </NuxtLayout>
   </UApp>
 </template>
