@@ -185,10 +185,43 @@ def test_session_round_trips_including_the_refresh_token():
         access_token="at",
         refresh_token="rt",
         expires_at=NOW + timedelta(hours=1),
+        created_at=NOW,
     )
     repo.save(session)
 
     assert repo.get("s1") == session
+
+
+def test_signing_in_again_clears_the_user_previous_sessions():
+    repo = FirestoreSessionRepository(FakeFirestore())
+    user = GoogleUser(email="a@b.com", name="A B", picture=None)
+    for session_id in ("s1", "s2"):
+        repo.save(
+            GoogleSession(
+                id=session_id,
+                user=user,
+                access_token="at",
+                refresh_token="rt",
+                expires_at=NOW,
+                created_at=NOW,
+            )
+        )
+    repo.save(
+        GoogleSession(
+            id="other",
+            user=GoogleUser(email="z@b.com", name="Z", picture=None),
+            access_token="at",
+            refresh_token="rt",
+            expires_at=NOW,
+            created_at=NOW,
+        )
+    )
+
+    repo.delete_for_user("a@b.com")
+
+    assert repo.get("s1") is None
+    assert repo.get("s2") is None
+    assert repo.get("other") is not None
 
 
 def test_session_get_returns_none_when_absent_and_delete_is_idempotent():

@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 
 from server.domain.entities import GoogleSession
 from server.domain.ports import GoogleOAuthClient, SessionRepository
@@ -25,12 +26,18 @@ class CompleteGoogleSignIn:
             raise MissingRefreshToken
 
         user = self._oauth.fetch_user(tokens.access_token)
+        # Each sign-in forces re-consent and yields a fresh refresh token, so
+        # keeping the old ones would leave live Drive credentials lying around
+        # with no way to reach them.
+        self._sessions.delete_for_user(user.email)
+
         session = GoogleSession(
             id=uuid.uuid4().hex,
             user=user,
             access_token=tokens.access_token,
             refresh_token=tokens.refresh_token,
             expires_at=tokens.expires_at,
+            created_at=datetime.now(UTC),
         )
         self._sessions.save(session)
         return session

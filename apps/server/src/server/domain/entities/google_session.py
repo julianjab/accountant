@@ -1,5 +1,9 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+
+# Renew slightly early: a token handed out at the edge of its life would fail
+# mid-request against Drive.
+CLOCK_SKEW = timedelta(seconds=60)
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +26,7 @@ class GoogleSession:
     access_token: str
     refresh_token: str
     expires_at: datetime
+    created_at: datetime
 
     def is_expired(self, now: datetime) -> bool:
-        return now >= self.expires_at
+        return now >= self.expires_at - CLOCK_SKEW

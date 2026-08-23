@@ -196,6 +196,9 @@ class FirestoreSessionRepository:
                 "access_token": session.access_token,
                 "refresh_token": session.refresh_token,
                 "expires_at": session.expires_at,
+                # Also the field a Firestore TTL policy should be configured on,
+                # so abandoned grants do not live forever.
+                "created_at": session.created_at,
             }
         )
 
@@ -211,7 +214,12 @@ class FirestoreSessionRepository:
             access_token=data["access_token"],
             refresh_token=data["refresh_token"],
             expires_at=_as_utc(data["expires_at"]),
+            created_at=_as_utc(data["created_at"]),
         )
 
     def delete(self, session_id: str) -> None:
         self._collection.document(session_id).delete()
+
+    def delete_for_user(self, email: str) -> None:
+        for snapshot in self._collection.where("email", "==", email).stream():
+            self._collection.document(snapshot.id).delete()

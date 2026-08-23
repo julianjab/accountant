@@ -81,3 +81,7 @@ class InMemorySessionRepository:
 
     def delete(self, session_id: str) -> None:
         self._items.pop(session_id, None)
+
+    def delete_for_user(self, email: str) -> None:
+        for session_id in [k for k, v in self._items.items() if v.user.email == email]:
+            del self._items[session_id]
