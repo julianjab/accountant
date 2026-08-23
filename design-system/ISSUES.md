@@ -18,7 +18,7 @@ Hoy `apps/web` es la plantilla de Nuxt UI con un `UHeader`, el botón de Google 
 
 **Alcance**
 
-- [ ] #A Tokens de diseño y shell (barra lateral + topbar)
+- [x] #A Tokens de diseño y shell (barra lateral + topbar)
 - [ ] #B Bandeja de entrada agrupada por cliente
 - [ ] #C Ficha de cliente
 - [ ] #D Revisión de documento y datos extraídos
@@ -37,22 +37,27 @@ Hoy `apps/web` es la plantilla de Nuxt UI con un `UHeader`, el botón de Google 
 
 ---
 
-## A. Tokens de diseño y shell de la app
+## A. Tokens de diseño y shell de la app — ✅ implementado
 
-Ref: `design_handoff_contador/README.md` → "Design Tokens" y "Screens / Views § 1".
+Ref: `design-system/README.md` → "Design Tokens" y "Screens / Views § 1".
 
-**Tareas**
+**Implementado** (branch `feat/design-tokens-app-shell`):
 
-- [ ] Añadir a `@theme` en `apps/web/app/assets/css/main.css` los neutros de tinta verdosa, los colores de estado de documento, la paleta de avatares y la escala tipográfica. La escala verde ya está y no cambia.
-- [ ] Añadir `JetBrains Mono` como `--font-mono` (autoalojada o vía `@nuxt/fonts`). Public Sans ya está declarada.
-- [ ] `layouts/default.vue`: barra lateral de 238px sobre `#0C1512` + topbar de 62px, sustituyendo el `UHeader` de `app.vue`.
-- [ ] Mover `GoogleSignInButton` al pie de la barra lateral con el formato "correo / Drive · solo lectura" + "Cerrar sesión".
-- [ ] Iconos con Lucide (`inbox`, `users`, `settings`, `table`, `search`, `arrow-left`) — `@iconify-json/lucide` ya está en `package.json`. Los glifos unicode del prototipo son marcadores, no el diseño final.
-- [ ] Miga de pan en el topbar, en monoespaciada minúscula.
+- [x] `apps/web/app/assets/css/main.css` — `@theme static` extendido con los neutros de tinta verdosa (mapeados a una escala estándar `--color-neutral-50..950` para que sirvan como `ui.colors.neutral` de Nuxt UI, más alias exactos `--color-paper-*`/`--color-line-*` para los valores que no caen limpio en esa escala), los 5 estados reales de `Document.status` (`pending | classifying | running_ocr | processed | failed`, no los 4 genéricos que proponía el issue original), la paleta de 6 avatares (no 8), la escala tipográfica nombrada (`--text-label/meta/small/body/section/title/display`) y su alias en convención Tailwind (`--text-xs..3xl`), y `--font-mono: 'JetBrains Mono', ui-monospace, monospace;`. La escala verde no se tocó.
+- [x] `apps/web/nuxt.config.ts` — `@nuxt/fonts` registrado en `modules`, con `fonts.families` para `Public Sans` y `JetBrains Mono` (Google provider; no hubo que autoalojar).
+- [x] `apps/web/app/app.config.ts` — `ui.colors.neutral` pasó de `'slate'` a `'neutral'` (la escala nueva).
+- [x] `apps/web/app/layouts/default.vue` — grid sidebar (238px, `bg-neutral-950` = `#0C1512`) + contenido; `apps/web/app/app.vue` quedó en `UApp` + `NuxtLayout` + `NuxtPage`, sin `UHeader`.
+- [x] `apps/web/app/components/AppSidebar.vue` — marca placeholder (cuadro verde "C"), nav de **4 ítems reales del doc de diseño** (Bandeja `/` `i-lucide-inbox`, Clientes `/clients` `i-lucide-users`, Tipos de documento `/document-types` `i-lucide-settings`, Hojas de cálculo `/sheets` `i-lucide-table`), estado activo con `aria-current="page"`, slot `#auth`.
+- [x] `apps/web/app/components/AppSidebarAuth.vue` — el `GoogleSignInButton` real (de la tarea de Google Auth, ya en `main` antes que ésta) reubicado al pie de la sidebar con avatar + correo + "Drive · solo lectura" + "Cerrar sesión" cuando hay sesión; el propio `GoogleSignInButton` cuando no la hay. No hizo falta un placeholder tipado nuevo — el componente real ya existía.
+- [x] `apps/web/app/components/AppTopbar.vue` + `AppBreadcrumb.vue` — 62px, breadcrumb mono minúscula formato `inicio / <sección>` (igual al prototipo `Sidebar.jsx`/`Topbar.jsx`, no el `segmento · segmento` que proponía el issue original), buscador no funcional (`i-lucide-search`, atajo `⌘K`), slot de acciones con `UColorModeButton`.
+- [x] Iconos: sólo `@iconify-json/lucide` (`inbox`, `users`, `settings`, `table`, `search` usados; `arrow-left` queda reservado para la tarea D — revisión de documento). Sin glifos unicode.
+- [x] i18n: claves nuevas `nav.*`, `breadcrumb.home`, `topbar.search`, `auth.driveReadOnly`, `auth.signedOut` en `es.json`/`en.json`.
 
-**Criterio de aceptación**: navegar entre secciones mantiene el shell, el ítem activo y la miga de pan correctos.
+**Desvíos respecto al enunciado original**: el issue se redactó antes de que `design-system/` llegara al repo (commit `b03b96e`), así que sus "Open questions" (hex de neutros/estados/avatares, nav de 3 ítems con un "Ajustes" inventado, separador de miga de pan) se descartaron a favor de los valores reales y definitivos del doc. `document-types` y `sheets` son enlaces "muertos" hasta las tareas E/F, igual que `/inbox` (redirige a `/clients` vía `pages/index.vue`, sin cambios en esta tarea).
 
-**Nota**: no existe logotipo. La marca es un cuadro verde con "C" hasta que se entregue uno.
+**Tests**: no se agregaron tests nuevos (componentes de presentación puros, sin lógica de negocio propia — reutilizan `useGoogleAuth`/`GoogleSignInButton`, ya cubiertos). `bun run lint && bun run typecheck && bun run test` en verde (11 tests). Verificado manualmente con `bun run dev`: `/clients` renderiza dentro del shell nuevo, sidebar+breadcrumb correctos, sin errores en consola del server.
+
+**Deuda técnica / fuera de alcance**: sin colapso de sidebar en viewports angostos (`< 1280px`, explícitamente fuera de alcance); escala tipográfica genérica `xl/2xl/3xl` interpolada (el doc de diseño no define esos tamaños, sólo `display`/`title` y hacia abajo — quedan como aproximación razonable hasta que una vista futura la necesite con precisión).
 
 ---
 
