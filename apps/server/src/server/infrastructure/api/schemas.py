@@ -75,3 +75,9 @@ class DriveWebhookPayload(BaseModel):
     client_id: str
     drive_file_id: str
     file_reference: str
+
+
+class GoogleUserResponse(BaseModel):
+    email: str
+    name: str
+    picture: str | None

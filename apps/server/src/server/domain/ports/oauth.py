@@ -1,0 +1,28 @@
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Protocol
+
+from server.domain.entities import GoogleUser
+
+
+@dataclass(frozen=True, slots=True)
+class OAuthTokens:
+    access_token: str
+    refresh_token: str | None
+    expires_at: datetime
+
+
+class OAuthTransportError(Exception):
+    """A call to the OAuth provider failed.
+
+    Declared here so every adapter raises the same type and callers are not
+    coupled to a particular implementation.
+    """
+
+
+class GoogleOAuthClient(Protocol):
+    def authorization_url(self, state: str) -> str: ...
+    def exchange_code(self, code: str) -> OAuthTokens: ...
+    def refresh(self, refresh_token: str) -> OAuthTokens: ...
+    def fetch_user(self, access_token: str) -> GoogleUser: ...
+    def revoke(self, token: str) -> None: ...

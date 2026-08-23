@@ -1,4 +1,11 @@
-from server.domain.entities import Client, Document, DocumentStatus, DocumentType, ExtractedData
+from server.domain.entities import (
+    Client,
+    Document,
+    DocumentStatus,
+    DocumentType,
+    ExtractedData,
+    GoogleSession,
+)
 
 
 class InMemoryClientRepository:
@@ -60,3 +67,17 @@ class InMemoryExtractedDataRepository:
 
     def get_by_document(self, document_id: str) -> ExtractedData | None:
         return self._items.get(document_id)
+
+
+class InMemorySessionRepository:
+    def __init__(self) -> None:
+        self._items: dict[str, GoogleSession] = {}
+
+    def save(self, session: GoogleSession) -> None:
+        self._items[session.id] = session
+
+    def get(self, session_id: str) -> GoogleSession | None:
+        return self._items.get(session_id)
+
+    def delete(self, session_id: str) -> None:
+        self._items.pop(session_id, None)

@@ -1,6 +1,13 @@
 from typing import Protocol
 
-from server.domain.entities import Client, Document, DocumentStatus, DocumentType, ExtractedData
+from server.domain.entities import (
+    Client,
+    Document,
+    DocumentStatus,
+    DocumentType,
+    ExtractedData,
+    GoogleSession,
+)
 
 
 class ClientRepository(Protocol):
@@ -26,3 +33,9 @@ class DocumentTypeRepository(Protocol):
 class ExtractedDataRepository(Protocol):
     def save(self, extracted_data: ExtractedData) -> None: ...
     def get_by_document(self, document_id: str) -> ExtractedData | None: ...
+
+
+class SessionRepository(Protocol):
+    def save(self, session: GoogleSession) -> None: ...
+    def get(self, session_id: str) -> GoogleSession | None: ...
+    def delete(self, session_id: str) -> None: ...
