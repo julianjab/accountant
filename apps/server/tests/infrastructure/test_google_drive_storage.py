@@ -11,7 +11,7 @@ class FakeCredentials:
     pass
 
 
-class FakeFilesRequest:
+class FakeRequest:
     def __init__(self, result: dict) -> None:
         self._result = result
 
@@ -20,28 +20,56 @@ class FakeFilesRequest:
 
 
 class FakeFiles:
-    def __init__(self, get_result: dict, watch_result: dict) -> None:
+    def __init__(self, get_result: dict) -> None:
         self._get_result = get_result
-        self._watch_result = watch_result
-        self.watch_calls: list[dict] = []
 
-    def get(self, **kwargs: object) -> FakeFilesRequest:
-        return FakeFilesRequest(self._get_result)
+    def get(self, **kwargs: object) -> FakeRequest:
+        return FakeRequest(self._get_result)
 
     def get_media(self, **kwargs: object) -> object:
         return object()
 
-    def watch(self, **kwargs: object) -> FakeFilesRequest:
+
+class FakeChanges:
+    def __init__(
+        self, start_page_token_result: dict, watch_result: dict, list_result: dict
+    ) -> None:
+        self._start_page_token_result = start_page_token_result
+        self._watch_result = watch_result
+        self._list_result = list_result
+        self.watch_calls: list[dict] = []
+        self.list_calls: list[dict] = []
+
+    def getStartPageToken(self, **kwargs: object) -> FakeRequest:  # noqa: N802 - matches the Drive API
+        return FakeRequest(self._start_page_token_result)
+
+    def watch(self, **kwargs: object) -> FakeRequest:
         self.watch_calls.append(dict(kwargs))
-        return FakeFilesRequest(self._watch_result)
+        return FakeRequest(self._watch_result)
+
+    def list(self, **kwargs: object) -> FakeRequest:
+        self.list_calls.append(dict(kwargs))
+        return FakeRequest(self._list_result)
 
 
 class FakeDriveClient:
-    def __init__(self, get_result: dict | None = None, watch_result: dict | None = None) -> None:
-        self.files_obj = FakeFiles(get_result or {}, watch_result or {})
+    def __init__(
+        self,
+        get_result: dict | None = None,
+        start_page_token_result: dict | None = None,
+        watch_result: dict | None = None,
+        list_result: dict | None = None,
+    ) -> None:
+        self.files_obj = FakeFiles(get_result or {})
+        self.changes_obj = FakeChanges(
+            start_page_token_result or {}, watch_result or {}, list_result or {}
+        )
 
     def files(self) -> FakeFiles:
         return self.files_obj
+
+    def changes(self) -> FakeChanges:
+        return self.changes_obj
 
 
 def patch_credentials(monkeypatch):
@@ -81,7 +109,17 @@ def test_build_drive_client_uses_the_service_account_file_and_readonly_scope(mon
     assert isinstance(build_calls["credentials"], FakeCredentials)
 
 
-def test_google_drive_watcher_registers_a_web_hook_channel(monkeypatch):
+def test_get_start_page_token_returns_the_cursor(monkeypatch):
+    patch_credentials(monkeypatch)
+    fake_client = FakeDriveClient(start_page_token_result={"startPageToken": "token-1"})
+    monkeypatch.setattr(google_drive_storage, "build", lambda *a, **k: fake_client)
+
+    watcher = GoogleDriveWatcher("service-account.json")
+
+    assert watcher.get_start_page_token() == "token-1"
+
+
+def test_watch_registers_a_web_hook_channel_via_the_changes_api(monkeypatch):
     patch_credentials(monkeypatch)
     fake_client = FakeDriveClient(
         watch_result={
@@ -92,37 +130,85 @@ def test_google_drive_watcher_registers_a_web_hook_channel(monkeypatch):
     monkeypatch.setattr(google_drive_storage, "build", lambda *a, **k: fake_client)
 
     watcher = GoogleDriveWatcher("service-account.json")
-    channel = watcher.watch(
+    registration = watcher.watch(
+        channel_id="channel-1",
         folder_id="folder-1",
         webhook_url="https://example.com/webhooks/drive",
         token="secret-token",
+        start_page_token="token-1",
     )
 
-    [call] = fake_client.files_obj.watch_calls
-    assert call["fileId"] == "folder-1"
+    [call] = fake_client.changes_obj.watch_calls
+    assert call["pageToken"] == "token-1"
+    assert call["body"]["id"] == "channel-1"
     assert call["body"]["type"] == "web_hook"
     assert call["body"]["address"] == "https://example.com/webhooks/drive"
     assert call["body"]["token"] == "secret-token"
-    assert call["body"]["id"]  # a channel id was generated
 
-    assert channel.folder_id == "folder-1"
-    assert channel.resource_id == "resource-1"
-    assert channel.id == call["body"]["id"]
-    assert channel.expires_at == datetime(2025, 1, 1, tzinfo=UTC)
+    assert registration.resource_id == "resource-1"
+    assert registration.expires_at == datetime(2025, 1, 1, tzinfo=UTC)
 
 
-def test_google_drive_watcher_generates_a_unique_channel_id_per_call(monkeypatch):
+def test_watch_defaults_the_expiration_when_drive_omits_it(monkeypatch):
+    patch_credentials(monkeypatch)
+    fake_client = FakeDriveClient(watch_result={"resourceId": "resource-1"})
+    monkeypatch.setattr(google_drive_storage, "build", lambda *a, **k: fake_client)
+
+    before = datetime.now(UTC)
+    watcher = GoogleDriveWatcher("service-account.json")
+    registration = watcher.watch("channel-1", "folder-1", "https://example.com", "token", "token-1")
+
+    assert registration.expires_at > before
+
+
+def test_list_changes_skips_removed_and_missing_files(monkeypatch):
     patch_credentials(monkeypatch)
     fake_client = FakeDriveClient(
-        watch_result={"resourceId": "resource-1", "expiration": "1735689600000"}
+        list_result={
+            "nextPageToken": "token-2",
+            "changes": [
+                {
+                    "fileId": "file-1",
+                    "removed": False,
+                    "file": {
+                        "name": "invoice.pdf",
+                        "mimeType": "application/pdf",
+                        "parents": ["folder-1"],
+                        "trashed": False,
+                    },
+                },
+                {"fileId": "file-2", "removed": True},
+                {"fileId": "file-3", "removed": False},
+            ],
+        }
     )
     monkeypatch.setattr(google_drive_storage, "build", lambda *a, **k: fake_client)
 
     watcher = GoogleDriveWatcher("service-account.json")
-    first = watcher.watch("folder-1", "https://example.com/webhooks/drive", "token")
-    second = watcher.watch("folder-1", "https://example.com/webhooks/drive", "token")
+    page = watcher.list_changes("token-1")
 
-    assert first.id != second.id
+    [call] = fake_client.changes_obj.list_calls
+    assert call["pageToken"] == "token-1"
+
+    assert len(page.files) == 1
+    assert page.files[0].id == "file-1"
+    assert page.files[0].name == "invoice.pdf"
+    assert page.files[0].mime_type == "application/pdf"
+    assert page.files[0].parents == ["folder-1"]
+    assert page.files[0].trashed is False
+    assert page.next_page_token == "token-2"
+
+
+def test_list_changes_falls_back_to_the_new_start_page_token_on_the_last_page(monkeypatch):
+    patch_credentials(monkeypatch)
+    fake_client = FakeDriveClient(list_result={"newStartPageToken": "token-final", "changes": []})
+    monkeypatch.setattr(google_drive_storage, "build", lambda *a, **k: fake_client)
+
+    watcher = GoogleDriveWatcher("service-account.json")
+    page = watcher.list_changes("token-1")
+
+    assert page.files == []
+    assert page.next_page_token == "token-final"
 
 
 def test_google_drive_storage_downloads_a_file(monkeypatch):

@@ -37,6 +37,25 @@ def test_health_stays_open(client):
     assert client.get("/health").status_code == 200
 
 
-def test_the_drive_webhook_stays_open(client):
-    # Google calls it unauthenticated; it is guarded by its own shared secret.
-    assert client.post("/webhooks/drive").status_code != 401
+def test_the_drive_webhook_stays_open(client, monkeypatch):
+    # Google calls it unauthenticated; it is guarded by its own shared secret, not a session cookie.
+    from server.infrastructure.api import deps
+
+    monkeypatch.setattr(deps.get_settings(), "google_drive_webhook_secret", "shared-secret")
+
+    class FakeProcessDriveChangeNotification:
+        def execute(self, channel_id: str, resource_state: str) -> list:
+            return []
+
+    app.dependency_overrides[deps.get_process_drive_change_notification_use_case] = lambda: (
+        FakeProcessDriveChangeNotification()
+    )
+
+    response = client.post(
+        "/webhooks/drive",
+        headers={"X-Goog-Channel-Token": "shared-secret", "X-Goog-Channel-Id": "channel-1"},
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code != 401
