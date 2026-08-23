@@ -22,7 +22,7 @@ const crumbs = computed(() => {
 
 <template>
   <nav aria-label="breadcrumb">
-    <ol class="flex items-center gap-1.5 font-mono text-xs lowercase text-neutral-700">
+    <ol class="flex items-center gap-1.5 font-mono text-xs lowercase text-toned">
       <li
         v-for="(crumb, index) in crumbs"
         :key="index"

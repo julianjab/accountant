@@ -18,10 +18,10 @@ function clearFilter() {
 
 <template>
   <div class="flex flex-col items-center justify-center gap-2 px-4 py-16 text-center">
-    <p class="text-[15px] font-semibold text-neutral-900">
+    <p class="text-[15px] font-semibold text-highlighted">
       {{ t(`inbox.emptyState.${key}.title`) }}
     </p>
-    <p class="text-[13px] text-neutral-700">
+    <p class="text-[13px] text-toned">
       {{ t(`inbox.emptyState.${key}.description`) }}
     </p>
     <UButton

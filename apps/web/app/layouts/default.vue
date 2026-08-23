@@ -1,6 +1,6 @@
 <!-- Desktop-only shell (>= 1280px). Sidebar collapse for narrow viewports is out of scope for now. -->
 <template>
-  <div class="flex h-screen overflow-hidden bg-neutral-100 text-neutral-900">
+  <div class="flex h-screen overflow-hidden bg-muted text-highlighted">
     <AppSidebar>
       <template #auth>
         <AppSidebarAuth />
