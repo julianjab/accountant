@@ -24,6 +24,35 @@
       "email": "Correo"
     }
   },
+  "documents": {
+    "title": "Revisión de documento",
+    "notFound": "No se encontró el documento",
+    "unknownType": "Tipo de documento desconocido",
+    "headerConfidence": "Confianza promedio",
+    "averageConfidence": "Confianza promedio",
+    "approveAndSend": "Aprobar y enviar a hoja",
+    "approveDisabledHint": "Se habilitará cuando se conecte la aprobación (#11)",
+    "errorTitle": "No se pudo procesar el documento",
+    "errorFallback": "Ocurrió un error al procesar este documento",
+    "extractionMissing": "El documento fue procesado pero no se encontraron datos extraídos",
+    "pipeline": {
+      "detected": "Detectado",
+      "classified": "Clasificado",
+      "ocr": "OCR",
+      "ready": "Listo"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "classifying": "Clasificando",
+      "runningOcr": "Extrayendo datos",
+      "processed": "Procesado",
+      "failed": "Falló"
+    },
+    "viewer": {
+      "openInDrive": "Abrir en Drive",
+      "unsupportedMime": "No hay vista previa disponible para este tipo de archivo"
+    }
+  },
   "auth": {
     "signIn": "Iniciar sesión con Google",
     "signOut": "Cerrar sesión",

@@ -110,3 +110,12 @@ NUXT_PUBLIC_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 - Picking files from Drive (Drive Picker), uploading documents, and exporting to Sheets are not
   implemented yet — this only wires up the login and a smoke-tested read call
   (`GET drive/v3/about`).
+
+## Document review (`/documents/[id]`)
+
+The original-document preview in `DocumentViewer.vue` embeds Google's own `/preview` and
+`/thumbnail` URLs directly (no Drive API call, no OAuth token attached to the request). This only
+renders if the signed-in Google account (or "anyone with the link") has access to that specific
+Drive file — a systematic 403/blank preview means the file's sharing settings need to be fixed on
+the Drive side (`GoogleDriveStorage` in `apps/server`), which is out of scope here and tracked as
+a follow-up.
