@@ -35,7 +35,8 @@
       "denied": "No se otorgaron permisos de lectura sobre Google Drive",
       "state": "La respuesta de Google no coincidió con la solicitud; intenta de nuevo",
       "no_refresh": "Google no entregó un token de actualización; revoca el acceso de la app en tu cuenta y vuelve a intentarlo",
-      "exchange": "No se pudo completar el intercambio de credenciales con Google"
+      "exchange": "No se pudo completar el intercambio de credenciales con Google",
+      "not_allowed": "Esta cuenta de Google no tiene acceso a la aplicación"
     }
   }
 }

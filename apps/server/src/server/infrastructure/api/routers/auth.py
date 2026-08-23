@@ -7,6 +7,7 @@ from server.application.use_cases import (
     CompleteGoogleSignIn,
     GetGoogleSession,
     MissingRefreshToken,
+    SignInNotAllowed,
     SignOutGoogle,
     StartGoogleSignIn,
 )
@@ -28,7 +29,7 @@ STATE_COOKIE = "accountant_oauth_state"
 
 # The session lives as long as the refresh token stays valid; the cookie is what
 # makes the login survive a browser restart.
-SESSION_MAX_AGE = 60 * 60 * 24 * 30
+SESSION_MAX_AGE = 60 * 60 * 24 * 30  # matches the server-side absolute cap
 STATE_MAX_AGE = 60 * 10
 
 
@@ -39,7 +40,7 @@ def _set_cookie(response: Response, key: str, value: str, max_age: int, settings
         max_age=max_age,
         httponly=True,
         secure=settings.session_cookie_secure,
-        samesite="lax",
+        samesite=settings.session_cookie_samesite,
         path="/",
     )
 
@@ -60,6 +61,14 @@ def login(
     return response
 
 
+def _failed(settings: Settings, reason: str) -> RedirectResponse:
+    response = RedirectResponse(f"{settings.web_app_url}?auth_error={reason}", status_code=307)
+    # The state nonce is single-use; leaving it behind would let a later forged
+    # callback replay it.
+    response.delete_cookie(STATE_COOKIE, path="/")
+    return response
+
+
 @router.get("/callback")
 def callback(
     code: str | None = None,
@@ -70,21 +79,23 @@ def callback(
     settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
     if error is not None or code is None:
-        return RedirectResponse(f"{settings.web_app_url}?auth_error=denied", status_code=307)
+        return _failed(settings, "denied")
 
     if (
         not state
         or not accountant_oauth_state
         or not secrets.compare_digest(state, accountant_oauth_state)
     ):
-        return RedirectResponse(f"{settings.web_app_url}?auth_error=state", status_code=307)
+        return _failed(settings, "state")
 
     try:
         session = use_case.execute(code)
+    except SignInNotAllowed:
+        return _failed(settings, "not_allowed")
     except MissingRefreshToken:
-        return RedirectResponse(f"{settings.web_app_url}?auth_error=no_refresh", status_code=307)
+        return _failed(settings, "no_refresh")
     except OAuthTransportError:
-        return RedirectResponse(f"{settings.web_app_url}?auth_error=exchange", status_code=307)
+        return _failed(settings, "exchange")
 
     response = RedirectResponse(settings.web_app_url, status_code=307)
     _set_cookie(response, SESSION_COOKIE, session.id, SESSION_MAX_AGE, settings)

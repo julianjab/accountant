@@ -96,6 +96,10 @@ class HttpGoogleOAuthClient:
             raise GoogleOAuthError("Failed to fetch the Google user profile") from exc
 
         payload = response.json()
+        if not payload.get("email_verified", False):
+            # An unverified email can be anything; the allowlist keys on it.
+            raise GoogleOAuthError("The Google account has no verified email")
+
         return GoogleUser(
             email=payload["email"],
             name=payload.get("name", payload["email"]),

@@ -72,10 +72,10 @@ def client(sessions, oauth):
     )
 
     app.dependency_overrides[deps.get_complete_google_sign_in_use_case] = lambda: (
-        CompleteGoogleSignIn(oauth, sessions)
+        CompleteGoogleSignIn(oauth, sessions, lambda _email: True)
     )
     app.dependency_overrides[deps.get_google_session_use_case] = lambda: GetGoogleSession(
-        oauth, sessions
+        oauth, sessions, timedelta(days=30)
     )
     app.dependency_overrides[deps.get_sign_out_google_use_case] = lambda: SignOutGoogle(
         oauth, sessions
@@ -146,7 +146,7 @@ def test_callback_reports_a_grant_without_a_refresh_token(sessions, monkeypatch)
     from server.application.use_cases import CompleteGoogleSignIn
 
     app.dependency_overrides[deps.get_complete_google_sign_in_use_case] = lambda: (
-        CompleteGoogleSignIn(oauth, sessions)
+        CompleteGoogleSignIn(oauth, sessions, lambda _email: True)
     )
     configure_oauth(monkeypatch)
 
@@ -163,7 +163,7 @@ def test_callback_reports_a_failed_exchange(sessions, monkeypatch):
     from server.application.use_cases import CompleteGoogleSignIn
 
     app.dependency_overrides[deps.get_complete_google_sign_in_use_case] = lambda: (
-        CompleteGoogleSignIn(oauth, sessions)
+        CompleteGoogleSignIn(oauth, sessions, lambda _email: True)
     )
     configure_oauth(monkeypatch)
 

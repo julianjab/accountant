@@ -121,7 +121,9 @@ def test_fetch_user_maps_the_profile(monkeypatch):
     monkeypatch.setattr(
         httpx,
         "get",
-        lambda *a, **k: FakeResponse({"email": "a@b.com", "name": "A B", "picture": "p.png"}),
+        lambda *a, **k: FakeResponse(
+            {"email": "a@b.com", "name": "A B", "picture": "p.png", "email_verified": True}
+        ),
     )
 
     user = CLIENT.fetch_user("at")
@@ -132,7 +134,9 @@ def test_fetch_user_maps_the_profile(monkeypatch):
 
 
 def test_fetch_user_falls_back_to_the_email_when_no_name_is_returned(monkeypatch):
-    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse({"email": "a@b.com"}))
+    monkeypatch.setattr(
+        httpx, "get", lambda *a, **k: FakeResponse({"email": "a@b.com", "email_verified": True})
+    )
 
     user = CLIENT.fetch_user("at")
 
@@ -167,3 +171,15 @@ def test_revoke_failure_raises(monkeypatch):
 
     with pytest.raises(GoogleOAuthError):
         CLIENT.revoke("rt")
+
+
+def test_an_unverified_email_is_rejected(monkeypatch):
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *a, **k: FakeResponse({"email": "a@b.com", "email_verified": False}),
+    )
+
+    # The allowlist keys on the email, so an unverified one must not be trusted.
+    with pytest.raises(GoogleOAuthError):
+        CLIENT.fetch_user("at")

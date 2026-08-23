@@ -1,3 +1,4 @@
+from datetime import timedelta
 from functools import lru_cache
 
 from google.cloud.firestore import Client as FirestoreClient
@@ -13,11 +14,13 @@ from server.application.use_cases import (
     RegisterClient,
     SignOutGoogle,
     StartGoogleSignIn,
+    SubscribeDriveWebhook,
 )
 from server.domain.ports import (
     ClientRepository,
     DocumentRepository,
     DocumentTypeRepository,
+    DriveWatcher,
     ExtractedDataRepository,
     GoogleOAuthClient,
     SessionRepository,
@@ -36,7 +39,10 @@ from server.infrastructure.adapters.firestore_repositories import (
     FirestoreExtractedDataRepository,
     FirestoreSessionRepository,
 )
-from server.infrastructure.adapters.google_drive_storage import GoogleDriveStorage
+from server.infrastructure.adapters.google_drive_storage import (
+    GoogleDriveStorage,
+    GoogleDriveWatcher,
+)
 from server.infrastructure.adapters.google_oauth_client import HttpGoogleOAuthClient
 from server.infrastructure.adapters.in_memory_repositories import (
     InMemoryClientRepository,
@@ -105,6 +111,11 @@ def get_extracted_data_repository() -> ExtractedDataRepository:
 @lru_cache
 def get_document_storage() -> GoogleDriveStorage:
     return GoogleDriveStorage(get_settings().google_service_account_file)
+
+
+@lru_cache
+def get_drive_watcher() -> DriveWatcher:
+    return GoogleDriveWatcher(get_settings().google_service_account_file)
 
 
 @lru_cache
@@ -185,12 +196,22 @@ def get_start_google_sign_in_use_case() -> StartGoogleSignIn:
 
 
 def get_complete_google_sign_in_use_case() -> CompleteGoogleSignIn:
-    return CompleteGoogleSignIn(get_google_oauth_client(), get_session_repository())
+    return CompleteGoogleSignIn(
+        get_google_oauth_client(), get_session_repository(), get_settings().allows
+    )
 
 
 def get_google_session_use_case() -> GetGoogleSession:
-    return GetGoogleSession(get_google_oauth_client(), get_session_repository())
+    return GetGoogleSession(
+        get_google_oauth_client(),
+        get_session_repository(),
+        timedelta(days=get_settings().session_max_age_days),
+    )
 
 
 def get_sign_out_google_use_case() -> SignOutGoogle:
     return SignOutGoogle(get_google_oauth_client(), get_session_repository())
+
+
+def get_subscribe_drive_webhook_use_case() -> SubscribeDriveWebhook:
+    return SubscribeDriveWebhook(get_drive_watcher())

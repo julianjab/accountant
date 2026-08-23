@@ -7,6 +7,7 @@ from server.application.use_cases.approve_document import (
 from server.application.use_cases.complete_google_sign_in import (
     CompleteGoogleSignIn,
     MissingRefreshToken,
+    SignInNotAllowed,
 )
 from server.application.use_cases.define_document_type import (
     DefineDocumentType,
@@ -28,6 +29,7 @@ from server.application.use_cases.start_google_sign_in import (
     SignInRedirect,
     StartGoogleSignIn,
 )
+from server.application.use_cases.subscribe_drive_webhook import SubscribeDriveWebhook
 
 __all__ = [
     "ApproveDocument",
@@ -46,7 +48,9 @@ __all__ = [
     "ProcessUploadedDocumentInput",
     "RegisterClient",
     "RegisterClientInput",
+    "SignInNotAllowed",
     "SignInRedirect",
     "SignOutGoogle",
     "StartGoogleSignIn",
+    "SubscribeDriveWebhook",
 ]
