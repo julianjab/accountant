@@ -305,6 +305,23 @@ def test_drive_file_claim_release_allows_claiming_again():
     assert repo.try_claim("file-1") is True
 
 
+def test_drive_file_claim_reclaims_a_stale_claim():
+    # A process that crashed between claiming a file and ever recording an
+    # outcome for it must not wedge that file forever.
+    repo = FirestoreDriveFileClaimRepository(FakeFirestore())
+    repo.try_claim("file-1")
+    repo._collection.document("file-1").set({"claimed_at": NOW - timedelta(minutes=11)})
+
+    assert repo.try_claim("file-1") is True
+
+
+def test_drive_file_claim_does_not_reclaim_a_fresh_claim():
+    repo = FirestoreDriveFileClaimRepository(FakeFirestore())
+    repo.try_claim("file-1")
+
+    assert repo.try_claim("file-1") is False
+
+
 def test_increment_attempts_counts_up_from_a_document_that_may_not_exist_yet():
     # Exercises the wrapped function directly: the @transactional decorator's
     # begin/commit/retry machinery is Firestore's own well-tested code, not

@@ -25,6 +25,7 @@ from server.domain.entities import (
     GoogleSession,
     GoogleUser,
 )
+from server.domain.ports.repositories import CLAIM_STALE_AFTER
 
 CLIENTS = "clients"
 DOCUMENTS = "documents"
@@ -315,7 +316,9 @@ class FirestoreDriveFileClaimRepository:
     A successful claim is never deleted, which is exactly what keeps a
     processed file from being picked up again; a Firestore TTL policy on
     ``claimed_at`` should still be configured so long-abandoned claims for
-    since-deleted channels do not accumulate forever.
+    since-deleted channels do not accumulate forever. A claim older than
+    ``CLAIM_STALE_AFTER`` is reclaimable, which recovers from a process that
+    crashed between claiming a file and ever recording an outcome for it.
     """
 
     def __init__(self, db: FirestoreClient) -> None:
@@ -324,10 +327,23 @@ class FirestoreDriveFileClaimRepository:
         self._failures = db.collection(DRIVE_FILE_CLAIM_FAILURES)
 
     def try_claim(self, key: str) -> bool:
+        doc_ref = self._collection.document(key)
         try:
-            self._collection.document(key).create({"claimed_at": datetime.now(UTC)})
+            doc_ref.create({"claimed_at": datetime.now(UTC)})
+            return True
         except AlreadyExists:
+            pass
+
+        # The claim already exists: only a crashed handler (nothing ever
+        # released or re-recorded an outcome for it) makes it re-claimable.
+        # A small race where two stale-reclaimers both succeed is accepted
+        # rather than eliminated with a transaction: it is already idempotent
+        # downstream, since ProcessUploadedDocument reuses non-PROCESSED rows.
+        existing = doc_ref.get()
+        claimed_at = existing.to_dict().get("claimed_at") if existing.exists else None
+        if claimed_at is not None and datetime.now(UTC) - _as_utc(claimed_at) < CLAIM_STALE_AFTER:
             return False
+        doc_ref.set({"claimed_at": datetime.now(UTC)})
         return True
 
     def release(self, key: str) -> None:

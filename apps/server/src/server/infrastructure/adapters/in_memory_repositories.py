@@ -1,4 +1,5 @@
 import threading
+from datetime import UTC, datetime
 
 from server.domain.entities import (
     Client,
@@ -9,6 +10,7 @@ from server.domain.entities import (
     ExtractedData,
     GoogleSession,
 )
+from server.domain.ports.repositories import CLAIM_STALE_AFTER
 
 
 class InMemoryClientRepository:
@@ -122,20 +124,21 @@ class InMemoryDriveFileClaimRepository:
     it so within this single process."""
 
     def __init__(self) -> None:
-        self._claimed: set[str] = set()
+        self._claimed: dict[str, datetime] = {}
         self._failures: dict[str, int] = {}
         self._lock = threading.Lock()
 
     def try_claim(self, key: str) -> bool:
         with self._lock:
-            if key in self._claimed:
+            claimed_at = self._claimed.get(key)
+            if claimed_at is not None and datetime.now(UTC) - claimed_at < CLAIM_STALE_AFTER:
                 return False
-            self._claimed.add(key)
+            self._claimed[key] = datetime.now(UTC)
             return True
 
     def release(self, key: str) -> None:
         with self._lock:
-            self._claimed.discard(key)
+            self._claimed.pop(key, None)
 
     def record_failure(self, key: str) -> int:
         with self._lock:

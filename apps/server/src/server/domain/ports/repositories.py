@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Protocol
 
 from server.domain.entities import (
@@ -49,6 +50,13 @@ class SessionRepository(Protocol):
 class DriveWatchChannelRepository(Protocol):
     def save(self, channel: DriveWatchChannel) -> None: ...
     def get_by_channel_id(self, channel_id: str) -> DriveWatchChannel | None: ...
+
+
+# A claim older than this is treated as abandoned (the process holding it
+# crashed before releasing or otherwise deciding an outcome) and can be
+# re-claimed. Comfortably longer than any real classify/OCR call, short
+# enough that a crashed claim does not stay stuck for long.
+CLAIM_STALE_AFTER = timedelta(minutes=10)
 
 
 class DriveFileClaimRepository(Protocol):

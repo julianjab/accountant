@@ -1,7 +1,8 @@
 import threading
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from server.domain.entities import Document, DocumentStatus
+from server.domain.ports.repositories import CLAIM_STALE_AFTER
 from server.infrastructure.adapters.in_memory_repositories import (
     InMemoryDocumentRepository,
     InMemoryDriveFileClaimRepository,
@@ -30,6 +31,23 @@ def test_release_of_an_unclaimed_file_is_a_no_op():
     repo.release("never-claimed")
 
     assert repo.try_claim("never-claimed") is True
+
+
+def test_try_claim_reclaims_a_stale_claim():
+    # A process that crashed between claiming a file and ever recording an
+    # outcome for it must not wedge that file forever.
+    repo = InMemoryDriveFileClaimRepository()
+    repo.try_claim("file-1")
+    repo._claimed["file-1"] = datetime.now(UTC) - CLAIM_STALE_AFTER - timedelta(seconds=1)
+
+    assert repo.try_claim("file-1") is True
+
+
+def test_try_claim_does_not_reclaim_a_fresh_claim():
+    repo = InMemoryDriveFileClaimRepository()
+    repo.try_claim("file-1")
+
+    assert repo.try_claim("file-1") is False
 
 
 def test_try_claim_is_safe_under_concurrent_threads():
