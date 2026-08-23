@@ -1,5 +1,9 @@
 from server.domain.ports.client_directory import ClientDirectory, ClientFolder
-from server.domain.ports.document_storage import DocumentContent, DocumentStorage
+from server.domain.ports.document_storage import (
+    DocumentContent,
+    DocumentStorage,
+    StoredFile,
+)
 from server.domain.ports.drive_watcher import DriveChangeReader, DriveWatcher
 from server.domain.ports.oauth import (
     DriveAccessNotGranted,
@@ -47,4 +51,5 @@ __all__ = [
     "OcrEngine",
     "ProposedOcrConfig",
     "SessionRepository",
+    "StoredFile",
 ]

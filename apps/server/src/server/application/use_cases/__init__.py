@@ -16,6 +16,12 @@ from server.application.use_cases.define_document_type import (
 from server.application.use_cases.get_document_metrics import DocumentMetrics, GetDocumentMetrics
 from server.application.use_cases.get_extracted_data import GetExtractedData
 from server.application.use_cases.get_google_session import GetGoogleSession
+from server.application.use_cases.import_client_documents import (
+    ClientHasNoFolder,
+    ImportClientDocuments,
+    ImportClientDocumentsInput,
+    ImportClientDocumentsResult,
+)
 from server.application.use_cases.import_clients_from_drive import (
     ImportClientsFromDrive,
     ImportResult,
@@ -44,6 +50,10 @@ from server.application.use_cases.start_google_sign_in import (
 from server.application.use_cases.subscribe_drive_webhook import SubscribeDriveWebhook
 
 __all__ = [
+    "ImportClientDocumentsResult",
+    "ImportClientDocumentsInput",
+    "ImportClientDocuments",
+    "ClientHasNoFolder",
     "ApproveDocument",
     "ApproveDocumentInput",
     "ClientNotFound",

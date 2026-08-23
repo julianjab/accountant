@@ -6,12 +6,16 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
 from server.domain.entities import DriveChangedFile, DriveChangesPage, DriveWatchRegistration
-from server.domain.ports import DocumentContent
+from server.domain.ports import DocumentContent, StoredFile
 
 # Drive's documented default channel TTL when a watch response omits "expiration".
 _DEFAULT_CHANNEL_TTL = timedelta(days=7)
 
 _SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+
+
+_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
+_PAGE_SIZE = 100
 
 
 def _build_drive_client(service_account_file: str):
@@ -46,6 +50,36 @@ class GoogleDriveStorage:
             mime_type=metadata["mimeType"],
             file_name=metadata["name"],
         )
+
+    def list_files(self, folder_reference: str) -> list[StoredFile]:
+        files: list[StoredFile] = []
+        page_token: str | None = None
+        while True:
+            response = (
+                self._drive.files()
+                .list(
+                    q=f"'{folder_reference}' in parents and trashed = false",
+                    fields="nextPageToken, files(id, name, mimeType)",
+                    # A client folder can sit in a shared drive; without these
+                    # the listing silently comes back empty rather than failing.
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True,
+                    pageSize=_PAGE_SIZE,
+                    pageToken=page_token,
+                )
+                .execute()
+            )
+            files.extend(
+                StoredFile(id=f["id"], name=f["name"], mime_type=f["mimeType"])
+                for f in response.get("files", [])
+                # Subfolders are not documents. Recursing into them is a
+                # separate decision, and one that would change what a client's
+                # folder means.
+                if f["mimeType"] != _FOLDER_MIME_TYPE
+            )
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                return files
 
 
 class GoogleDriveWatcher:
