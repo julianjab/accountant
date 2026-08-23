@@ -11,28 +11,50 @@ const { data: clients, pending: clientsPending, error: clientsError } = await us
   Client[]
 >('sheets-clients', () => listClients.execute())
 
+// No aggregate "row counts for all clients" endpoint exists yet, and every card
+// shows its own count, so this inherently fans out one request per client. Cap
+// how many run at once instead of firing all of them (and the Firestore reads
+// behind each) in a single burst.
+const ROW_FETCH_CONCURRENCY = 4
+
+async function fetchRowsWithConcurrencyLimit(
+  clientList: Client[]
+): Promise<{ rowsByClient: Record<string, SheetRow[]>, failedClientIds: Set<string> }> {
+  const rowsByClient: Record<string, SheetRow[]> = {}
+  const failedClientIds = new Set<string>()
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < clientList.length) {
+      const client = clientList[nextIndex++]!
+      try {
+        rowsByClient[client.id] = await listClientSheetRows.execute(client.id)
+      } catch {
+        // A per-client failure must not be conflated with "no approved rows" —
+        // presenting a fetch error as an empty accounting sheet is a false negative.
+        failedClientIds.add(client.id)
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(ROW_FETCH_CONCURRENCY, clientList.length) }, worker)
+  )
+  return { rowsByClient, failedClientIds }
+}
+
 const {
-  data: rowsByClient,
+  data: rowsResult,
   pending: rowsPending,
   error: rowsError
-} = await useAsyncData<Record<string, SheetRow[]>>(
+} = await useAsyncData<{ rowsByClient: Record<string, SheetRow[]>, failedClientIds: Set<string> }>(
   'sheets-rows-by-client',
-  async () => {
-    const results = await Promise.allSettled(
-      (clients.value ?? []).map(
-        async client => [client.id, await listClientSheetRows.execute(client.id)] as const
-      )
-    )
-    const entries = results
-      .filter(
-        (result): result is PromiseFulfilledResult<readonly [string, SheetRow[]]> =>
-          result.status === 'fulfilled'
-      )
-      .map(result => result.value)
-    return Object.fromEntries(entries)
-  },
+  () => fetchRowsWithConcurrencyLimit(clients.value ?? []),
   { watch: [clients] }
 )
+
+const rowsByClient = computed(() => rowsResult.value?.rowsByClient ?? {})
+const failedClientIds = computed(() => rowsResult.value?.failedClientIds ?? new Set<string>())
 
 const initialClientId = typeof route.query.clientId === 'string' ? route.query.clientId : null
 const selectedClientId = ref<string | null>(initialClientId)
@@ -56,12 +78,20 @@ const selectedClient = computed(
 )
 
 const selectedRows = computed<SheetRow[]>(() => {
-  if (!selectedClientId.value || !rowsByClient.value) return []
+  if (!selectedClientId.value) return []
   return rowsByClient.value[selectedClientId.value] ?? []
 })
 
+const selectedClientFailed = computed(
+  () => Boolean(selectedClientId.value && failedClientIds.value.has(selectedClientId.value))
+)
+
 function rowCountFor(clientId: string): number {
-  return rowsByClient.value?.[clientId]?.length ?? 0
+  return rowsByClient.value[clientId]?.length ?? 0
+}
+
+function hasRowsErrorFor(clientId: string): boolean {
+  return failedClientIds.value.has(clientId)
 }
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -144,6 +174,13 @@ const hasError = computed(() => Boolean(clientsError.value || rowsError.value))
         >
           <span class="text-small font-semibold">{{ client.name }}</span>
           <span
+            v-if="hasRowsErrorFor(client.id)"
+            class="font-mono text-label text-status-failed-fg"
+          >
+            {{ t('sheets.rowsUnavailable') }}
+          </span>
+          <span
+            v-else
             class="font-mono text-label"
             :class="client.id === selectedClientId ? 'text-invert/55' : 'text-neutral-600'"
           >
@@ -164,6 +201,13 @@ const hasError = computed(() => Boolean(clientsError.value || rowsError.value))
             {{ selectedClient?.name }}
           </h2>
           <span
+            v-if="selectedClientFailed"
+            class="rounded-full bg-status-failed-bg px-2.5 py-0.5 text-label font-medium text-status-failed-fg"
+          >
+            {{ t('sheets.rowsUnavailable') }}
+          </span>
+          <span
+            v-else
             class="rounded-full bg-green-50 px-2.5 py-0.5 text-label font-medium text-green-700"
           >
             {{ t('sheets.rowCount', { count: selectedRows.length }) }}
@@ -191,7 +235,13 @@ const hasError = computed(() => Boolean(clientsError.value || rowsError.value))
         </div>
 
         <p
-          v-if="!selectedRows.length"
+          v-if="selectedClientFailed"
+          class="px-4 py-6 text-small text-status-failed-fg"
+        >
+          {{ t('sheets.rowsUnavailable') }}
+        </p>
+        <p
+          v-else-if="!selectedRows.length"
           class="px-4 py-6 text-small text-neutral-700"
         >
           {{ t('sheets.emptyRows') }}

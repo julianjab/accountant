@@ -73,6 +73,7 @@ class FirestoreClientRepository:
                 "created_at": client.created_at,
                 "drive_folder_id": client.drive_folder_id,
                 "drive_folder_url": client.drive_folder_url,
+                "spreadsheet_url": client.spreadsheet_url,
             }
         )
 
@@ -93,6 +94,7 @@ class FirestoreClientRepository:
             created_at=_as_utc(data["created_at"]),
             drive_folder_id=data.get("drive_folder_id"),
             drive_folder_url=data.get("drive_folder_url"),
+            spreadsheet_url=data.get("spreadsheet_url"),
         )
 
 

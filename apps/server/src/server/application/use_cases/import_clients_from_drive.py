@@ -58,6 +58,7 @@ class ImportClientsFromDrive:
                     created_at=current.created_at,
                     drive_folder_id=current.drive_folder_id,
                     drive_folder_url=current.drive_folder_url or drive_folder_url,
+                    spreadsheet_url=current.spreadsheet_url,
                 )
                 self._clients.save(client)
                 renamed.append(client)
@@ -71,6 +72,7 @@ class ImportClientsFromDrive:
                     created_at=current.created_at,
                     drive_folder_id=current.drive_folder_id,
                     drive_folder_url=drive_folder_url,
+                    spreadsheet_url=current.spreadsheet_url,
                 )
                 self._clients.save(client)
                 unchanged += 1

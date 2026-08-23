@@ -148,6 +148,7 @@
     "error": "No pudimos cargar la hoja de cálculo.",
     "emptyRows": "Este cliente todavía no tiene filas aprobadas.",
     "rowCount": "{count} filas aprobadas",
+    "rowsUnavailable": "No se pudieron cargar las filas",
     "openInSheets": "Abrir en Google Sheets",
     "openInSheetsDisabled": "Sin hoja vinculada",
     "status": {

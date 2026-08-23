@@ -25,9 +25,14 @@ export class HttpSpreadsheetRepository implements SpreadsheetRepository {
   constructor(private readonly baseUrl: string) {}
 
   async listByClient(clientId: string): Promise<SheetRow[]> {
-    const dtos = await $fetch<SheetRowDto[]>(`/clients/${clientId}/spreadsheet-rows`, {
-      baseURL: this.baseUrl
-    })
+    // The server requires a session cookie on every business endpoint.
+    const dtos = await $fetch<SheetRowDto[]>(
+      `/clients/${encodeURIComponent(clientId)}/spreadsheet-rows`,
+      {
+        baseURL: this.baseUrl,
+        credentials: 'include'
+      }
+    )
     return dtos.map(toSheetRow)
   }
 }

@@ -148,6 +148,7 @@
     "error": "We couldn't load the spreadsheet.",
     "emptyRows": "This client doesn't have any approved rows yet.",
     "rowCount": "{count} approved rows",
+    "rowsUnavailable": "Couldn't load rows",
     "openInSheets": "Open in Google Sheets",
     "openInSheetsDisabled": "No sheet linked",
     "status": {
