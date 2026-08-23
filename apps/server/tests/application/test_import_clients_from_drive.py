@@ -81,6 +81,27 @@ def test_a_rename_keeps_data_filled_in_on_top_of_the_import():
     assert saved.drive_folder_url == "https://drive.google.com/drive/folders/f1"
 
 
+def test_reimporting_backfills_a_missing_drive_folder_url():
+    clients = InMemoryClientRepository()
+    clients.save(
+        Client(
+            id="c1",
+            name="Acme",
+            tax_id=None,
+            email=None,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            drive_folder_id="f1",
+        )
+    )
+
+    result = ImportClientsFromDrive(
+        FakeDirectory([ClientFolder(id="f1", name="Acme")]), clients
+    ).execute()
+
+    assert result.unchanged == 1
+    assert clients.get("c1").drive_folder_url == "https://drive.google.com/drive/folders/f1"
+
+
 def test_a_folder_disappearing_does_not_delete_its_client():
     clients = InMemoryClientRepository()
     ImportClientsFromDrive(FakeDirectory([ClientFolder(id="f1", name="Acme")]), clients).execute()
