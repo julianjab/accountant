@@ -1,10 +1,13 @@
 from datetime import UTC, datetime, timedelta
 
+from google.api_core.exceptions import AlreadyExists
+
 from server.domain.entities import (
     Client,
     Document,
     DocumentStatus,
     DocumentType,
+    DriveWatchChannel,
     ExtractedData,
     GoogleSession,
     GoogleUser,
@@ -13,6 +16,8 @@ from server.infrastructure.adapters.firestore_repositories import (
     FirestoreClientRepository,
     FirestoreDocumentRepository,
     FirestoreDocumentTypeRepository,
+    FirestoreDriveFileClaimRepository,
+    FirestoreDriveWatchChannelRepository,
     FirestoreExtractedDataRepository,
     FirestoreSessionRepository,
 )
@@ -26,6 +31,11 @@ class FakeDocumentRef:
         self._id = doc_id
 
     def set(self, data: dict) -> None:
+        self._collection.data[self._id] = data
+
+    def create(self, data: dict) -> None:
+        if self._id in self._collection.data:
+            raise AlreadyExists("already exists")
         self._collection.data[self._id] = data
 
     def get(self) -> "FakeSnapshot":
@@ -230,3 +240,31 @@ def test_session_get_returns_none_when_absent_and_delete_is_idempotent():
     repo.delete("nope")
 
     assert repo.get("nope") is None
+
+
+def test_drive_watch_channel_round_trips():
+    repo = FirestoreDriveWatchChannelRepository(FakeFirestore())
+    channel = DriveWatchChannel(
+        id="ch1",
+        resource_id="r1",
+        folder_id="f1",
+        client_id="c1",
+        token="secret",
+        page_token="p1",
+        expires_at=NOW,
+    )
+
+    repo.save(channel)
+
+    assert repo.get_by_channel_id("ch1") == channel
+
+
+def test_drive_watch_channel_get_returns_none_when_absent():
+    assert FirestoreDriveWatchChannelRepository(FakeFirestore()).get_by_channel_id("nope") is None
+
+
+def test_drive_file_claim_succeeds_only_once():
+    repo = FirestoreDriveFileClaimRepository(FakeFirestore())
+
+    assert repo.try_claim("file-1") is True
+    assert repo.try_claim("file-1") is False

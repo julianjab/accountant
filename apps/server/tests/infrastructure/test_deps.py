@@ -20,6 +20,7 @@ def clear_caches():
         deps.get_extracted_data_repository,
         deps.get_session_repository,
         deps.get_drive_watch_channel_repository,
+        deps.get_drive_file_claim_repository,
     ):
         provider.cache_clear()
     yield
@@ -32,6 +33,7 @@ def clear_caches():
         deps.get_extracted_data_repository,
         deps.get_session_repository,
         deps.get_drive_watch_channel_repository,
+        deps.get_drive_file_claim_repository,
     ):
         provider.cache_clear()
 
@@ -59,6 +61,10 @@ def test_no_firestore_project_falls_back_to_in_memory(monkeypatch):
     assert isinstance(
         deps.get_drive_watch_channel_repository(),
         in_memory_repositories.InMemoryDriveWatchChannelRepository,
+    )
+    assert isinstance(
+        deps.get_drive_file_claim_repository(),
+        in_memory_repositories.InMemoryDriveFileClaimRepository,
     )
 
 
@@ -91,6 +97,10 @@ def test_a_configured_project_selects_firestore(monkeypatch):
     assert isinstance(
         deps.get_drive_watch_channel_repository.__wrapped__(),
         firestore_repositories.FirestoreDriveWatchChannelRepository,
+    )
+    assert isinstance(
+        deps.get_drive_file_claim_repository.__wrapped__(),
+        firestore_repositories.FirestoreDriveFileClaimRepository,
     )
 
 

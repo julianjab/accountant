@@ -22,11 +22,15 @@ class FakeRequest:
 class FakeFiles:
     def __init__(self, get_result: dict) -> None:
         self._get_result = get_result
+        self.get_calls: list[dict] = []
+        self.get_media_calls: list[dict] = []
 
     def get(self, **kwargs: object) -> FakeRequest:
+        self.get_calls.append(dict(kwargs))
         return FakeRequest(self._get_result)
 
     def get_media(self, **kwargs: object) -> object:
+        self.get_media_calls.append(dict(kwargs))
         return object()
 
 
@@ -117,6 +121,29 @@ def test_get_start_page_token_returns_the_cursor(monkeypatch):
     watcher = GoogleDriveWatcher("service-account.json")
 
     assert watcher.get_start_page_token() == "token-1"
+
+
+def test_watch_and_list_changes_opt_into_shared_drives(monkeypatch):
+    # Without these flags, changes in a folder that lives on a Shared Drive
+    # never surface, with no error at all.
+    patch_credentials(monkeypatch)
+    fake_client = FakeDriveClient(
+        watch_result={"resourceId": "resource-1"},
+        list_results=[{"newStartPageToken": "token-2", "changes": []}],
+    )
+    monkeypatch.setattr(google_drive_storage, "build", lambda *a, **k: fake_client)
+
+    watcher = GoogleDriveWatcher("service-account.json")
+    watcher.watch("channel-1", "folder-1", "https://example.com", "token", "token-1")
+    watcher.list_changes("token-1")
+
+    [watch_call] = fake_client.changes_obj.watch_calls
+    assert watch_call["supportsAllDrives"] is True
+    assert watch_call["includeItemsFromAllDrives"] is True
+
+    [list_call] = fake_client.changes_obj.list_calls
+    assert list_call["supportsAllDrives"] is True
+    assert list_call["includeItemsFromAllDrives"] is True
 
 
 def test_watch_registers_a_web_hook_channel_via_the_changes_api(monkeypatch):
@@ -288,3 +315,5 @@ def test_google_drive_storage_downloads_a_file(monkeypatch):
     assert content.data == b"file-bytes"
     assert content.mime_type == "application/pdf"
     assert content.file_name == "invoice.pdf"
+    assert fake_client.files_obj.get_calls[0]["supportsAllDrives"] is True
+    assert fake_client.files_obj.get_media_calls[0]["supportsAllDrives"] is True
