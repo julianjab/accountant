@@ -17,7 +17,7 @@ function clearFilter() {
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center gap-2 px-4 py-16 text-center">
+  <div class="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center sm:py-16">
     <p class="text-[15px] font-semibold text-highlighted">
       {{ t(`inbox.emptyState.${key}.title`) }}
     </p>

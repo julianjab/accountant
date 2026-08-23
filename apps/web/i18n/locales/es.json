@@ -6,7 +6,9 @@
     "inbox": "Bandeja",
     "clients": "Clientes",
     "documentTypes": "Tipos de documento",
-    "sheets": "Hojas de cálculo"
+    "sheets": "Hojas de cálculo",
+    "openMenu": "Abrir menú de navegación",
+    "closeMenu": "Cerrar menú de navegación"
   },
   "breadcrumb": {
     "home": "inicio"

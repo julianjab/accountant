@@ -145,7 +145,7 @@ const hasError = computed(() => Boolean(clientsError.value))
 </script>
 
 <template>
-  <UContainer class="py-8">
+  <UContainer class="py-6 sm:py-8">
     <h1 class="text-title font-bold tracking-tight">
       {{ t('sheets.title') }}
     </h1>
@@ -170,7 +170,7 @@ const hasError = computed(() => Boolean(clientsError.value))
     </p>
 
     <template v-else>
-      <div class="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div class="mt-5 grid grid-cols-1 gap-3 sm:mt-6 sm:grid-cols-2 lg:grid-cols-4">
         <button
           v-for="client in clients"
           :key="client.id"
@@ -210,9 +210,9 @@ const hasError = computed(() => Boolean(clientsError.value))
         </button>
       </div>
 
-      <div class="mt-5 overflow-hidden rounded-xl border border-default bg-default">
-        <div class="flex items-center gap-3 border-b border-default px-4 py-3">
-          <h2 class="text-section font-semibold">
+      <div class="mt-4 overflow-hidden rounded-xl border border-default bg-default sm:mt-5">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-default px-4 py-3">
+          <h2 class="min-w-0 truncate text-section font-semibold">
             {{ selectedClient?.name }}
           </h2>
           <span
@@ -232,7 +232,7 @@ const hasError = computed(() => Boolean(clientsError.value))
             {{ t('sheets.rowCount', { count: selectedRows.length }) }}
           </span>
 
-          <div class="flex-1" />
+          <div class="hidden flex-1 sm:block" />
 
           <UButton
             v-if="selectedClient?.spreadsheetUrl"
@@ -240,6 +240,8 @@ const hasError = computed(() => Boolean(clientsError.value))
             target="_blank"
             variant="outline"
             icon="i-lucide-external-link"
+            block
+            class="sm:w-auto"
           >
             {{ t('sheets.openInSheets') }}
           </UButton>
@@ -248,6 +250,8 @@ const hasError = computed(() => Boolean(clientsError.value))
             variant="outline"
             disabled
             icon="i-lucide-external-link"
+            block
+            class="sm:w-auto"
           >
             {{ t('sheets.openInSheetsDisabled') }}
           </UButton>

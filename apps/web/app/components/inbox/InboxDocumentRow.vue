@@ -39,9 +39,16 @@ const time = computed(() =>
 </script>
 
 <template>
+  <!--
+    One row of four columns from `sm` up; below that it folds into two lines — the file name,
+    then its type/status/time — because four columns inside ~300px leaves the file name, the
+    only thing that identifies the document, as three characters and an ellipsis.
+    `sm:contents` dissolves the second line's wrapper so the four cells land in the grid
+    directly, keeping a single DOM for both shapes.
+  -->
   <NuxtLink
     :to="`/documents/${document.id}`"
-    class="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)_auto_90px] items-center gap-3 border-b border-muted py-[9px] pr-4 pl-12 transition-colors duration-[120ms] hover:bg-elevated"
+    class="flex flex-col gap-1.5 border-b border-muted px-4 py-3 transition-colors duration-[120ms] hover:bg-elevated sm:grid sm:grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)_auto_90px] sm:items-center sm:gap-3 sm:py-[9px] sm:pr-4 sm:pl-12"
   >
     <div class="flex min-w-0 items-center gap-2.5">
       <div class="flex h-[26px] w-[22px] shrink-0 items-center justify-center rounded-[3px] border border-default bg-muted">
@@ -55,17 +62,21 @@ const time = computed(() =>
         :title="document.fileName"
       >{{ document.fileName }}</span>
     </div>
-    <span class="truncate text-[13px] text-toned">{{ typeLabel }}</span>
-    <UBadge
-      :class="[statusColor.bg, statusColor.fg]"
-      variant="soft"
-      size="sm"
-    >
-      {{ t(`inbox.status.${document.status}`) }}
-    </UBadge>
-    <span
-      class="text-right font-mono text-[12px] text-muted"
-      :title="document.createdAt"
-    >{{ time }}</span>
+
+    <div class="flex min-w-0 items-center gap-2 pl-[32px] sm:contents">
+      <span class="truncate text-[13px] text-toned">{{ typeLabel }}</span>
+      <UBadge
+        class="shrink-0"
+        :class="[statusColor.bg, statusColor.fg]"
+        variant="soft"
+        size="sm"
+      >
+        {{ t(`inbox.status.${document.status}`) }}
+      </UBadge>
+      <span
+        class="ml-auto shrink-0 text-right font-mono text-[12px] text-muted sm:ml-0"
+        :title="document.createdAt"
+      >{{ time }}</span>
+    </div>
   </NuxtLink>
 </template>

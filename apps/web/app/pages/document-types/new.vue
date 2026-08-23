@@ -79,7 +79,7 @@ function saveType() {
 </script>
 
 <template>
-  <UContainer class="py-8">
+  <UContainer class="py-6 sm:py-8">
     <h1 class="mb-4 text-xl font-semibold">
       {{ t('documentTypes.new.title') }}
     </h1>
@@ -103,6 +103,7 @@ function saveType() {
         <UInput
           v-model="name"
           required
+          class="w-full"
         />
       </UFormField>
 
@@ -125,6 +126,7 @@ function saveType() {
           type="file"
           accept="application/pdf,image/png,image/jpeg,image/webp,image/gif"
           required
+          class="max-w-full text-[13px] text-toned"
           @change="onFileChange"
         >
       </UFormField>
@@ -133,7 +135,8 @@ function saveType() {
         type="submit"
         :loading="loading"
         :disabled="loading"
-        class="w-fit"
+        block
+        class="sm:w-fit"
       >
         {{ t('documentTypes.new.submit') }}
       </UButton>
@@ -208,7 +211,7 @@ function saveType() {
         :title="t('documentTypes.proposal.localEditsNotice')"
       />
 
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
         <template v-if="editing">
           <UButton @click="confirmEditing">
             {{ t('documentTypes.proposal.confirmEdit') }}

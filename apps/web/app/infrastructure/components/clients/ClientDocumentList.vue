@@ -52,7 +52,9 @@ function formattedTime(createdAt: string): string {
         class="size-4 shrink-0 text-muted"
       />
 
-      <div class="min-w-0 max-w-[320px] flex-1">
+      <!-- The 320px cap keeps the desktop list from stretching a long file name across the
+           whole card; on a phone the row is already narrower than that. -->
+      <div class="min-w-0 flex-1 sm:max-w-[320px]">
         <div class="truncate text-[13.5px] font-medium text-highlighted">
           {{ doc.fileName }}
         </div>

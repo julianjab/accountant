@@ -41,7 +41,7 @@ watch(
 </script>
 
 <template>
-  <UContainer class="py-8">
+  <UContainer class="py-6 sm:py-8">
     <p
       v-if="isAuthLoading"
       class="text-muted"
@@ -63,10 +63,11 @@ watch(
     />
 
     <template v-else-if="document">
-      <h1 class="text-xl font-semibold mb-6">
+      <h1 class="mb-4 text-xl font-semibold sm:mb-6">
         {{ t('documents.title') }}
       </h1>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Preview above the extracted fields on one column, side by side from `lg` up. -->
+      <div class="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
         <DocumentViewer
           :drive-file-id="document.driveFileId"
           :mime-type="document.mimeType"

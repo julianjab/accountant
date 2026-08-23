@@ -107,8 +107,8 @@ const isMissingExtraction = computed(() =>
   <UCard>
     <template #header>
       <div class="flex flex-col gap-3">
-        <div class="flex items-center justify-between gap-4">
-          <h2 class="text-lg font-semibold">
+        <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <h2 class="min-w-0 break-words text-lg font-semibold">
             {{ document.documentTypeId ?? t('documents.unknownType') }}
           </h2>
           <UBadge
@@ -179,6 +179,8 @@ const isMissingExtraction = computed(() =>
     <template #footer>
       <UButton
         disabled
+        block
+        class="sm:w-auto"
         :title="t('documents.approveDisabledHint')"
       >
         {{ t('documents.approveAndSend') }}

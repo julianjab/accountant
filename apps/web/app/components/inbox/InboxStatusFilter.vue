@@ -36,13 +36,17 @@ function select(value: DocumentStatus | 'all') {
 </script>
 
 <template>
-  <div class="flex items-center justify-between gap-3 border-b border-default px-4 py-3">
-    <div class="flex flex-wrap items-center gap-2">
+  <div class="flex flex-col gap-2 border-b border-default px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+    <!--
+      Edge-to-edge scroller below `sm` (negative margins cancel the card padding) so the last
+      chip is visibly cut off at the screen edge, which is what says "there is more here".
+    -->
+    <div class="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
       <button
         v-for="chip in CHIPS"
         :key="chip.value"
         type="button"
-        class="rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors duration-[120ms]"
+        class="shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors duration-[120ms]"
         :class="isActive(chip.value)
           ? 'border-neutral-950 bg-neutral-950 text-invert'
           : 'border-default bg-default text-toned hover:bg-elevated'"

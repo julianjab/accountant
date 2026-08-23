@@ -20,9 +20,14 @@ const displayValue = computed(() => {
 
 <template>
   <div class="py-3">
-    <div class="flex items-center justify-between gap-4">
+    <div class="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <span class="font-mono text-sm text-muted">{{ fieldKey }}</span>
-      <span :class="confidenceValueColorClass(confidence)">{{ displayValue }}</span>
+      <!-- `break-words`: an extracted value is arbitrary OCR output (a long IBAN, a URL) with
+           no space to wrap at, so without it the row pushes the card past the viewport. -->
+      <span
+        class="break-words sm:text-right"
+        :class="confidenceValueColorClass(confidence)"
+      >{{ displayValue }}</span>
     </div>
     <div
       v-if="confidence !== null"

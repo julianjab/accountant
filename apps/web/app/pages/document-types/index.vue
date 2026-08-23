@@ -20,14 +20,16 @@ function fieldsCount(documentType: DocumentType): number {
 </script>
 
 <template>
-  <UContainer class="py-8">
-    <div class="mb-4 flex items-center justify-between">
+  <UContainer class="py-6 sm:py-8">
+    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <h1 class="text-xl font-semibold">
         {{ t('documentTypes.title') }}
       </h1>
       <UButton
         to="/document-types/new"
         icon="i-lucide-plus"
+        block
+        class="sm:w-auto"
       >
         {{ t('documentTypes.define') }}
       </UButton>
@@ -49,13 +51,14 @@ function fieldsCount(documentType: DocumentType): number {
         :key="documentType.id"
       >
         <template #header>
-          <div class="flex items-center justify-between gap-2">
-            <h2 class="font-medium">
+          <div class="flex items-start justify-between gap-2">
+            <h2 class="min-w-0 break-words font-medium">
               {{ documentType.name }}
             </h2>
             <UBadge
               :color="documentType.active ? 'success' : 'neutral'"
               variant="subtle"
+              class="shrink-0"
             >
               {{ documentType.active ? t('documentTypes.status.active') : t('documentTypes.status.draft') }}
             </UBadge>

@@ -37,7 +37,7 @@ const steps = computed(() => (['detected', 'classified', 'ocr', 'ready'] as Step
 </script>
 
 <template>
-  <ol class="flex flex-wrap items-center gap-4">
+  <ol class="flex flex-wrap items-center gap-x-4 gap-y-2">
     <li
       v-for="step in steps"
       :key="step.key"

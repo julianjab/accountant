@@ -17,12 +17,12 @@ const VALUE_COLOR_BY_VARIANT = {
 </script>
 
 <template>
-  <UCard :ui="{ body: 'p-4 sm:p-4' }">
-    <div class="text-[11.5px] font-medium uppercase tracking-[.08em] text-muted">
+  <UCard :ui="{ body: 'p-3.5 sm:p-4' }">
+    <div class="truncate text-[11px] font-medium uppercase tracking-[.08em] text-muted sm:text-[11.5px]">
       {{ label }}
     </div>
     <div
-      class="font-mono text-[30px] font-semibold tracking-[-0.03em]"
+      class="font-mono text-[26px] font-semibold tracking-[-0.03em] sm:text-[30px]"
       :class="VALUE_COLOR_BY_VARIANT[variant]"
     >
       {{ value }}

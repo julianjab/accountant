@@ -26,11 +26,11 @@ const initials = computed(() => {
       </div>
       <NuxtLink
         :to="`/clients/${client.id}`"
-        class="text-[13px] font-semibold text-highlighted transition-colors duration-[120ms] hover:text-green-600"
+        class="min-w-0 truncate text-[13px] font-semibold text-highlighted transition-colors duration-[120ms] hover:text-green-600"
       >
         {{ client.name }}
       </NuxtLink>
-      <span class="font-mono text-[11.5px] text-muted">
+      <span class="shrink-0 font-mono text-[11.5px] text-muted">
         {{ $t('inbox.group.count', { count }) }}
       </span>
     </div>

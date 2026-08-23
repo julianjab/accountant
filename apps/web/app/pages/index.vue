@@ -55,8 +55,8 @@ const avgProcessingLabel = computed(() => {
 </script>
 
 <template>
-  <UContainer class="max-w-[1180px] py-8">
-    <h1 class="text-[27px] font-bold tracking-[-0.02em] text-highlighted">
+  <UContainer class="max-w-[1180px] py-6 sm:py-8">
+    <h1 class="text-[22px] font-bold tracking-[-0.02em] text-highlighted sm:text-[27px]">
       {{ t('inbox.title') }}
     </h1>
 
@@ -69,27 +69,27 @@ const avgProcessingLabel = computed(() => {
     <ClientOnly>
       <p
         v-if="isAuthLoading"
-        class="mt-[26px] text-muted"
+        class="mt-5 text-muted sm:mt-[26px]"
       >
         {{ t('auth.loading') }}
       </p>
 
       <p
         v-else-if="showSignedOut"
-        class="mt-[26px] text-muted"
+        class="mt-5 text-muted sm:mt-[26px]"
       >
         {{ t('inbox.signInRequired') }}
       </p>
 
       <p
         v-else-if="inboxError"
-        class="mt-[26px] text-error"
+        class="mt-5 text-error sm:mt-[26px]"
       >
         {{ t('inbox.loadError') }}
       </p>
 
       <template v-else>
-        <div class="mt-[26px] grid grid-cols-4 gap-3">
+        <div class="mt-5 grid grid-cols-2 gap-3 sm:mt-[26px] lg:grid-cols-4">
           <InboxMetricCard
             :label="t('inbox.metrics.unprocessed')"
             :value="String(totals?.unprocessed ?? 0)"
@@ -110,7 +110,7 @@ const avgProcessingLabel = computed(() => {
           />
         </div>
 
-        <div class="mt-[26px] overflow-hidden rounded-xl border border-default bg-default">
+        <div class="mt-5 overflow-hidden rounded-xl border border-default bg-default sm:mt-[26px]">
           <InboxStatusFilter
             :status="status"
             :total="totalDocuments"

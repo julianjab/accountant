@@ -6,7 +6,9 @@
     "inbox": "Inbox",
     "clients": "Clients",
     "documentTypes": "Document types",
-    "sheets": "Sheets"
+    "sheets": "Sheets",
+    "openMenu": "Open navigation menu",
+    "closeMenu": "Close navigation menu"
   },
   "breadcrumb": {
     "home": "home"

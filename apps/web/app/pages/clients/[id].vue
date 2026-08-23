@@ -51,7 +51,7 @@ const tabItems = computed(() => [
 </script>
 
 <template>
-  <UContainer class="py-8">
+  <UContainer class="py-6 sm:py-8">
     <div
       v-if="isAuthLoading || clientPending"
       class="text-[13px] text-toned"
@@ -71,7 +71,7 @@ const tabItems = computed(() => [
       v-else-if="!client"
       class="flex flex-col items-start gap-3 py-8"
     >
-      <h1 class="text-[20px] font-semibold text-highlighted">
+      <h1 class="text-[18px] font-semibold text-highlighted sm:text-[20px]">
         {{ t('clients.detail.notFound.title') }}
       </h1>
       <p class="text-[13px] text-toned">
@@ -88,14 +88,14 @@ const tabItems = computed(() => [
     <template v-else>
       <ClientHeader :client="client" />
 
-      <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1fr_296px]">
+      <div class="grid grid-cols-1 items-start gap-4 sm:gap-5 lg:grid-cols-[1fr_296px]">
         <UCard :ui="{ body: 'p-0 sm:p-0' }">
           <UTabs
             :items="tabItems"
             :ui="{
-              list: 'border-b border-default bg-transparent rounded-none p-0 gap-4 px-4',
+              list: 'border-b border-default bg-transparent rounded-none p-0 gap-4 px-4 overflow-x-auto',
               indicator: 'hidden',
-              trigger: 'rounded-none border-b-2 border-transparent px-0 py-2.5 text-[13px] font-semibold text-muted data-[state=active]:border-green-600 data-[state=active]:text-highlighted',
+              trigger: 'shrink-0 rounded-none border-b-2 border-transparent px-0 py-2.5 text-[13px] font-semibold text-muted data-[state=active]:border-green-600 data-[state=active]:text-highlighted',
               content: 'p-0'
             }"
           >

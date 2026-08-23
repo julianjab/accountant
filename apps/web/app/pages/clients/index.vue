@@ -62,17 +62,21 @@ function onTableKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <UContainer class="py-8">
-    <div class="flex items-center justify-between mb-4">
+  <UContainer class="py-6 sm:py-8">
+    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <h1 class="text-xl font-semibold">
         {{ t('clients.title') }}
       </h1>
 
+      <!-- Full-bleed on a phone (the only action on the screen), auto-width once it can sit
+           beside the title. -->
       <UButton
         v-if="isAuthenticated"
         color="neutral"
         variant="subtle"
         size="sm"
+        block
+        class="sm:w-auto"
         :loading="isImporting"
         data-testid="clients-import"
         @click="syncWithDrive"
@@ -111,17 +115,44 @@ function onTableKeydown(event: KeyboardEvent) {
       {{ t('clients.empty') }}
     </p>
 
-    <UTable
-      v-else
-      :data="clients"
-      :columns="[
-        { accessorKey: 'name', header: t('clients.fields.name') },
-        { accessorKey: 'taxId', header: t('clients.fields.taxId') },
-        { accessorKey: 'email', header: t('clients.fields.email') }
-      ]"
-      :on-select="onRowSelect"
-      :ui="{ tr: 'cursor-pointer focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2' }"
-      @keydown="onTableKeydown"
-    />
+    <template v-else>
+      <!--
+        Below `sm` the same three columns become a stacked list. A table there would put the
+        tax id and the email outside the viewport inside a horizontal scroller that gives no
+        sign it can be scrolled — the name column alone fills the width, so nothing is visibly
+        cut off. These rows are plain links, so tapping and keyboard activation come for free
+        (the table needs `onTableKeydown` below to get the same).
+      -->
+      <ul class="divide-y divide-default overflow-hidden rounded-lg border border-default bg-default sm:hidden">
+        <li
+          v-for="client in clients"
+          :key="client.id"
+        >
+          <NuxtLink
+            :to="`/clients/${client.id}`"
+            class="flex min-h-14 flex-col justify-center gap-0.5 px-4 py-3 transition-colors duration-[120ms] hover:bg-elevated"
+          >
+            <span class="text-[13.5px] font-medium text-highlighted">{{ client.name }}</span>
+            <span class="flex flex-wrap items-center gap-x-2 text-[12px] text-muted">
+              <span class="font-mono">{{ client.taxId ?? '—' }}</span>
+              <span class="min-w-0 truncate">{{ client.email ?? t('clients.detail.noEmail') }}</span>
+            </span>
+          </NuxtLink>
+        </li>
+      </ul>
+
+      <UTable
+        :data="clients"
+        :columns="[
+          { accessorKey: 'name', header: t('clients.fields.name') },
+          { accessorKey: 'taxId', header: t('clients.fields.taxId') },
+          { accessorKey: 'email', header: t('clients.fields.email') }
+        ]"
+        :on-select="onRowSelect"
+        class="hidden sm:block"
+        :ui="{ tr: 'cursor-pointer focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2' }"
+        @keydown="onTableKeydown"
+      />
+    </template>
   </UContainer>
 </template>
