@@ -78,4 +78,5 @@ class ClaudeDocumentClassifier:
 
 def _build_instructions(prompt: PromptSpec, available_types: list[DocumentType]) -> str:
     options = "\n".join(f"- {t.id}: {t.name} — {t.description}" for t in available_types)
-    return prompt.instructions_template.format(options=options)
+    template = prompt.instructions_template or ""
+    return template.replace("{options}", options)

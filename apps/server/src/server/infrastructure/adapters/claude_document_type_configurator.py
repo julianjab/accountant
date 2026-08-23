@@ -61,7 +61,9 @@ class ClaudeDocumentTypeConfigurator:
                         },
                         {
                             "type": "text",
-                            "text": self._prompt.instructions_template.format(type_name=type_name),
+                            "text": (self._prompt.instructions_template or "").replace(
+                                "{type_name}", type_name
+                            ),
                         },
                     ],
                 }

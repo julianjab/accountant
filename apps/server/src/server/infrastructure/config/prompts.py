@@ -1,10 +1,8 @@
 from functools import lru_cache
-from pathlib import Path
+from importlib import resources
 
 import yaml
 from pydantic import BaseModel
-
-_DEFAULT_PROMPTS_PATH = Path(__file__).resolve().parents[4] / "config" / "prompts.yaml"
 
 
 class PromptSpec(BaseModel):
@@ -19,6 +17,6 @@ class PromptsConfig(BaseModel):
 
 
 @lru_cache
-def get_prompts(path: Path = _DEFAULT_PROMPTS_PATH) -> PromptsConfig:
-    data = yaml.safe_load(path.read_text())
-    return PromptsConfig.model_validate(data)
+def get_prompts() -> PromptsConfig:
+    text = resources.files("server.infrastructure.config").joinpath("prompts.yaml").read_text()
+    return PromptsConfig.model_validate(yaml.safe_load(text))
