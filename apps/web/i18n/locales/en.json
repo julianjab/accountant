@@ -92,6 +92,40 @@
       "unsupportedMime": "No preview available for this file type"
     }
   },
+  "documentTypes": {
+    "title": "Document types",
+    "empty": "No document types defined yet.",
+    "define": "Define type",
+    "status": {
+      "active": "Active",
+      "draft": "Draft"
+    },
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "sampleFile": "Sample document",
+      "fieldsCount": "{count} fields",
+      "schemaKeys": "Schema fields"
+    },
+    "new": {
+      "title": "Define document type",
+      "submit": "Analyze document",
+      "loading": "Claude is analyzing the document…",
+      "loadingHint": "This can take about a minute",
+      "error": "Could not define the document type. Please try again.",
+      "invalidJson": "The schema is not valid JSON"
+    },
+    "proposal": {
+      "title": "Generated proposal",
+      "prompt": "Extraction prompt",
+      "schema": "Extraction schema",
+      "save": "Save type",
+      "edit": "Edit",
+      "confirmEdit": "Confirm edit",
+      "cancelEdit": "Cancel editing",
+      "localEditsNotice": "These edits were only kept on this screen, not on the server (there is no way to update an already-saved type yet)."
+    }
+  },
   "auth": {
     "signIn": "Sign in with Google",
     "signOut": "Sign out",

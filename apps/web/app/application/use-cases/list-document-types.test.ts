@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { DocumentType } from '~/domain/entities/document-type'
 import type { DefineDocumentTypeInput, DocumentTypeRepository } from '~/application/ports/document-type-repository'
-import { ListActiveDocumentTypes } from '~/application/use-cases/list-active-document-types'
+import { ListDocumentTypes } from '~/application/use-cases/list-document-types'
 
 class FakeDocumentTypeRepository implements DocumentTypeRepository {
   constructor(private readonly documentTypes: DocumentType[]) {}
 
   listActive(): Promise<DocumentType[]> {
-    return Promise.resolve(this.documentTypes)
+    throw new Error('not implemented')
   }
 
   list(): Promise<DocumentType[]> {
@@ -19,20 +19,20 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
   }
 }
 
-describe('ListActiveDocumentTypes', () => {
-  it('returns the active document types from the repository', async () => {
+describe('ListDocumentTypes', () => {
+  it('returns the document types from the repository', async () => {
     const documentTypes: DocumentType[] = [
       {
         id: '1',
         name: 'Bancolombia statement',
         description: 'Monthly bank statement',
-        extractionPrompt: 'Extract the fields',
-        extractionSchema: {},
+        extractionPrompt: 'Extract the statement fields',
+        extractionSchema: { properties: { balance: { type: 'number' } } },
         active: true,
-        createdAt: '2026-01-01T00:00:00Z'
+        createdAt: '2026-01-01'
       }
     ]
-    const useCase = new ListActiveDocumentTypes(new FakeDocumentTypeRepository(documentTypes))
+    const useCase = new ListDocumentTypes(new FakeDocumentTypeRepository(documentTypes))
 
     await expect(useCase.execute()).resolves.toEqual(documentTypes)
   })
