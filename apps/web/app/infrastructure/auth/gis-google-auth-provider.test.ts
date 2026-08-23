@@ -10,6 +10,7 @@ interface TokenCallbackResponse {
 function stubGoogleAccounts(options: {
   onRequestAccessToken?: (respond: (response: TokenCallbackResponse) => void, triggerError: () => void) => void
   revoke?: (accessToken: string) => void
+  hasGrantedAllScopes?: () => boolean
 } = {}) {
   const initTokenClient = vi.fn((config: {
     callback: (response: TokenCallbackResponse) => void
@@ -29,7 +30,8 @@ function stubGoogleAccounts(options: {
       accounts: {
         oauth2: {
           initTokenClient,
-          revoke: options.revoke ?? vi.fn()
+          revoke: options.revoke ?? vi.fn(),
+          hasGrantedAllScopes: options.hasGrantedAllScopes ?? (() => true)
         }
       }
     }
@@ -63,6 +65,14 @@ describe('GisGoogleAuthProvider', () => {
       accessToken: 'access-token-123'
     })
     expect(onChange).toHaveBeenCalledWith(session)
+  })
+
+  it('rejects with driveDenied when the user declines the Drive scope', async () => {
+    stubGoogleAccounts({ hasGrantedAllScopes: () => false })
+
+    const provider = new GisGoogleAuthProvider('client-id')
+
+    await expect(provider.signIn()).rejects.toThrow(GoogleAuthError)
   })
 
   it('rejects with popupClosed when the token request is cancelled', async () => {

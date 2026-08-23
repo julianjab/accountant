@@ -2,7 +2,8 @@ import type { GoogleUser } from '~/domain/entities/google-user'
 import { GoogleAuthError } from '~/domain/errors/google-auth-error'
 import type { GoogleAuthProvider, GoogleAuthSession } from '~/application/ports/google-auth-provider'
 
-const OAUTH_SCOPES = 'https://www.googleapis.com/auth/drive.readonly openid email profile'
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly'
+const OAUTH_SCOPES = `${DRIVE_SCOPE} openid email profile`
 const GIS_SCRIPT_SRC = 'https://accounts.google.com/gsi/client'
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
 const TOKEN_EXPIRY_BUFFER_MS = 60_000
@@ -10,6 +11,7 @@ const TOKEN_EXPIRY_BUFFER_MS = 60_000
 interface TokenResponse {
   access_token?: string
   expires_in?: number
+  scope?: string
   error?: string
 }
 
@@ -25,6 +27,7 @@ interface GoogleAccountsOauth2 {
     error_callback?: (error: { type: string }) => void
   }) => TokenClient
   revoke: (accessToken: string, callback?: () => void) => void
+  hasGrantedAllScopes: (response: TokenResponse, ...scopes: string[]) => boolean
 }
 
 declare global {
@@ -126,6 +129,10 @@ export class GisGoogleAuthProvider implements GoogleAuthProvider {
         callback: (response) => {
           if (response.error || !response.access_token) {
             reject(new GoogleAuthError(response.error === 'popup_closed' ? 'popupClosed' : 'driveDenied'))
+            return
+          }
+          if (!window.google!.accounts.oauth2.hasGrantedAllScopes(response, DRIVE_SCOPE)) {
+            reject(new GoogleAuthError('driveDenied'))
             return
           }
           resolve({
