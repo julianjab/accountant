@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 
@@ -14,6 +15,8 @@ REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 SCOPES = "https://www.googleapis.com/auth/drive.readonly openid email profile"
 
 _TIMEOUT = 30.0
+
+_logger = logging.getLogger(__name__)
 
 
 def _is_invalid_grant(response: httpx.Response) -> bool:
@@ -124,6 +127,13 @@ class HttpGoogleOAuthClient:
         try:
             response.raise_for_status()
         except httpx.HTTPError as exc:
+            # Logged, never returned: Google echoes client credentials in some
+            # error payloads and this message reaches the browser.
+            _logger.error(
+                "Google rejected the token request (%s): %s",
+                response.status_code,
+                response.text,
+            )
             raise GoogleOAuthError("Google rejected the token request") from exc
 
         payload = response.json()

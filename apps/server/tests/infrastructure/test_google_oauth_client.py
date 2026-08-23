@@ -20,6 +20,7 @@ class FakeResponse:
         self._payload = payload
         self._error = error
         self.status_code = status_code
+        self.text = str(payload)
 
     def raise_for_status(self) -> None:
         if self._error:
