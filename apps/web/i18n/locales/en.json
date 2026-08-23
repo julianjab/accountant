@@ -29,7 +29,6 @@
     "signOut": "Sign out",
     "signedInAs": "Signed in as {email}",
     "driveReadOnly": "Drive · read-only",
-    "signedOut": "Not signed in",
     "errors": {
       "missingClientId": "NUXT_PUBLIC_GOOGLE_CLIENT_ID is not configured",
       "popupClosed": "The Google sign-in window was closed before completing",
