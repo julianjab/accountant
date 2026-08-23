@@ -14,17 +14,33 @@ const id = String(route.params.id)
 const getClient = useGetClientUseCase()
 const listClientDocuments = useListClientDocumentsUseCase()
 const listActiveDocumentTypes = useListActiveDocumentTypesUseCase()
+const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
 
-const { data: client, pending: clientPending } = await useAsyncData<Client | null>(
-  `client:${id}`,
-  () => getClient.execute(id)
-)
-const { data: documents } = await useAsyncData<ClientDocument[]>(
+// Deferred and client-only on purpose: these endpoints need the session
+// cookie, which SSR does not carry (see clients/index.vue).
+const { data: client, pending: clientPending, refresh: refreshClient } = await useAsyncData<
+  Client | null
+>(`client:${id}`, () => getClient.execute(id), { immediate: false, server: false })
+const { data: documents, refresh: refreshDocuments } = await useAsyncData<ClientDocument[]>(
   `documents:${id}`,
-  () => listClientDocuments.execute(id)
+  () => listClientDocuments.execute(id),
+  { immediate: false, server: false, default: () => [] }
 )
-const { data: types } = await useAsyncData<DocumentType[]>('document-types', () =>
-  listActiveDocumentTypes.execute()
+const { data: types, refresh: refreshTypes } = await useAsyncData<DocumentType[]>(
+  'document-types',
+  () => listActiveDocumentTypes.execute(),
+  { immediate: false, server: false, default: () => [] }
+)
+
+watch(
+  isAuthenticated,
+  (authenticated) => {
+    if (!authenticated) return
+    refreshClient()
+    refreshDocuments()
+    refreshTypes()
+  },
+  { immediate: true }
 )
 
 const tabItems = computed(() => [
@@ -37,11 +53,19 @@ const tabItems = computed(() => [
 <template>
   <UContainer class="py-8">
     <div
-      v-if="clientPending"
+      v-if="isAuthLoading || clientPending"
       class="text-[13px] text-neutral-700"
     >
-      {{ t('clients.detail.notFound.title') }}
+      {{ t('auth.loading') }}
     </div>
+
+    <p
+      v-else-if="!isAuthenticated"
+      class="text-muted"
+      data-testid="clients-signed-out"
+    >
+      {{ t('clients.signInRequired') }}
+    </p>
 
     <div
       v-else-if="!client"
