@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from server.domain.entities import Client, Document, DocumentStatus
+from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import get_client_repository, get_document_repository
 from server.main import app
 
@@ -24,7 +25,9 @@ def documents():
 
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(app)
+    app.dependency_overrides[require_session] = lambda: None
+    yield TestClient(app)
+    app.dependency_overrides.clear()
 
 
 def test_list_client_documents(client, clients, documents) -> None:
