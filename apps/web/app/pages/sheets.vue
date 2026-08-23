@@ -18,11 +18,17 @@ const {
 } = await useAsyncData<Record<string, SheetRow[]>>(
   'sheets-rows-by-client',
   async () => {
-    const entries = await Promise.all(
+    const results = await Promise.allSettled(
       (clients.value ?? []).map(
         async client => [client.id, await listClientSheetRows.execute(client.id)] as const
       )
     )
+    const entries = results
+      .filter(
+        (result): result is PromiseFulfilledResult<readonly [string, SheetRow[]]> =>
+          result.status === 'fulfilled'
+      )
+      .map(result => result.value)
     return Object.fromEntries(entries)
   },
   { watch: [clients] }
@@ -32,7 +38,10 @@ const initialClientId = typeof route.query.clientId === 'string' ? route.query.c
 const selectedClientId = ref<string | null>(initialClientId)
 
 watchEffect(() => {
-  if (!selectedClientId.value && clients.value?.length) {
+  if (!clients.value?.length) return
+
+  const isValidSelection = clients.value.some(client => client.id === selectedClientId.value)
+  if (!isValidSelection) {
     selectedClientId.value = clients.value[0]!.id
   }
 })
