@@ -85,6 +85,11 @@ class ProcessDriveChangeNotification:
                 logger.exception(
                     "Failed to process Drive file %s for channel %s", file.id, channel.id
                 )
+                # Undo the claim so this file is eligible again: Drive never
+                # re-notifies for a change it already reported, so a claim left
+                # in place after a failure would make the file unprocessable
+                # forever instead of just until the next retry picks it up.
+                self._claims.release(file.id)
         return processed
 
     @staticmethod

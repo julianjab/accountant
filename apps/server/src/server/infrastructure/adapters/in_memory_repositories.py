@@ -1,3 +1,5 @@
+import threading
+
 from server.domain.entities import (
     Client,
     Document,
@@ -100,14 +102,22 @@ class InMemoryDriveWatchChannelRepository:
 
 
 class InMemoryDriveFileClaimRepository:
-    """Dev-only fallback: a plain set is atomic enough under asyncio's
-    single-threaded execution, though not under true multi-process concurrency."""
+    """Dev-only fallback. Sync FastAPI route handlers (including the ones a
+    BackgroundTasks callback runs from) execute in the threadpool, not the
+    event loop, so a plain check-then-add on a set is not atomic; a lock makes
+    it so within this single process."""
 
     def __init__(self) -> None:
         self._claimed: set[str] = set()
+        self._lock = threading.Lock()
 
     def try_claim(self, drive_file_id: str) -> bool:
-        if drive_file_id in self._claimed:
-            return False
-        self._claimed.add(drive_file_id)
-        return True
+        with self._lock:
+            if drive_file_id in self._claimed:
+                return False
+            self._claimed.add(drive_file_id)
+            return True
+
+    def release(self, drive_file_id: str) -> None:
+        with self._lock:
+            self._claimed.discard(drive_file_id)

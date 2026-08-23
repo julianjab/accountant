@@ -58,3 +58,13 @@ class DriveFileClaimRepository(Protocol):
         creating duplicate documents.
         """
         ...
+
+    def release(self, drive_file_id: str) -> None:
+        """Undoes a claim after a failed processing attempt.
+
+        Without this, a file that fails for a transient reason (a timed-out
+        AI call, Drive/Firestore briefly unavailable, ...) would stay claimed
+        forever: Drive never re-notifies for a change it already reported, so
+        that file would silently never be processed again.
+        """
+        ...

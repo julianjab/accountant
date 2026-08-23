@@ -276,3 +276,6 @@ class FirestoreDriveFileClaimRepository:
         except AlreadyExists:
             return False
         return True
+
+    def release(self, drive_file_id: str) -> None:
+        self._collection.document(drive_file_id).delete()
