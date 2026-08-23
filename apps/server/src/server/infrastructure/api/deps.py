@@ -10,6 +10,7 @@ from server.application.use_cases import (
     GetDocumentMetrics,
     GetExtractedData,
     GetGoogleSession,
+    ImportClientDocuments,
     ImportClientsFromDrive,
     ListClientSheetRows,
     ProcessDriveChangeNotification,
@@ -286,6 +287,15 @@ def get_client_directory() -> GoogleDriveClientDirectory:
     settings = get_settings()
     return GoogleDriveClientDirectory(
         settings.google_service_account_file, settings.google_drive_clients_folder_id
+    )
+
+
+def get_import_client_documents_use_case() -> ImportClientDocuments:
+    return ImportClientDocuments(
+        clients=get_client_repository(),
+        documents=get_document_repository(),
+        storage=get_document_storage(),
+        process_document=get_process_uploaded_document_use_case(),
     )
 
 

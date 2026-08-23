@@ -225,3 +225,11 @@ class ConceptMappingResponse(BaseModel):
     reporter_path: str | None
     reporter_name_path: str | None
     period_path: str | None
+
+
+class ClientDocumentsImportResponse(BaseModel):
+    """What one folder import did, split so the caller can act on each part."""
+
+    imported: list[DocumentResponse]
+    failed: list[DocumentResponse]
+    skipped: int

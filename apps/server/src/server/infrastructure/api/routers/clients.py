@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from server.application.use_cases import (
+    ClientHasNoFolder,
     ClientNotFound,
+    ImportClientDocuments,
+    ImportClientDocumentsInput,
     ListClientSheetRows,
     ListClientSheetRowsInput,
     RegisterClient,
@@ -11,11 +14,13 @@ from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
     get_client_repository,
     get_document_repository,
+    get_import_client_documents_use_case,
     get_list_client_sheet_rows_use_case,
     get_register_client_use_case,
 )
 from server.infrastructure.api.schemas import (
     ClientCreateRequest,
+    ClientDocumentsImportResponse,
     ClientResponse,
     DocumentResponse,
     SheetRowResponse,
@@ -83,3 +88,32 @@ def list_client_spreadsheet_rows(
     except ClientNotFound as error:
         raise HTTPException(status_code=404, detail="Client not found") from error
     return [SheetRowResponse.model_validate(row, from_attributes=True) for row in rows]
+
+
+@router.post("/{client_id}/documents/import", response_model=ClientDocumentsImportResponse)
+def import_client_documents(
+    client_id: str,
+    reprocess: bool = False,
+    use_case: ImportClientDocuments = Depends(get_import_client_documents_use_case),
+) -> ClientDocumentsImportResponse:
+    """Processes the files already in the client's folder.
+
+    Change notifications only report what arrives after a subscription starts,
+    so this is the only way documents that predate the watch ever enter the
+    system.
+    """
+    try:
+        result = use_case.execute(
+            ImportClientDocumentsInput(client_id=client_id, reprocess=reprocess)
+        )
+    except ClientNotFound as exc:
+        raise HTTPException(status_code=404, detail="Client not found") from exc
+    except ClientHasNoFolder as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return ClientDocumentsImportResponse(
+        imported=[
+            DocumentResponse.model_validate(d, from_attributes=True) for d in result.imported
+        ],
+        failed=[DocumentResponse.model_validate(d, from_attributes=True) for d in result.failed],
+        skipped=result.skipped,
+    )
