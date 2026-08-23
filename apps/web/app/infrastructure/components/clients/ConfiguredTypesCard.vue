@@ -45,8 +45,8 @@ const activeCount = computed(() => props.types.filter(type => type.active).lengt
       color="neutral"
       size="sm"
       :label="t('clients.detail.configuredTypes.goToConfig')"
-      to="TODO(#12)"
-      :ui="{ base: 'border-white/14 text-invert' }"
+      to="/TODO(#12)"
+      :ui="{ base: 'ring-white/14 bg-transparent hover:bg-white/[.07] active:bg-white/[.07]', label: 'text-invert' }"
     />
   </UCard>
 </template>

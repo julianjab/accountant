@@ -23,8 +23,11 @@ function onRowSelect(_event: Event, row: Row<Client>) {
 function onTableKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' && event.key !== ' ') return
   const tr = (event.target as HTMLElement).closest('tr')
-  if (!tr || tr.rowIndex < 1) return
-  const client = clients.value?.[tr.rowIndex - 1]
+  const table = tr?.closest('table')
+  if (!tr || !table) return
+  const headerRowCount = table.tHead?.rows.length ?? 0
+  const index = tr.rowIndex - headerRowCount
+  const client = index >= 0 ? clients.value?.[index] : undefined
   if (!client) return
   event.preventDefault()
   goToClient(client.id)

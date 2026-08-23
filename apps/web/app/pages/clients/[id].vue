@@ -66,7 +66,15 @@ const tabItems = computed(() => [
 
       <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1fr_296px]">
         <UCard :ui="{ body: 'p-0 sm:p-0' }">
-          <UTabs :items="tabItems">
+          <UTabs
+            :items="tabItems"
+            :ui="{
+              list: 'border-b border-line-50 bg-transparent rounded-none p-0 gap-4 px-4',
+              indicator: 'hidden',
+              trigger: 'rounded-none border-b-2 border-transparent px-0 py-2.5 text-[13px] font-semibold text-neutral-600 data-[state=active]:border-green-600 data-[state=active]:text-neutral-900',
+              content: 'p-0'
+            }"
+          >
             <template #documents>
               <ClientDocumentList
                 :documents="documents ?? []"
