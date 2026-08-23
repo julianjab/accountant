@@ -14,7 +14,6 @@ class Settings(BaseSettings):
 
     anthropic_model: str = "claude-sonnet-5"
     google_service_account_file: str = ""
-    google_drive_webhook_secret: str = ""
 
     # Google login (authorization-code flow). The client id/secret come from the
     # same "Web application" OAuth client; the redirect URI must be registered on

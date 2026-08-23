@@ -89,29 +89,41 @@ class GoogleDriveWatcher:
         return DriveWatchRegistration(resource_id=response["resourceId"], expires_at=expires_at)
 
     def list_changes(self, page_token: str) -> DriveChangesPage:
-        response = (
-            self._drive.changes()
-            .list(
-                pageToken=page_token,
-                fields="nextPageToken,newStartPageToken,changes(fileId,removed,file(name,mimeType,parents,trashed))",
-            )
-            .execute()
-        )
-
+        # Drive paginates changes(); a caller that stops at the first page and
+        # persists its "nextPageToken" as the new cursor silently drops every
+        # change past the first page, since Drive never re-notifies for changes
+        # it already reported. Loop until the API hands back "newStartPageToken",
+        # which only appears on the final page and is the one safe cursor to persist.
         files = []
-        for change in response.get("changes", []):
-            file = change.get("file")
-            if change.get("removed") or file is None:
-                continue
-            files.append(
-                DriveChangedFile(
-                    id=change["fileId"],
-                    name=file["name"],
-                    mime_type=file["mimeType"],
-                    parents=file.get("parents", []),
-                    trashed=file.get("trashed", False),
+        next_page_token = page_token
+        while True:
+            response = (
+                self._drive.changes()
+                .list(
+                    pageToken=next_page_token,
+                    fields=(
+                        "nextPageToken,newStartPageToken,"
+                        "changes(fileId,removed,file(name,mimeType,parents,trashed))"
+                    ),
                 )
+                .execute()
             )
 
-        next_page_token = response.get("nextPageToken") or response.get("newStartPageToken")
-        return DriveChangesPage(files=files, next_page_token=next_page_token)
+            for change in response.get("changes", []):
+                file = change.get("file")
+                if change.get("removed") or file is None:
+                    continue
+                files.append(
+                    DriveChangedFile(
+                        id=change["fileId"],
+                        name=file["name"],
+                        mime_type=file["mimeType"],
+                        parents=file.get("parents", []),
+                        trashed=file.get("trashed", False),
+                    )
+                )
+
+            new_start_page_token = response.get("newStartPageToken")
+            if new_start_page_token:
+                return DriveChangesPage(files=files, next_page_token=new_start_page_token)
+            next_page_token = response["nextPageToken"]

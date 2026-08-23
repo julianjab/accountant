@@ -4,11 +4,16 @@ from server.application.use_cases.process_uploaded_document import (
     ProcessUploadedDocument,
     ProcessUploadedDocumentInput,
 )
-from server.domain.entities import Document
-from server.domain.ports import DriveChangeReader, DriveWatchChannelRepository
+from server.domain.entities import Document, DriveChangedFile
+from server.domain.ports import DocumentRepository, DriveChangeReader, DriveWatchChannelRepository
 
 # Drive's initial handshake notification when a channel is created: no changes yet.
 _SYNC_RESOURCE_STATE = "sync"
+
+# Native Google types (Docs, Sheets, folders, ...) cannot be fetched with a plain
+# files().get_media() download the way a PDF/image can; they need an export.
+# None of them are documents this pipeline can classify or OCR, so skip them.
+_NATIVE_GOOGLE_MIME_PREFIX = "application/vnd.google-apps."
 
 
 class ProcessDriveChangeNotification:
@@ -19,10 +24,12 @@ class ProcessDriveChangeNotification:
         self,
         channels: DriveWatchChannelRepository,
         change_reader: DriveChangeReader,
+        documents: DocumentRepository,
         process_document: ProcessUploadedDocument,
     ) -> None:
         self._channels = channels
         self._change_reader = change_reader
+        self._documents = documents
         self._process_document = process_document
 
     def execute(self, channel_id: str, resource_state: str) -> list[Document]:
@@ -37,16 +44,30 @@ class ProcessDriveChangeNotification:
 
         processed = []
         for file in page.files:
-            if not file.trashed and channel.folder_id in file.parents:
-                processed.append(
-                    self._process_document.execute(
-                        ProcessUploadedDocumentInput(
-                            client_id=channel.client_id,
-                            drive_file_id=file.id,
-                            file_reference=file.id,
-                        )
+            if not self._should_process(channel.folder_id, file):
+                continue
+            # Drive notifications are at-least-once and the cursor only advances
+            # once the whole batch succeeds, so a retry can hand back a file this
+            # channel already processed; skip it instead of duplicating the document.
+            if self._documents.get_by_drive_file_id(file.id) is not None:
+                continue
+            processed.append(
+                self._process_document.execute(
+                    ProcessUploadedDocumentInput(
+                        client_id=channel.client_id,
+                        drive_file_id=file.id,
+                        file_reference=file.id,
                     )
                 )
+            )
 
         self._channels.save(replace(channel, page_token=page.next_page_token))
         return processed
+
+    @staticmethod
+    def _should_process(folder_id: str, file: DriveChangedFile) -> bool:
+        return (
+            not file.trashed
+            and folder_id in file.parents
+            and not file.mime_type.startswith(_NATIVE_GOOGLE_MIME_PREFIX)
+        )

@@ -41,6 +41,9 @@ class InMemoryDocumentRepository:
             return list(self._items.values())
         return [d for d in self._items.values() if d.status == status]
 
+    def get_by_drive_file_id(self, drive_file_id: str) -> Document | None:
+        return next((d for d in self._items.values() if d.drive_file_id == drive_file_id), None)
+
 
 class InMemoryDocumentTypeRepository:
     def __init__(self) -> None:

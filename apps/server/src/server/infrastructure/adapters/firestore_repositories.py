@@ -95,6 +95,12 @@ class FirestoreDocumentRepository:
         query = self._collection.where("client_id", "==", client_id)
         return [self._to_entity(d.id, d.to_dict()) for d in query.stream()]
 
+    def get_by_drive_file_id(self, drive_file_id: str) -> Document | None:
+        query = self._collection.where("drive_file_id", "==", drive_file_id).limit(1)
+        for snapshot in query.stream():
+            return self._to_entity(snapshot.id, snapshot.to_dict())
+        return None
+
     @staticmethod
     def _to_entity(doc_id: str, data: dict[str, Any]) -> Document:
         return Document(
@@ -237,6 +243,7 @@ class FirestoreDriveWatchChannelRepository:
                 "client_id": channel.client_id,
                 "folder_id": channel.folder_id,
                 "resource_id": channel.resource_id,
+                "token": channel.token,
                 "page_token": channel.page_token,
                 "expires_at": channel.expires_at,
             }
@@ -253,6 +260,7 @@ class FirestoreDriveWatchChannelRepository:
             resource_id=data["resource_id"],
             folder_id=data["folder_id"],
             client_id=data["client_id"],
+            token=data["token"],
             page_token=data["page_token"],
             expires_at=_as_utc(data["expires_at"]),
         )

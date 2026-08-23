@@ -3,8 +3,10 @@ import secrets
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 
 from server.application.use_cases import ProcessDriveChangeNotification, SubscribeDriveWebhook
+from server.domain.ports import DriveWatchChannelRepository
 from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
+    get_drive_watch_channel_repository,
     get_process_drive_change_notification_use_case,
     get_settings,
     get_subscribe_drive_webhook_use_case,
@@ -23,17 +25,20 @@ def handle_drive_webhook(
     use_case: ProcessDriveChangeNotification = Depends(
         get_process_drive_change_notification_use_case
     ),
-    settings: Settings = Depends(get_settings),
+    channels: DriveWatchChannelRepository = Depends(get_drive_watch_channel_repository),
 ) -> Response:
-    if (
-        not settings.google_drive_webhook_secret
-        or not x_goog_channel_token
-        or not secrets.compare_digest(x_goog_channel_token, settings.google_drive_webhook_secret)
-    ):
-        raise HTTPException(status_code=401, detail="Invalid webhook token")
-
     if x_goog_channel_id is None:
         raise HTTPException(status_code=400, detail="Missing channel id")
+
+    # The token is per-channel (see SubscribeDriveWebhook), so it can only be
+    # validated once the channel it claims to belong to is known.
+    channel = channels.get_by_channel_id(x_goog_channel_id)
+    if (
+        channel is None
+        or not x_goog_channel_token
+        or not secrets.compare_digest(x_goog_channel_token, channel.token)
+    ):
+        raise HTTPException(status_code=401, detail="Invalid webhook token")
 
     use_case.execute(channel_id=x_goog_channel_id, resource_state=x_goog_resource_state or "")
     return Response(status_code=200)
@@ -51,13 +56,9 @@ def subscribe_drive_webhook(
     use_case: SubscribeDriveWebhook = Depends(get_subscribe_drive_webhook_use_case),
     settings: Settings = Depends(get_settings),
 ) -> DriveWatchChannelResponse:
-    if not settings.google_drive_webhook_secret:
-        raise HTTPException(status_code=500, detail="Drive webhook secret is not configured")
-
     channel = use_case.execute(
         folder_id=folder_id,
         client_id=client_id,
         webhook_url=f"{settings.server_public_url}/webhooks/drive",
-        token=settings.google_drive_webhook_secret,
     )
     return DriveWatchChannelResponse.model_validate(channel, from_attributes=True)

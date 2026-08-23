@@ -235,5 +235,6 @@ def get_process_drive_change_notification_use_case() -> ProcessDriveChangeNotifi
     return ProcessDriveChangeNotification(
         channels=get_drive_watch_channel_repository(),
         change_reader=get_drive_watcher(),
+        documents=get_document_repository(),
         process_document=get_process_uploaded_document_use_case(),
     )
