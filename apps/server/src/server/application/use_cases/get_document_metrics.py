@@ -10,6 +10,12 @@ _UNPROCESSED_STATUSES = {
     DocumentStatus.RUNNING_OCR,
 }
 
+# Approval only records a review decision (see ApproveDocument) — it never
+# clears processed_at or otherwise reverses the OCR pipeline. A document
+# therefore stays "processed" for these figures whether or not it has since
+# been approved.
+_PROCESSED_STATUSES = {DocumentStatus.PROCESSED, DocumentStatus.APPROVED}
+
 
 @dataclass(frozen=True, slots=True)
 class DocumentMetrics:
@@ -31,7 +37,7 @@ class GetDocumentMetrics:
 
         unprocessed = sum(1 for d in items if d.status in _UNPROCESSED_STATUSES)
         failed = sum(1 for d in items if d.status == DocumentStatus.FAILED)
-        processed = [d for d in items if d.status == DocumentStatus.PROCESSED]
+        processed = [d for d in items if d.status in _PROCESSED_STATUSES]
         processed_today = sum(
             1
             for d in processed

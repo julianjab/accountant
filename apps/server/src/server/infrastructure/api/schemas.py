@@ -53,7 +53,8 @@ class DocumentMetricsResponse(BaseModel):
     """Dashboard figures. "Today" is computed in UTC.
 
     `avg_processing_seconds` is the mean of (processed_at - created_at) over
-    documents with status=processed; `null` when there is no such document yet.
+    documents with status in {processed, approved} (approval never reverses
+    the OCR pipeline); `null` when there is no such document yet.
     """
 
     unprocessed: int

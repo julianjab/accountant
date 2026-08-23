@@ -51,3 +51,24 @@ def test_get_document_metrics_avg_is_none_without_processed_documents() -> None:
 
     assert metrics.avg_processing_seconds is None
     assert metrics.processed_today == 0
+
+
+def test_get_document_metrics_counts_approved_documents_as_processed() -> None:
+    """Approving a document (see ApproveDocument) must not drop it from the
+    processed figures — approval only records a review decision, it never
+    reverses the OCR pipeline or clears processed_at."""
+    documents = InMemoryDocumentRepository()
+    now = datetime.now(UTC)
+    documents.save(
+        _document(
+            id="doc-1",
+            status=DocumentStatus.APPROVED,
+            created_at=now - timedelta(seconds=20),
+            processed_at=now,
+        )
+    )
+
+    metrics = GetDocumentMetrics(documents).execute()
+
+    assert metrics.processed_today == 1
+    assert metrics.avg_processing_seconds == 20.0
