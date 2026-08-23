@@ -3,7 +3,8 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',
-    '@nuxtjs/i18n'
+    '@nuxtjs/i18n',
+    '@nuxt/fonts'
   ],
 
   devtools: {
@@ -32,6 +33,13 @@ export default defineNuxtConfig({
         braceStyle: '1tbs'
       }
     }
+  },
+
+  fonts: {
+    families: [
+      { name: 'Public Sans', provider: 'google' },
+      { name: 'JetBrains Mono', provider: 'google' }
+    ]
   },
 
   i18n: {

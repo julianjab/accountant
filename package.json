@@ -15,5 +15,9 @@
     "server:test": "cd apps/server && uv run pytest",
     "lint": "bun run web:lint && bun run server:lint",
     "test": "bun run web:test && bun run server:test"
-  }
+  },
+  "trustedDependencies": [
+    "unrs-resolver",
+    "web"
+  ]
 }
