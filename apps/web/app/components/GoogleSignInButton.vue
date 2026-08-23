@@ -24,13 +24,17 @@ async function handleSignIn() {
 <template>
   <div class="flex items-center gap-3">
     <template v-if="isAuthenticated && user">
-      <span class="text-sm text-muted">
+      <span
+        class="text-sm text-muted"
+        data-testid="google-auth-signed-in-as"
+      >
         {{ t('auth.signedInAs', { email: user.email }) }}
       </span>
       <UButton
         color="neutral"
         variant="ghost"
         size="sm"
+        data-testid="google-auth-sign-out"
         @click="signOut"
       >
         {{ t('auth.signOut') }}
@@ -43,6 +47,7 @@ async function handleSignIn() {
         variant="solid"
         size="sm"
         :loading="isSigningIn"
+        data-testid="google-auth-sign-in"
         @click="handleSignIn"
       >
         {{ t('auth.signIn') }}
@@ -50,6 +55,7 @@ async function handleSignIn() {
       <span
         v-if="errorKey"
         class="text-sm text-error"
+        data-testid="google-auth-error"
       >
         {{ t(errorKey) }}
       </span>
