@@ -66,7 +66,8 @@ Install [Renovate GitHub app](https://github.com/apps/renovate/installations/sel
 ## Google login (Drive read access)
 
 The app lets a user sign in with their own Google account, from the browser, to read their
-Google Drive (scope `drive.readonly`). This is separate from the server's service account,
+Google Drive (scope `drive.readonly`, plus `openid email profile` so the sign-in flow can show
+who's logged in via `oauth2/v3/userinfo`). This is separate from the server's service account,
 which is only used for the Drive webhook that processes uploaded documents.
 
 ### Create an OAuth Client ID
@@ -98,9 +99,10 @@ NUXT_PUBLIC_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 - Sign-in happens entirely in the browser via Google Identity Services
   (`app/infrastructure/auth/gis-google-auth-provider.ts`); the resulting `access_token` is only
   ever used client-side, and never sent to `apps/server`.
-- There's no refresh token (implicit flow doesn't issue one) — expired tokens are renewed with a
-  silent `requestAccessToken({ prompt: '' })` call, and the session itself doesn't persist across
-  page reloads beyond what Google Identity Services offers natively.
+- There's no refresh token (implicit flow doesn't issue one) — the adapter tracks the token's
+  `expires_in` and renews it with a silent `requestAccessToken({ prompt: '' })` call once it's
+  close to expiring, and the session itself doesn't persist across page reloads beyond what
+  Google Identity Services offers natively.
 - Because the token lives in the browser, any XSS on this app would expose it — this is why the
   scope is read-only. Moving to an authorization-code flow with a backend-held refresh token (so
   `apps/server` can act on the user's behalf, and so the token isn't exposed to the page at all)

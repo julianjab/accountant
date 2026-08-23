@@ -24,6 +24,10 @@ export function useRegisterClientUseCase() {
 let googleAuthProvider: GoogleAuthProvider | null = null
 
 export function useGoogleAuthProvider(): GoogleAuthProvider {
+  if (!import.meta.client) {
+    throw new Error('GoogleAuthProvider is only available on the client')
+  }
+
   if (!googleAuthProvider) {
     const config = useRuntimeConfig()
     googleAuthProvider = new GisGoogleAuthProvider(config.public.googleClientId)

@@ -2,12 +2,14 @@ import type { GoogleUser } from '~/domain/entities/google-user'
 import { GoogleAuthError } from '~/domain/errors/google-auth-error'
 import type { GoogleAuthProvider, GoogleAuthSession } from '~/application/ports/google-auth-provider'
 
-const DRIVE_READONLY_SCOPE = 'https://www.googleapis.com/auth/drive.readonly'
+const OAUTH_SCOPES = 'https://www.googleapis.com/auth/drive.readonly openid email profile'
 const GIS_SCRIPT_SRC = 'https://accounts.google.com/gsi/client'
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
+const TOKEN_EXPIRY_BUFFER_MS = 60_000
 
 interface TokenResponse {
   access_token?: string
+  expires_in?: number
   error?: string
 }
 
@@ -41,6 +43,11 @@ interface UserInfoDto {
   picture?: string
 }
 
+interface TokenResult {
+  accessToken: string
+  expiresAt: number
+}
+
 function toGoogleUser(dto: UserInfoDto): GoogleUser {
   return {
     email: dto.email,
@@ -63,7 +70,10 @@ function loadGisScript(): Promise<void> {
       script.async = true
       script.defer = true
       script.onload = () => resolve()
-      script.onerror = () => reject(new Error('Failed to load Google Identity Services script'))
+      script.onerror = () => {
+        scriptLoadPromise = null
+        reject(new Error('Failed to load Google Identity Services script'))
+      }
       document.head.appendChild(script)
     })
   }
@@ -73,6 +83,7 @@ function loadGisScript(): Promise<void> {
 
 export class GisGoogleAuthProvider implements GoogleAuthProvider {
   private accessToken: string | null = null
+  private tokenExpiresAt: number | null = null
   private changeCallbacks: Array<(session: GoogleAuthSession | null) => void> = []
 
   constructor(private readonly clientId: string) {}
@@ -88,23 +99,26 @@ export class GisGoogleAuthProvider implements GoogleAuthProvider {
     }
   }
 
-  private async requestToken(prompt: string): Promise<string> {
+  private async requestToken(prompt: string): Promise<TokenResult> {
     if (!this.clientId) {
       throw new GoogleAuthError('missingClientId')
     }
 
     await loadGisScript()
 
-    return new Promise<string>((resolve, reject) => {
+    return new Promise<TokenResult>((resolve, reject) => {
       const tokenClient: TokenClient = window.google!.accounts.oauth2.initTokenClient({
         client_id: this.clientId,
-        scope: DRIVE_READONLY_SCOPE,
+        scope: OAUTH_SCOPES,
         callback: (response) => {
           if (response.error || !response.access_token) {
             reject(new GoogleAuthError(response.error === 'popup_closed' ? 'popupClosed' : 'driveDenied'))
             return
           }
-          resolve(response.access_token)
+          resolve({
+            accessToken: response.access_token,
+            expiresAt: Date.now() + (response.expires_in ?? 3600) * 1000
+          })
         },
         error_callback: () => {
           reject(new GoogleAuthError('popupClosed'))
@@ -114,9 +128,14 @@ export class GisGoogleAuthProvider implements GoogleAuthProvider {
     })
   }
 
+  private hasValidToken(): boolean {
+    return this.accessToken !== null && this.tokenExpiresAt !== null && Date.now() < this.tokenExpiresAt - TOKEN_EXPIRY_BUFFER_MS
+  }
+
   async signIn(): Promise<GoogleAuthSession> {
-    const accessToken = await this.requestToken('consent')
+    const { accessToken, expiresAt } = await this.requestToken('consent')
     this.accessToken = accessToken
+    this.tokenExpiresAt = expiresAt
 
     const user = await this.fetchUser(accessToken)
     const session: GoogleAuthSession = { user, accessToken }
@@ -127,6 +146,7 @@ export class GisGoogleAuthProvider implements GoogleAuthProvider {
   signOut(): void {
     const token = this.accessToken
     this.accessToken = null
+    this.tokenExpiresAt = null
     this.notifyChange(null)
 
     if (token) {
@@ -135,12 +155,13 @@ export class GisGoogleAuthProvider implements GoogleAuthProvider {
   }
 
   async getAccessToken(): Promise<string> {
-    if (this.accessToken) {
-      return this.accessToken
+    if (this.hasValidToken()) {
+      return this.accessToken!
     }
 
-    const accessToken = await this.requestToken('')
+    const { accessToken, expiresAt } = await this.requestToken('')
     this.accessToken = accessToken
+    this.tokenExpiresAt = expiresAt
     return accessToken
   }
 
