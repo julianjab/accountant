@@ -43,6 +43,7 @@ class ImportClientsFromDrive:
                     email=None,
                     created_at=datetime.now(UTC),
                     drive_folder_id=folder.id,
+                    drive_folder_url=f"https://drive.google.com/drive/folders/{folder.id}",
                 )
                 self._clients.save(client)
                 created.append(client)
@@ -55,6 +56,7 @@ class ImportClientsFromDrive:
                     email=current.email,
                     created_at=current.created_at,
                     drive_folder_id=current.drive_folder_id,
+                    drive_folder_url=current.drive_folder_url,
                 )
                 self._clients.save(client)
                 renamed.append(client)
