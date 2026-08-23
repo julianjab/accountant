@@ -23,7 +23,7 @@ Hoy `apps/web` es la plantilla de Nuxt UI con un `UHeader`, el botón de Google 
 - [x] #C Ficha de cliente
 - [ ] #D Revisión de documento y datos extraídos
 - [ ] #E Tipos de documento y "Definir tipo"
-- [ ] #F Hojas de cálculo por cliente
+- [x] #F Hojas de cálculo por cliente
 - [ ] #G Endpoints faltantes en `apps/server`
 
 **Fuera de alcance**: responsive por debajo de ~1100px, tiempo real en la bandeja, autenticación distinta a la actual.
@@ -141,17 +141,27 @@ Rutas `/document-types` y `/document-types/new`.
 
 ---
 
-## F. Hojas de cálculo por cliente
+## F. Hojas de cálculo por cliente — ✅ implementado
 
-Ref: README → "§ 6". Depende de G. **Bloqueada por backend.**
+Ref: README → "§ 6". Depende de G (ya cerrada).
 
-**Tareas**
+**Implementado** (branch `feat/cliente-hoja-calculo-consolidacion`):
 
-- [ ] Selector de cliente en tarjetas (la seleccionada se invierte a fondo profundo).
-- [ ] Tabla de filas aprobadas: fecha, descripción, documento origen, valor, iva.
-- [ ] Acción "Abrir en Google Sheets".
+- [x] `apps/server/src/server/domain/entities/sheet_row.py` — `SheetRow{source_document_id, source_document_file_name, date, description, amount, tax}` (todos `str`).
+- [x] `Client.spreadsheet_url: str | None = None` — destino de "Abrir en Google Sheets", pegado fuera de banda al registrar el cliente (opción i del PRD: URL persistida, sin credenciales de Sheets nuevas; Drive sigue en `drive.readonly`).
+- [x] `application/use_cases/list_client_sheet_rows.py` — `ListClientSheetRows` agrega los documentos `DocumentStatus.APPROVED` de un cliente con su `ExtractedData` (lectura por clave exacta `date`/`description`/`amount`/`tax`, `""` si falta). No se tocaron los ports: la agregación vive enteramente en el use case, no en `ExtractedDataRepository`.
+- [x] `GET /clients/{client_id}/spreadsheet-rows` (404 si el cliente no existe) — `infrastructure/api/routers/clients.py`.
+- [x] `apps/web/app/pages/sheets.vue` — tarjetas horizontales de cliente (grid, no scroll horizontal), la seleccionada invierte a `bg-neutral-950`/`text-invert` (tokens ya declarados en tarea A); tabla de filas vía `UTable`; botón "Abrir en Google Sheets" (enlaza a `spreadsheetUrl`, deshabilitado si no hay).
+- [x] `apps/web/app/components/AppSidebar.vue` — `/sheets` deja de ser un link "muerto".
+- [x] i18n: `sheets.*` en `es.json`/`en.json` (no `clients.spreadsheet.*`, siguiendo la convención de este README).
 
-**Nota**: no existe entidad ni endpoint de hojas de cálculo. Definir primero cómo se agregan los `ExtractedData` aprobados por cliente y periodo, y qué significa "aprobado" en el modelo (hoy `Document` no tiene ese estado).
+**Desvíos respecto al enunciado original, documentados en el issue de ia-flow**:
+- **Sin filtro de periodo** en el endpoint ni en la UI: `ExtractedData.fields` no tiene un campo de fecha confiable todavía (depende del `extraction_schema` de cada `DocumentType`, tarea E, no implementada). Las tarjetas muestran conteo de filas + estado de sincronización, no "periodo".
+- **Forma de fila con fallback a `""`**: no hay mapeo formal entre las claves de un `extraction_schema` y `date`/`description`/`amount`/`tax`. Si un tipo de documento usa otros nombres, esas columnas salen vacías — deuda técnica para cuando la tarea E permita declarar ese mapeo.
+
+**Tests**: `apps/server/tests/application/test_list_client_sheet_rows.py`, casos nuevos en `test_clients.py`/`test_register_client.py`; `apps/web/app/application/use-cases/list-client-sheet-rows.test.ts`. `uv run ruff check . && uv run pytest` (38 tests) y `bun run lint && bun run typecheck && bun run test` (13 tests) en verde. Verificado manualmente con `bun run dev` + `uv run uvicorn` apuntando a un puerto de prueba: selección de tarjeta, cambio de tabla, y estado deshabilitado del botón cuando `spreadsheetUrl` es `null` — confirmado por captura de accesibilidad (Playwright), sin errores de consola. No se pudo probar el camino con filas aprobadas reales de punta a punta (requiere credenciales de Anthropic para correr el pipeline de OCR, no disponibles en este entorno); ese camino queda cubierto por los tests de `ListClientSheetRows`.
+
+**Deuda técnica / fuera de alcance**: sin paginación en `GET /clients/{id}/spreadsheet-rows`; sin mapeo declarado entre `extraction_schema` y las claves canónicas de `SheetRow`; sin filtro de periodo.
 
 ---
 

@@ -6,4 +6,5 @@ export interface Client {
   createdAt: string
   driveFolderId: string | null
   driveFolderUrl: string | null
+  spreadsheetUrl: string | null
 }

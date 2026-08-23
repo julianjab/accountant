@@ -66,6 +66,7 @@ def test_a_rename_keeps_data_filled_in_on_top_of_the_import():
             created_at=datetime(2026, 1, 1, tzinfo=UTC),
             drive_folder_id="f1",
             drive_folder_url="https://drive.google.com/drive/folders/f1",
+            spreadsheet_url="https://docs.google.com/spreadsheets/d/abc",
         )
     )
 
@@ -79,6 +80,8 @@ def test_a_rename_keeps_data_filled_in_on_top_of_the_import():
     assert saved.email == "a@acme.co"
     assert saved.created_at == datetime(2026, 1, 1, tzinfo=UTC)
     assert saved.drive_folder_url == "https://drive.google.com/drive/folders/f1"
+    # A rename must not drop out-of-band data like the linked spreadsheet.
+    assert saved.spreadsheet_url == "https://docs.google.com/spreadsheets/d/abc"
 
 
 def test_reimporting_backfills_a_missing_drive_folder_url():
@@ -91,6 +94,7 @@ def test_reimporting_backfills_a_missing_drive_folder_url():
             email=None,
             created_at=datetime(2026, 1, 1, tzinfo=UTC),
             drive_folder_id="f1",
+            spreadsheet_url="https://docs.google.com/spreadsheets/d/abc",
         )
     )
 
@@ -99,7 +103,10 @@ def test_reimporting_backfills_a_missing_drive_folder_url():
     ).execute()
 
     assert result.unchanged == 1
-    assert clients.get("c1").drive_folder_url == "https://drive.google.com/drive/folders/f1"
+    saved = clients.get("c1")
+    assert saved.drive_folder_url == "https://drive.google.com/drive/folders/f1"
+    # Backfilling drive_folder_url must not drop out-of-band data either.
+    assert saved.spreadsheet_url == "https://docs.google.com/spreadsheets/d/abc"
 
 
 def test_a_folder_disappearing_does_not_delete_its_client():

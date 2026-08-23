@@ -1,9 +1,20 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, HttpUrl, TypeAdapter, field_validator
 
 from server.domain.entities import DocumentStatus
+
+_HTTPS_URL = TypeAdapter(HttpUrl)
+
+
+def _validate_https_url(value: str | None) -> str | None:
+    if value is None:
+        return None
+    url = _HTTPS_URL.validate_python(value)
+    if url.scheme != "https":
+        raise ValueError("spreadsheet_url must use https")
+    return str(url)
 
 
 class ClientCreateRequest(BaseModel):
@@ -11,6 +22,7 @@ class ClientCreateRequest(BaseModel):
     tax_id: str | None = None
     email: str | None = None
     drive_folder_url: str | None = None
+    spreadsheet_url: str | None = None
 
     @field_validator("drive_folder_url")
     @classmethod
@@ -23,6 +35,8 @@ class ClientCreateRequest(BaseModel):
             raise ValueError(msg)
         return value
 
+    _validate_spreadsheet_url = field_validator("spreadsheet_url")(_validate_https_url)
+
 
 class ClientResponse(BaseModel):
     id: str
@@ -32,6 +46,7 @@ class ClientResponse(BaseModel):
     created_at: datetime
     drive_folder_id: str | None = None
     drive_folder_url: str | None = None
+    spreadsheet_url: str | None = None
 
 
 class ClientImportResponse(BaseModel):
@@ -89,6 +104,15 @@ class ExtractedDataResponse(BaseModel):
     fields: dict[str, Any]
     confidence: float | None
     created_at: datetime
+
+
+class SheetRowResponse(BaseModel):
+    source_document_id: str
+    source_document_file_name: str
+    date: str
+    description: str
+    amount: str
+    tax: str
 
 
 class DriveWatchChannelResponse(BaseModel):

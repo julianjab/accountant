@@ -37,7 +37,8 @@ describe('ListClients', () => {
         email: null,
         createdAt: '2026-01-01',
         driveFolderId: null,
-        driveFolderUrl: null
+        driveFolderUrl: null,
+        spreadsheetUrl: null
       }
     ]
     const useCase = new ListClients(new FakeClientRepository(clients))

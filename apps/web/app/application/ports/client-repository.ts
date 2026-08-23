@@ -4,6 +4,7 @@ export interface RegisterClientInput {
   name: string
   taxId: string | null
   email: string | null
+  spreadsheetUrl?: string | null
 }
 
 export interface ImportSummary {
