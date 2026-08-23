@@ -119,6 +119,14 @@ class FirestoreDocumentRepository:
         query = self._collection.where("client_id", "==", client_id)
         return [self._to_entity(d.id, d.to_dict()) for d in query.stream()]
 
+    def list_all(self, status: DocumentStatus | None = None) -> list[Document]:
+        query = (
+            self._collection
+            if status is None
+            else self._collection.where("status", "==", str(status))
+        )
+        return [self._to_entity(d.id, d.to_dict()) for d in query.stream()]
+
     def get_by_drive_file_id_and_client(
         self, drive_file_id: str, client_id: str
     ) -> Document | None:
