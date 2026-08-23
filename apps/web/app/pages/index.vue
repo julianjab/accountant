@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import type { DocumentStatus } from '~/domain/entities/document'
 
+const VALID_STATUSES: DocumentStatus[] = ['pending', 'classifying', 'running_ocr', 'processed', 'failed']
+
 const { t } = useI18n()
 const route = useRoute()
-const status = computed(() => route.query.status as DocumentStatus | undefined)
+const status = computed(() => {
+  const value = route.query.status
+  return VALID_STATUSES.includes(value as DocumentStatus) ? (value as DocumentStatus) : undefined
+})
 const useCase = useListInboxUseCase()
 
 const { data: inbox } = await useAsyncData(
