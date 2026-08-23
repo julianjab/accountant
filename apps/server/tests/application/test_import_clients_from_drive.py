@@ -23,6 +23,7 @@ def test_a_new_folder_becomes_a_client():
     assert [c.name for c in result.created] == ["Acme SAS"]
     saved = clients.list_all()[0]
     assert saved.drive_folder_id == "f1"
+    assert saved.drive_folder_url == "https://drive.google.com/drive/folders/f1"
     # A folder carries no tax id; it is filled in later.
     assert saved.tax_id is None
 
@@ -64,6 +65,7 @@ def test_a_rename_keeps_data_filled_in_on_top_of_the_import():
             email="a@acme.co",
             created_at=datetime(2026, 1, 1, tzinfo=UTC),
             drive_folder_id="f1",
+            drive_folder_url="https://drive.google.com/drive/folders/f1",
         )
     )
 
@@ -76,6 +78,7 @@ def test_a_rename_keeps_data_filled_in_on_top_of_the_import():
     assert saved.tax_id == "900123456"
     assert saved.email == "a@acme.co"
     assert saved.created_at == datetime(2026, 1, 1, tzinfo=UTC)
+    assert saved.drive_folder_url == "https://drive.google.com/drive/folders/f1"
 
 
 def test_a_folder_disappearing_does_not_delete_its_client():
