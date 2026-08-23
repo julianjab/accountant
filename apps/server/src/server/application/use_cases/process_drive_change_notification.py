@@ -202,6 +202,10 @@ class ProcessDriveChangeNotification:
             if existing is not None and existing.status != DocumentStatus.PROCESSED
             else str(uuid.uuid4())
         )
+        # TODO: this always writes document_type_id=None and a fresh
+        # created_at, which loses a previously-classified type/timestamp when
+        # reusing an existing row (e.g. classify succeeded, a later step
+        # failed).
         document = Document(
             id=document_id,
             client_id=channel.client_id,

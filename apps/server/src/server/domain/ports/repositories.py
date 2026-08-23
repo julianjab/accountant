@@ -89,6 +89,9 @@ class DriveFileClaimRepository(Protocol):
         Lets a caller cap retries: without a limit, a file that fails for a
         permanent reason (an unsupported type, revoked access, ...) would be
         re-attempted on every future notification for that channel, forever.
+
+        # TODO: this counter has no expiry, so failures from unrelated,
+        # long-past incidents keep counting towards today's retry cap.
         """
         ...
 
