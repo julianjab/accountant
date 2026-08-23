@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from server.application.use_cases import (
     ProcessDriveChangeNotification,
     ProcessUploadedDocumentInput,
@@ -536,3 +538,37 @@ def test_concurrent_notifications_for_the_same_channel_are_serialized():
         t.join()
 
     assert max_in_flight == 1
+
+
+def test_a_claim_is_released_even_if_recording_the_failure_raises():
+    # If anything after a successful try_claim raises (here, the claim
+    # store itself failing to record the attempt), the claim must not be
+    # left dangling forever: nothing would ever run to release it again.
+    channels = FakeDriveWatchChannelRepository(_CHANNEL)
+    change_reader = FakeDriveChangeReader(
+        DriveChangesPage(
+            files=[
+                DriveChangedFile(
+                    id="file-1",
+                    name="broken.pdf",
+                    mime_type="application/pdf",
+                    parents=["folder-1"],
+                    trashed=False,
+                )
+            ],
+            next_page_token="token-2",
+        )
+    )
+    process_document = FakeProcessUploadedDocument(fail_for={"file-1"})
+
+    class ExplodingClaimRepository(FakeDriveFileClaimRepository):
+        def record_failure(self, key: str) -> int:
+            raise RuntimeError("claim store unavailable")
+
+    claims = ExplodingClaimRepository()
+    use_case = _use_case(channels, change_reader, process_document, claims)
+
+    with pytest.raises(RuntimeError):
+        use_case.execute(channel_id="channel-1", resource_state="update")
+
+    assert "channel-1:file-1" not in claims._claimed

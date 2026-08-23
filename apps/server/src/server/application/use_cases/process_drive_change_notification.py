@@ -116,14 +116,28 @@ class ProcessDriveChangeNotification:
             if not self._claims.try_claim(claim_key):
                 continue
 
-            document, needs_retry = self._attempt(channel, file)
-            if needs_retry:
-                had_failures = True
-                continue
-            if document is not None:
-                processed.append(document)
-                if document.status == DocumentStatus.PROCESSED:
-                    self._claims.clear_failures(claim_key)
+            # Anything past this point that raises (e.g. record_failure or the
+            # give-up save inside _attempt) must not leave the claim dangling
+            # forever with no outcome ever recorded for it. outcome_decided is
+            # only set once a terminal path has actually run: the retry branch
+            # (which already released the claim itself via _should_retry) and
+            # the success/give-up branch (which deliberately keeps it held).
+            # If neither ran, an exception escaped and the claim is released.
+            outcome_decided = False
+            try:
+                document, needs_retry = self._attempt(channel, file)
+                if needs_retry:
+                    had_failures = True
+                    outcome_decided = True
+                    continue
+                outcome_decided = True
+                if document is not None:
+                    processed.append(document)
+                    if document.status == DocumentStatus.PROCESSED:
+                        self._claims.clear_failures(claim_key)
+            finally:
+                if not outcome_decided:
+                    self._claims.release(claim_key)
 
         return processed, had_failures
 
