@@ -2,7 +2,9 @@
 
 import pytest
 
+from server.application.use_cases import SubscribeDriveWebhook
 from server.infrastructure.adapters import firestore_repositories, in_memory_repositories
+from server.infrastructure.adapters.google_drive_storage import GoogleDriveWatcher
 from server.infrastructure.api import deps
 
 
@@ -97,3 +99,27 @@ def test_firestore_client_is_built_from_the_configured_project(monkeypatch):
 
     assert isinstance(deps.get_firestore(), FakeFirestoreClient)
     assert captured == {"project": "proj", "database": "db"}
+
+
+def test_get_drive_watcher_returns_a_google_drive_watcher(monkeypatch):
+    monkeypatch.setattr(deps.get_settings(), "google_service_account_file", "sa.json")
+    monkeypatch.setattr(
+        "server.infrastructure.adapters.google_drive_storage._build_drive_client",
+        lambda service_account_file: object(),
+    )
+    deps.get_drive_watcher.cache_clear()
+
+    assert isinstance(deps.get_drive_watcher(), GoogleDriveWatcher)
+
+
+def test_get_subscribe_drive_webhook_use_case_is_wired_with_the_drive_watcher(monkeypatch):
+    monkeypatch.setattr(deps.get_settings(), "google_service_account_file", "sa.json")
+    monkeypatch.setattr(
+        "server.infrastructure.adapters.google_drive_storage._build_drive_client",
+        lambda service_account_file: object(),
+    )
+    deps.get_drive_watcher.cache_clear()
+
+    use_case = deps.get_subscribe_drive_webhook_use_case()
+
+    assert isinstance(use_case, SubscribeDriveWebhook)
