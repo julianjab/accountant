@@ -21,6 +21,7 @@ from server.domain.ports import (
     ClientRepository,
     DocumentRepository,
     DocumentTypeRepository,
+    DriveFileClaimRepository,
     DriveWatchChannelRepository,
     DriveWatcher,
     ExtractedDataRepository,
@@ -38,6 +39,7 @@ from server.infrastructure.adapters.firestore_repositories import (
     FirestoreClientRepository,
     FirestoreDocumentRepository,
     FirestoreDocumentTypeRepository,
+    FirestoreDriveFileClaimRepository,
     FirestoreDriveWatchChannelRepository,
     FirestoreExtractedDataRepository,
     FirestoreSessionRepository,
@@ -51,6 +53,7 @@ from server.infrastructure.adapters.in_memory_repositories import (
     InMemoryClientRepository,
     InMemoryDocumentRepository,
     InMemoryDocumentTypeRepository,
+    InMemoryDriveFileClaimRepository,
     InMemoryDriveWatchChannelRepository,
     InMemoryExtractedDataRepository,
     InMemorySessionRepository,
@@ -119,6 +122,14 @@ def get_drive_watch_channel_repository() -> DriveWatchChannelRepository:
         InMemoryDriveWatchChannelRepository()
         if db is None
         else FirestoreDriveWatchChannelRepository(db)
+    )
+
+
+@lru_cache
+def get_drive_file_claim_repository() -> DriveFileClaimRepository:
+    db = get_firestore()
+    return (
+        InMemoryDriveFileClaimRepository() if db is None else FirestoreDriveFileClaimRepository(db)
     )
 
 
@@ -235,6 +246,6 @@ def get_process_drive_change_notification_use_case() -> ProcessDriveChangeNotifi
     return ProcessDriveChangeNotification(
         channels=get_drive_watch_channel_repository(),
         change_reader=get_drive_watcher(),
-        documents=get_document_repository(),
+        claims=get_drive_file_claim_repository(),
         process_document=get_process_uploaded_document_use_case(),
     )

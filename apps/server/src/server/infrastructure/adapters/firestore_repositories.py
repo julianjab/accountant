@@ -11,6 +11,7 @@ lives here is only their metadata and the data extracted from them.
 from datetime import UTC, datetime
 from typing import Any
 
+from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import Client as FirestoreClient
 
 from server.domain.entities import (
@@ -28,6 +29,7 @@ CLIENTS = "clients"
 DOCUMENTS = "documents"
 DOCUMENT_TYPES = "document_types"
 DRIVE_WATCH_CHANNELS = "drive_watch_channels"
+DRIVE_FILE_CLAIMS = "drive_file_claims"
 EXTRACTED_DATA = "extracted_data"
 SESSIONS = "sessions"
 
@@ -94,12 +96,6 @@ class FirestoreDocumentRepository:
     def list_by_client(self, client_id: str) -> list[Document]:
         query = self._collection.where("client_id", "==", client_id)
         return [self._to_entity(d.id, d.to_dict()) for d in query.stream()]
-
-    def get_by_drive_file_id(self, drive_file_id: str) -> Document | None:
-        query = self._collection.where("drive_file_id", "==", drive_file_id).limit(1)
-        for snapshot in query.stream():
-            return self._to_entity(snapshot.id, snapshot.to_dict())
-        return None
 
     @staticmethod
     def _to_entity(doc_id: str, data: dict[str, Any]) -> Document:
@@ -264,3 +260,19 @@ class FirestoreDriveWatchChannelRepository:
             page_token=data["page_token"],
             expires_at=_as_utc(data["expires_at"]),
         )
+
+
+class FirestoreDriveFileClaimRepository:
+    """Backs ``DriveFileClaimRepository.try_claim`` with Firestore's atomic
+    document creation: ``create()`` fails with ``AlreadyExists`` instead of
+    overwriting, which is what makes the claim safe under concurrent retries."""
+
+    def __init__(self, db: FirestoreClient) -> None:
+        self._collection = db.collection(DRIVE_FILE_CLAIMS)
+
+    def try_claim(self, drive_file_id: str) -> bool:
+        try:
+            self._collection.document(drive_file_id).create({"claimed_at": datetime.now(UTC)})
+        except AlreadyExists:
+            return False
+        return True

@@ -41,9 +41,6 @@ class InMemoryDocumentRepository:
             return list(self._items.values())
         return [d for d in self._items.values() if d.status == status]
 
-    def get_by_drive_file_id(self, drive_file_id: str) -> Document | None:
-        return next((d for d in self._items.values() if d.drive_file_id == drive_file_id), None)
-
 
 class InMemoryDocumentTypeRepository:
     def __init__(self) -> None:
@@ -100,3 +97,17 @@ class InMemoryDriveWatchChannelRepository:
 
     def get_by_channel_id(self, channel_id: str) -> DriveWatchChannel | None:
         return self._items.get(channel_id)
+
+
+class InMemoryDriveFileClaimRepository:
+    """Dev-only fallback: a plain set is atomic enough under asyncio's
+    single-threaded execution, though not under true multi-process concurrency."""
+
+    def __init__(self) -> None:
+        self._claimed: set[str] = set()
+
+    def try_claim(self, drive_file_id: str) -> bool:
+        if drive_file_id in self._claimed:
+            return False
+        self._claimed.add(drive_file_id)
+        return True

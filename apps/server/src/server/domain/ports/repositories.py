@@ -22,7 +22,6 @@ class DocumentRepository(Protocol):
     def get(self, document_id: str) -> Document | None: ...
     def list_by_client(self, client_id: str) -> list[Document]: ...
     def list_all(self, status: DocumentStatus | None = None) -> list[Document]: ...
-    def get_by_drive_file_id(self, drive_file_id: str) -> Document | None: ...
 
 
 class DocumentTypeRepository(Protocol):
@@ -47,3 +46,15 @@ class SessionRepository(Protocol):
 class DriveWatchChannelRepository(Protocol):
     def save(self, channel: DriveWatchChannel) -> None: ...
     def get_by_channel_id(self, channel_id: str) -> DriveWatchChannel | None: ...
+
+
+class DriveFileClaimRepository(Protocol):
+    def try_claim(self, drive_file_id: str) -> bool:
+        """Atomically marks a Drive file as being processed.
+
+        Returns True the first time it is called for a given ``drive_file_id``
+        and False on every call after, including concurrent ones. This is what
+        makes at-least-once Drive notifications safe to process without
+        creating duplicate documents.
+        """
+        ...

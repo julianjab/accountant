@@ -28,10 +28,14 @@ class GoogleDriveStorage:
         self._drive = _build_drive_client(service_account_file)
 
     def download(self, file_reference: str) -> DocumentContent:
-        metadata = self._drive.files().get(fileId=file_reference, fields="name,mimeType").execute()
+        metadata = (
+            self._drive.files()
+            .get(fileId=file_reference, fields="name,mimeType", supportsAllDrives=True)
+            .execute()
+        )
 
         buffer = io.BytesIO()
-        request = self._drive.files().get_media(fileId=file_reference)
+        request = self._drive.files().get_media(fileId=file_reference, supportsAllDrives=True)
         downloader = MediaIoBaseDownload(buffer, request)
         done = False
         while not done:
@@ -56,7 +60,11 @@ class GoogleDriveWatcher:
         self._drive = _build_drive_client(service_account_file)
 
     def get_start_page_token(self) -> str:
-        return self._drive.changes().getStartPageToken().execute()["startPageToken"]
+        return (
+            self._drive.changes()
+            .getStartPageToken(supportsAllDrives=True)
+            .execute()["startPageToken"]
+        )
 
     def watch(
         self,
@@ -66,10 +74,15 @@ class GoogleDriveWatcher:
         token: str,
         start_page_token: str,
     ) -> DriveWatchRegistration:
+        # supportsAllDrives/includeItemsFromAllDrives: without them, changes in a
+        # folder that lives on a Shared Drive (the common case when a folder is
+        # shared with a service account) never surface, with no error at all.
         response = (
             self._drive.changes()
             .watch(
                 pageToken=start_page_token,
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
                 body={
                     "id": channel_id,
                     "type": "web_hook",
@@ -101,6 +114,8 @@ class GoogleDriveWatcher:
                 self._drive.changes()
                 .list(
                     pageToken=next_page_token,
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True,
                     fields=(
                         "nextPageToken,newStartPageToken,"
                         "changes(fileId,removed,file(name,mimeType,parents,trashed))"

@@ -1,11 +1,18 @@
+import logging
 from dataclasses import replace
 
 from server.application.use_cases.process_uploaded_document import (
     ProcessUploadedDocument,
     ProcessUploadedDocumentInput,
 )
-from server.domain.entities import Document, DriveChangedFile
-from server.domain.ports import DocumentRepository, DriveChangeReader, DriveWatchChannelRepository
+from server.domain.entities import Document, DriveChangedFile, DriveWatchChannel
+from server.domain.ports import (
+    DriveChangeReader,
+    DriveFileClaimRepository,
+    DriveWatchChannelRepository,
+)
+
+logger = logging.getLogger(__name__)
 
 # Drive's initial handshake notification when a channel is created: no changes yet.
 _SYNC_RESOURCE_STATE = "sync"
@@ -24,12 +31,12 @@ class ProcessDriveChangeNotification:
         self,
         channels: DriveWatchChannelRepository,
         change_reader: DriveChangeReader,
-        documents: DocumentRepository,
+        claims: DriveFileClaimRepository,
         process_document: ProcessUploadedDocument,
     ) -> None:
         self._channels = channels
         self._change_reader = change_reader
-        self._documents = documents
+        self._claims = claims
         self._process_document = process_document
 
     def execute(self, channel_id: str, resource_state: str) -> list[Document]:
@@ -42,26 +49,42 @@ class ProcessDriveChangeNotification:
 
         page = self._change_reader.list_changes(channel.page_token)
 
+        # The cursor advances once the whole page has been attempted, win or
+        # lose: a file that fails permanently (revoked access, corrupt upload,
+        # ...) must not wedge this channel on the same page_token forever, since
+        # Drive never re-notifies for changes it already reported.
+        try:
+            processed = self._process_page(channel, page.files)
+        finally:
+            self._channels.save(replace(channel, page_token=page.next_page_token))
+        return processed
+
+    def _process_page(
+        self, channel: DriveWatchChannel, files: list[DriveChangedFile]
+    ) -> list[Document]:
         processed = []
-        for file in page.files:
+        for file in files:
             if not self._should_process(channel.folder_id, file):
                 continue
-            # Drive notifications are at-least-once and the cursor only advances
-            # once the whole batch succeeds, so a retry can hand back a file this
-            # channel already processed; skip it instead of duplicating the document.
-            if self._documents.get_by_drive_file_id(file.id) is not None:
+            # Drive notifications are at-least-once, so the same file can be
+            # handed back on retry; the claim is what makes that safe to skip
+            # instead of racing another in-flight handler into a duplicate.
+            if not self._claims.try_claim(file.id):
                 continue
-            processed.append(
-                self._process_document.execute(
-                    ProcessUploadedDocumentInput(
-                        client_id=channel.client_id,
-                        drive_file_id=file.id,
-                        file_reference=file.id,
+            try:
+                processed.append(
+                    self._process_document.execute(
+                        ProcessUploadedDocumentInput(
+                            client_id=channel.client_id,
+                            drive_file_id=file.id,
+                            file_reference=file.id,
+                        )
                     )
                 )
-            )
-
-        self._channels.save(replace(channel, page_token=page.next_page_token))
+            except Exception:
+                logger.exception(
+                    "Failed to process Drive file %s for channel %s", file.id, channel.id
+                )
         return processed
 
     @staticmethod

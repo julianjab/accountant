@@ -1,6 +1,6 @@
 import secrets
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Response
 
 from server.application.use_cases import ProcessDriveChangeNotification, SubscribeDriveWebhook
 from server.domain.ports import DriveWatchChannelRepository
@@ -19,6 +19,7 @@ router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
 @router.post("/drive", status_code=200)
 def handle_drive_webhook(
+    background_tasks: BackgroundTasks,
     x_goog_channel_id: str | None = Header(default=None),
     x_goog_channel_token: str | None = Header(default=None),
     x_goog_resource_state: str | None = Header(default=None),
@@ -40,7 +41,12 @@ def handle_drive_webhook(
     ):
         raise HTTPException(status_code=401, detail="Invalid webhook token")
 
-    use_case.execute(channel_id=x_goog_channel_id, resource_state=x_goog_resource_state or "")
+    # Drive expects an ack within seconds; classification+OCR can take much
+    # longer, and a slow response only earns a redundant retry of the same
+    # notification. Acknowledge immediately and do the work after responding.
+    background_tasks.add_task(
+        use_case.execute, channel_id=x_goog_channel_id, resource_state=x_goog_resource_state or ""
+    )
     return Response(status_code=200)
 
 
