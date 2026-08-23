@@ -11,5 +11,15 @@
       "taxId": "Tax id",
       "email": "Email"
     }
+  },
+  "auth": {
+    "signIn": "Sign in with Google",
+    "signOut": "Sign out",
+    "signedInAs": "Signed in as {email}",
+    "errors": {
+      "missingClientId": "NUXT_PUBLIC_GOOGLE_CLIENT_ID is not configured",
+      "popupClosed": "The Google sign-in window was closed before completing",
+      "driveDenied": "Read access to Google Drive was not granted"
+    }
   }
 }

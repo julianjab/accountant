@@ -23,6 +23,7 @@ useSeoMeta({
       </template>
 
       <template #right>
+        <GoogleSignInButton />
         <UColorModeButton />
       </template>
     </UHeader>
