@@ -197,6 +197,22 @@ describe('ListInbox', () => {
     expect(view.totals.processedToday).toBe(1)
   })
 
+  it('counts approved documents as processed, like the server does', async () => {
+    const now = new Date('2026-08-22T23:00:00.000Z')
+    const documents = [document({ id: 'd1', status: 'approved', processedAt: '2026-08-22T10:00:00.000Z' })]
+    const useCase = new ListInbox(
+      new FakeDocumentRepository(documents),
+      new FakeClientRepository([client({})]),
+      new FakeDocumentTypeRepository([])
+    )
+
+    const view = await useCase.execute({ now })
+
+    expect(view.totals.processedToday).toBe(1)
+    expect(view.totals.unprocessed).toBe(0)
+    expect(view.totals.failed).toBe(0)
+  })
+
   it('computes avgProcessingMs over documents processed today', async () => {
     const now = new Date('2026-08-22T12:00:00.000Z')
     const documents = [
