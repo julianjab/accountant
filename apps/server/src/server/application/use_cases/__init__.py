@@ -8,6 +8,7 @@ from server.application.use_cases.define_document_type import (
     DefineDocumentType,
     DefineDocumentTypeInput,
 )
+from server.application.use_cases.get_document_metrics import DocumentMetrics, GetDocumentMetrics
 from server.application.use_cases.get_extracted_data import GetExtractedData
 from server.application.use_cases.process_uploaded_document import (
     ProcessUploadedDocument,
@@ -23,8 +24,10 @@ __all__ = [
     "ApproveDocumentInput",
     "DefineDocumentType",
     "DefineDocumentTypeInput",
+    "DocumentMetrics",
     "DocumentNotApprovable",
     "DocumentNotFound",
+    "GetDocumentMetrics",
     "GetExtractedData",
     "ProcessUploadedDocument",
     "ProcessUploadedDocumentInput",

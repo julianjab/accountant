@@ -1,5 +1,3 @@
-from datetime import UTC, datetime
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from server.application.use_cases import (
@@ -7,11 +5,13 @@ from server.application.use_cases import (
     ApproveDocumentInput,
     DocumentNotApprovable,
     DocumentNotFound,
+    GetDocumentMetrics,
     GetExtractedData,
 )
 from server.domain.entities import DocumentStatus
 from server.infrastructure.api.deps import (
     get_approve_document_use_case,
+    get_document_metrics_use_case,
     get_document_repository,
     get_extracted_data_use_case,
 )
@@ -23,12 +23,6 @@ from server.infrastructure.api.schemas import (
 )
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-
-_UNPROCESSED_STATUSES = {
-    DocumentStatus.PENDING,
-    DocumentStatus.CLASSIFYING,
-    DocumentStatus.RUNNING_OCR,
-}
 
 
 @router.get("", response_model=list[DocumentResponse])
@@ -44,32 +38,10 @@ def list_documents(
 
 
 @router.get("/metrics", response_model=DocumentMetricsResponse)
-def get_document_metrics(documents=Depends(get_document_repository)) -> DocumentMetricsResponse:
-    items = documents.list_all()
-    today = datetime.now(UTC).date()
-
-    unprocessed = sum(1 for d in items if d.status in _UNPROCESSED_STATUSES)
-    failed = sum(1 for d in items if d.status == DocumentStatus.FAILED)
-    processed = [d for d in items if d.status == DocumentStatus.PROCESSED]
-    processed_today = sum(
-        1
-        for d in processed
-        if d.processed_at is not None and d.processed_at.astimezone(UTC).date() == today
-    )
-
-    durations = [
-        (d.processed_at - d.created_at).total_seconds()
-        for d in processed
-        if d.processed_at is not None
-    ]
-    avg_processing_seconds = sum(durations) / len(durations) if durations else None
-
-    return DocumentMetricsResponse(
-        unprocessed=unprocessed,
-        processed_today=processed_today,
-        failed=failed,
-        avg_processing_seconds=avg_processing_seconds,
-    )
+def get_document_metrics(
+    use_case: GetDocumentMetrics = Depends(get_document_metrics_use_case),
+) -> DocumentMetricsResponse:
+    return DocumentMetricsResponse.model_validate(use_case.execute(), from_attributes=True)
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
