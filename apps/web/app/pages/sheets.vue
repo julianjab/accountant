@@ -43,14 +43,17 @@ async function fetchRowsWithConcurrencyLimit(
   return { rowsByClient, failedClientIds }
 }
 
+// Non-blocking (`lazy: true`, no `await`): the client cards render immediately with a
+// per-card skeleton for the row count while this fan-out resolves in the background,
+// instead of gating the whole page behind every client's request.
 const {
   data: rowsResult,
   pending: rowsPending,
   error: rowsError
-} = await useAsyncData<{ rowsByClient: Record<string, SheetRow[]>, failedClientIds: Set<string> }>(
+} = useAsyncData<{ rowsByClient: Record<string, SheetRow[]>, failedClientIds: Set<string> }>(
   'sheets-rows-by-client',
   () => fetchRowsWithConcurrencyLimit(clients.value ?? []),
-  { watch: [clients] }
+  { watch: [clients], lazy: true }
 )
 
 const rowsByClient = computed(() => rowsResult.value?.rowsByClient ?? {})
@@ -91,7 +94,13 @@ function rowCountFor(clientId: string): number {
 }
 
 function hasRowsErrorFor(clientId: string): boolean {
-  return failedClientIds.value.has(clientId)
+  // `rowsError` only fires if the whole fan-out throws unexpectedly (not a per-client
+  // failure, which `failedClientIds` already tracks) — treat it as every client failing.
+  return failedClientIds.value.has(clientId) || Boolean(rowsError.value)
+}
+
+function isRowCountPendingFor(clientId: string): boolean {
+  return rowsPending.value && !(clientId in rowsByClient.value) && !hasRowsErrorFor(clientId)
 }
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -129,8 +138,10 @@ const tableRows = computed(() =>
   }))
 )
 
-const isLoading = computed(() => clientsPending.value || rowsPending.value)
-const hasError = computed(() => Boolean(clientsError.value || rowsError.value))
+// Only the client list gates the page: the per-client row-count fan-out (`rowsPending`)
+// resolves in the background so cards render immediately with a per-card skeleton.
+const isLoading = computed(() => clientsPending.value)
+const hasError = computed(() => Boolean(clientsError.value))
 </script>
 
 <template>
@@ -153,7 +164,7 @@ const hasError = computed(() => Boolean(clientsError.value || rowsError.value))
 
     <p
       v-else-if="!clients?.length"
-      class="mt-6 text-small text-neutral-700"
+      class="mt-6 text-small text-muted"
     >
       {{ t('clients.empty') }}
     </p>
@@ -164,11 +175,11 @@ const hasError = computed(() => Boolean(clientsError.value || rowsError.value))
           v-for="client in clients"
           :key="client.id"
           type="button"
-          class="flex flex-col gap-1 rounded-xl border border-line-100 p-4 text-left transition-colors duration-[120ms]"
+          class="flex flex-col gap-1 rounded-xl border border-default p-4 text-left transition-colors duration-[120ms]"
           :class="
             client.id === selectedClientId
               ? 'border-transparent bg-neutral-950 text-invert'
-              : 'bg-white text-neutral-900 hover:bg-paper-50'
+              : 'bg-default text-highlighted hover:bg-elevated'
           "
           @click="selectClient(client.id)"
         >
@@ -179,24 +190,28 @@ const hasError = computed(() => Boolean(clientsError.value || rowsError.value))
           >
             {{ t('sheets.rowsUnavailable') }}
           </span>
+          <USkeleton
+            v-else-if="isRowCountPendingFor(client.id)"
+            class="h-[11.5px] w-14"
+          />
           <span
             v-else
             class="font-mono text-label"
-            :class="client.id === selectedClientId ? 'text-invert/55' : 'text-neutral-600'"
+            :class="client.id === selectedClientId ? 'text-invert/80' : 'text-muted'"
           >
             {{ t('sheets.rowCount', { count: rowCountFor(client.id) }) }}
           </span>
           <span
             class="text-label"
-            :class="client.id === selectedClientId ? 'text-invert/55' : 'text-neutral-600'"
+            :class="client.id === selectedClientId ? 'text-invert/80' : 'text-muted'"
           >
             {{ client.spreadsheetUrl ? t('sheets.status.synced') : t('sheets.status.pendingExport') }}
           </span>
         </button>
       </div>
 
-      <div class="mt-5 overflow-hidden rounded-xl border border-line-100 bg-white">
-        <div class="flex items-center gap-3 border-b border-line-50 px-4 py-3">
+      <div class="mt-5 overflow-hidden rounded-xl border border-default bg-default">
+        <div class="flex items-center gap-3 border-b border-default px-4 py-3">
           <h2 class="text-section font-semibold">
             {{ selectedClient?.name }}
           </h2>
@@ -206,6 +221,10 @@ const hasError = computed(() => Boolean(clientsError.value || rowsError.value))
           >
             {{ t('sheets.rowsUnavailable') }}
           </span>
+          <USkeleton
+            v-else-if="selectedClientId && isRowCountPendingFor(selectedClientId)"
+            class="h-5 w-16 rounded-full"
+          />
           <span
             v-else
             class="rounded-full bg-green-50 px-2.5 py-0.5 text-label font-medium text-green-700"
@@ -240,9 +259,13 @@ const hasError = computed(() => Boolean(clientsError.value || rowsError.value))
         >
           {{ t('sheets.rowsUnavailable') }}
         </p>
+        <USkeleton
+          v-else-if="selectedClientId && isRowCountPendingFor(selectedClientId)"
+          class="m-4 h-24 w-auto"
+        />
         <p
           v-else-if="!selectedRows.length"
-          class="px-4 py-6 text-small text-neutral-700"
+          class="px-4 py-6 text-small text-muted"
         >
           {{ t('sheets.emptyRows') }}
         </p>
