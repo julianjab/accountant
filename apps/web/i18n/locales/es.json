@@ -22,6 +22,47 @@
       "name": "Nombre",
       "taxId": "Identificación",
       "email": "Correo"
+    },
+    "detail": {
+      "notFound": {
+        "title": "Cliente no encontrado",
+        "description": "No encontramos un cliente con ese identificador.",
+        "backToList": "Volver a clientes"
+      },
+      "noEmail": "sin correo",
+      "driveOpen": "Abrir carpeta de Drive",
+      "driveMissing": "Este cliente no tiene una carpeta de Drive configurada",
+      "tabs": {
+        "documents": "Documentos",
+        "extractedData": "Datos extraídos",
+        "spreadsheets": "Hojas de cálculo"
+      },
+      "comingSoon": "Próximamente.",
+      "documents": {
+        "unclassified": "Sin clasificar",
+        "empty": "Este cliente todavía no tiene documentos."
+      },
+      "summary": {
+        "title": "Resumen del mes"
+      },
+      "configuredTypes": {
+        "title": "Tipos configurados",
+        "activeCount": "{count} activos",
+        "goToConfig": "Configurar extracción"
+      },
+      "export": {
+        "label": "Exportar a hoja de cálculo",
+        "disabledTooltip": "Disponible cuando se implemente la exportación a hojas de cálculo (issue #11)"
+      }
+    }
+  },
+  "documents": {
+    "status": {
+      "pending": "Pendiente",
+      "classifying": "Clasificando",
+      "running_ocr": "OCR",
+      "processed": "Procesado",
+      "failed": "Fallido"
     }
   },
   "auth": {

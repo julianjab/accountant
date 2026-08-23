@@ -38,8 +38,7 @@ export class HttpClientRepository implements ClientRepository {
     try {
       const dto = await $fetch<ClientDto>(`/clients/${id}`, { baseURL: this.baseUrl })
       return toClient(dto)
-    }
-    catch (error) {
+    } catch (error) {
       if (isNotFoundError(error)) {
         return null
       }
