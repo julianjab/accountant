@@ -127,3 +127,101 @@ class GoogleUserResponse(BaseModel):
     email: str
     name: str
     picture: str | None
+
+
+class ReconciliationConceptResponse(BaseModel):
+    id: str
+    label: str
+    role: str
+    description: str
+
+
+class ReconciliationKindResponse(BaseModel):
+    """What a client needs to render a reconciliation without knowing which
+    model it is: the period granularity, and the vocabulary a document type's
+    fields may be mapped onto."""
+
+    id: str
+    label: str
+    period_granularity: str
+    spine_concepts: list[ReconciliationConceptResponse]
+    evidence_concepts: list[ReconciliationConceptResponse]
+
+
+class ReconciliationFactResponse(BaseModel):
+    source_id: str
+    role: str
+    reporter_tax_id: str
+    reporter_name: str
+    concept_id: str
+    amount: str
+    account: str | None
+    detail: str
+    locator: str
+
+
+class ReconciliationFindingResponse(BaseModel):
+    id: str
+    status: str
+    rule_id: str | None
+    label: str
+    reporter_tax_id: str
+    reporter_name: str
+    # Amounts travel as strings: the figures are exact decimals, and JSON
+    # numbers are doubles in most clients. A cent lost in transport would show
+    # up as a discrepancy the engine never found.
+    spine_amount: str
+    evidence_amount: str
+    delta: str
+    account: str | None
+    account_match: str
+    note: str
+    spine_facts: list[ReconciliationFactResponse]
+    evidence_facts: list[ReconciliationFactResponse]
+
+
+class ReconciliationSummaryResponse(BaseModel):
+    counts: dict[str, int]
+    total_findings: int
+    reconciled: int
+    needing_attention: int
+
+
+class ReconciliationReportResponse(BaseModel):
+    id: str
+    client_id: str
+    kind_id: str
+    period: str
+    generated_at: datetime
+    summary: ReconciliationSummaryResponse
+    findings: list[ReconciliationFindingResponse]
+
+
+class ConceptMappingEntryPayload(BaseModel):
+    field_path: str
+    concept_id: str
+    account_path: str | None = None
+    sign: int = 1
+
+    @field_validator("sign")
+    @classmethod
+    def _check_sign(cls, value: int) -> int:
+        if value not in (1, -1):
+            raise ValueError("sign must be 1 or -1")
+        return value
+
+
+class ConceptMappingRequest(BaseModel):
+    entries: list[ConceptMappingEntryPayload]
+    reporter_path: str | None = None
+    reporter_name_path: str | None = None
+    period_path: str | None = None
+
+
+class ConceptMappingResponse(BaseModel):
+    document_type_id: str
+    kind_id: str
+    entries: list[ConceptMappingEntryPayload]
+    reporter_path: str | None
+    reporter_name_path: str | None
+    period_path: str | None

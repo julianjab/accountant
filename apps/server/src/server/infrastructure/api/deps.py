@@ -67,6 +67,24 @@ from server.infrastructure.config.prompts import PromptsConfig, get_prompts
 from server.infrastructure.config.settings import Settings
 from server.infrastructure.providers.ai_provider import AIProvider
 from server.infrastructure.providers.anthropic_provider import AnthropicProvider
+from server.reconciliation.application import (
+    ConceptMappingRepository,
+    GetReconciliationReport,
+    ReconcileClientPeriod,
+    ReconciliationReportRepository,
+    SaveConceptMapping,
+)
+from server.reconciliation.core.registry import KindRegistry
+from server.reconciliation.infrastructure import (
+    DocumentFactProvider,
+    InMemoryConceptMappingRepository,
+    InMemoryReconciliationReportRepository,
+)
+from server.reconciliation.infrastructure.firestore_repositories import (
+    FirestoreConceptMappingRepository,
+    FirestoreReconciliationReportRepository,
+)
+from server.reconciliation.kinds.exogena import ExogenaReconciliation
 
 
 @lru_cache
@@ -278,3 +296,61 @@ def get_list_client_sheet_rows_use_case() -> ListClientSheetRows:
     return ListClientSheetRows(
         get_client_repository(), get_document_repository(), get_extracted_data_repository()
     )
+
+
+@lru_cache
+def get_reconciliation_registry() -> KindRegistry:
+    """The one place concrete reconciliation kinds are named.
+
+    Composition happens here so that neither the engine nor the API knows which
+    models exist; adding one is a line in this list.
+    """
+    return KindRegistry([ExogenaReconciliation()])
+
+
+@lru_cache
+def get_concept_mapping_repository() -> ConceptMappingRepository:
+    db = get_firestore()
+    return (
+        InMemoryConceptMappingRepository() if db is None else FirestoreConceptMappingRepository(db)
+    )
+
+
+@lru_cache
+def get_reconciliation_report_repository() -> ReconciliationReportRepository:
+    db = get_firestore()
+    return (
+        InMemoryReconciliationReportRepository()
+        if db is None
+        else FirestoreReconciliationReportRepository(db)
+    )
+
+
+def get_reconciliation_fact_provider() -> DocumentFactProvider:
+    return DocumentFactProvider(
+        registry=get_reconciliation_registry(),
+        clients=get_client_repository(),
+        documents=get_document_repository(),
+        document_types=get_document_type_repository(),
+        extracted_data=get_extracted_data_repository(),
+        mappings=get_concept_mapping_repository(),
+        storage=get_document_storage(),
+    )
+
+
+def get_reconcile_client_period_use_case() -> ReconcileClientPeriod:
+    return ReconcileClientPeriod(
+        registry=get_reconciliation_registry(),
+        facts=get_reconciliation_fact_provider(),
+        reports=get_reconciliation_report_repository(),
+    )
+
+
+def get_reconciliation_report_use_case() -> GetReconciliationReport:
+    return GetReconciliationReport(
+        get_reconciliation_registry(), get_reconciliation_report_repository()
+    )
+
+
+def get_save_concept_mapping_use_case() -> SaveConceptMapping:
+    return SaveConceptMapping(get_reconciliation_registry(), get_concept_mapping_repository())

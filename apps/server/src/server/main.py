@@ -13,6 +13,7 @@ from server.infrastructure.api.routers import (
     document_types,
     documents,
     drive_webhook,
+    reconciliation,
 )
 from server.infrastructure.config.logging import configure_logging
 from server.infrastructure.providers.anthropic_http_client import get_auth_mode
@@ -45,6 +46,7 @@ app.include_router(clients_import.router)
 app.include_router(document_types.router)
 app.include_router(documents.router)
 app.include_router(drive_webhook.router)
+app.include_router(reconciliation.router)
 
 
 @app.get("/health")
