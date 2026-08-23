@@ -20,6 +20,14 @@ class OAuthTransportError(Exception):
     """
 
 
+class OAuthGrantRevoked(OAuthTransportError):
+    """The refresh token is no longer valid and re-consent is required.
+
+    Distinct from a transport failure on purpose: only this one justifies
+    dropping a stored session. A timeout must never cost the user their grant.
+    """
+
+
 class GoogleOAuthClient(Protocol):
     def authorization_url(self, state: str) -> str: ...
     def exchange_code(self, code: str) -> OAuthTokens: ...

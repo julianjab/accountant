@@ -1,6 +1,7 @@
 from server.domain.ports.document_storage import DocumentContent, DocumentStorage
 from server.domain.ports.oauth import (
     GoogleOAuthClient,
+    OAuthGrantRevoked,
     OAuthTokens,
     OAuthTransportError,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "DocumentTypeRepository",
     "ExtractedDataRepository",
     "GoogleOAuthClient",
+    "OAuthGrantRevoked",
     "OAuthTokens",
     "OAuthTransportError",
     "OcrEngine",

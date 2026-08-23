@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from server.domain.entities import GoogleSession
-from server.domain.ports import GoogleOAuthClient, SessionRepository
+from server.domain.ports import GoogleOAuthClient, OAuthGrantRevoked, SessionRepository
 
 
 class GetGoogleSession:
@@ -26,10 +26,11 @@ class GetGoogleSession:
 
         try:
             tokens = self._oauth.refresh(session.refresh_token)
-        except Exception:
-            # The grant was revoked or the refresh token is no longer valid.
+        except OAuthGrantRevoked:
             self._sessions.delete(session_id)
             return None
+        # Any other failure (timeout, 5xx, DNS) propagates: a network blip must
+        # not cost the user their grant.
 
         refreshed = GoogleSession(
             id=session.id,
@@ -37,6 +38,7 @@ class GetGoogleSession:
             access_token=tokens.access_token,
             refresh_token=tokens.refresh_token or session.refresh_token,
             expires_at=tokens.expires_at,
+            created_at=session.created_at,
         )
         self._sessions.save(refreshed)
         return refreshed

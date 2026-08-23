@@ -4,7 +4,7 @@ from urllib.parse import urlencode
 import httpx
 
 from server.domain.entities import GoogleUser
-from server.domain.ports import OAuthTokens, OAuthTransportError
+from server.domain.ports import OAuthGrantRevoked, OAuthTokens, OAuthTransportError
 
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -14,6 +14,17 @@ REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 SCOPES = "https://www.googleapis.com/auth/drive.readonly openid email profile"
 
 _TIMEOUT = 30.0
+
+
+def _is_invalid_grant(response: httpx.Response) -> bool:
+    try:
+        return response.json().get("error") == "invalid_grant"
+    except ValueError:
+        return False
+
+
+class GoogleGrantRevokedError(OAuthGrantRevoked):
+    """Google reported ``invalid_grant``: the refresh token is dead."""
 
 
 class GoogleOAuthError(OAuthTransportError):
@@ -100,6 +111,13 @@ class HttpGoogleOAuthClient:
     def _token_request(self, data: dict[str, str]) -> OAuthTokens:
         try:
             response = httpx.post(TOKEN_URL, data=data, timeout=_TIMEOUT)
+        except httpx.HTTPError as exc:
+            raise GoogleOAuthError("Could not reach Google's token endpoint") from exc
+
+        if response.status_code in (400, 401) and _is_invalid_grant(response):
+            raise GoogleGrantRevokedError("The Google grant is no longer valid")
+
+        try:
             response.raise_for_status()
         except httpx.HTTPError as exc:
             raise GoogleOAuthError("Google rejected the token request") from exc

@@ -9,16 +9,22 @@ from server.application.use_cases import (
     SignOutGoogle,
 )
 from server.domain.entities import GoogleUser
-from server.domain.ports import OAuthTokens
+from server.domain.ports import OAuthGrantRevoked, OAuthTokens, OAuthTransportError
 from server.infrastructure.adapters.in_memory_repositories import InMemorySessionRepository
 
 USER = GoogleUser(email="a@b.com", name="A B", picture=None)
 
 
 class FakeOAuth:
-    def __init__(self, tokens: OAuthTokens, refreshed: OAuthTokens | None = None) -> None:
+    def __init__(
+        self,
+        tokens: OAuthTokens,
+        refreshed: OAuthTokens | None = None,
+        refresh_error: Exception | None = None,
+    ) -> None:
         self._tokens = tokens
         self._refreshed = refreshed
+        self._refresh_error = refresh_error or OAuthGrantRevoked("revoked")
         self.revoked: list[str] = []
         self.refresh_calls = 0
 
@@ -31,7 +37,7 @@ class FakeOAuth:
     def refresh(self, refresh_token: str) -> OAuthTokens:
         self.refresh_calls += 1
         if self._refreshed is None:
-            raise RuntimeError("grant revoked")
+            raise self._refresh_error
         return self._refreshed
 
     def fetch_user(self, access_token: str) -> GoogleUser:
@@ -93,13 +99,40 @@ def test_expired_session_is_refreshed_and_stored():
     assert sessions.get(session.id).access_token == "new"
 
 
-def test_session_is_dropped_when_the_refresh_fails():
+def test_session_is_dropped_only_when_the_grant_is_revoked():
     sessions = InMemorySessionRepository()
     oauth = FakeOAuth(tokens("old", "rt", -1), refreshed=None)
     session = CompleteGoogleSignIn(oauth, sessions).execute("code")
 
     assert GetGoogleSession(oauth, sessions).execute(session.id) is None
     assert sessions.get(session.id) is None
+
+
+def test_a_transport_failure_propagates_and_keeps_the_session():
+    sessions = InMemorySessionRepository()
+    oauth = FakeOAuth(
+        tokens("old", "rt", -1), refreshed=None, refresh_error=OAuthTransportError("timeout")
+    )
+    session = CompleteGoogleSignIn(oauth, sessions).execute("code")
+
+    with pytest.raises(OAuthTransportError):
+        GetGoogleSession(oauth, sessions).execute(session.id)
+
+    # A network blip must not cost the user their grant.
+    assert sessions.get(session.id) is not None
+
+
+def test_signing_in_again_replaces_the_previous_session():
+    sessions = InMemorySessionRepository()
+    oauth = FakeOAuth(tokens("at", "rt", 3600))
+    use_case = CompleteGoogleSignIn(oauth, sessions)
+
+    first = use_case.execute("code")
+    second = use_case.execute("code")
+
+    assert first.id != second.id
+    assert sessions.get(first.id) is None
+    assert sessions.get(second.id) is not None
 
 
 def test_unknown_session_id_returns_none():

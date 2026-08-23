@@ -5,6 +5,7 @@ import httpx
 import pytest
 
 from server.infrastructure.adapters.google_oauth_client import (
+    GoogleGrantRevokedError,
     GoogleOAuthError,
     HttpGoogleOAuthClient,
 )
@@ -15,9 +16,10 @@ CLIENT = HttpGoogleOAuthClient(
 
 
 class FakeResponse:
-    def __init__(self, payload: dict, error: bool = False) -> None:
+    def __init__(self, payload: dict, error: bool = False, status_code: int = 200) -> None:
         self._payload = payload
         self._error = error
+        self.status_code = status_code
 
     def raise_for_status(self) -> None:
         if self._error:
@@ -80,13 +82,39 @@ def test_refresh_uses_the_refresh_grant_and_tolerates_a_missing_refresh_token(mo
 
 def test_token_request_failure_does_not_leak_the_response(monkeypatch):
     monkeypatch.setattr(
-        httpx, "post", lambda *a, **k: FakeResponse({"error": "invalid_client"}, error=True)
+        httpx,
+        "post",
+        lambda *a, **k: FakeResponse({"error": "invalid_client"}, error=True, status_code=403),
     )
 
     with pytest.raises(GoogleOAuthError) as exc:
         CLIENT.exchange_code("code-1")
 
     assert "invalid_client" not in str(exc.value)
+
+
+def test_a_dead_refresh_token_is_reported_as_a_revoked_grant(monkeypatch):
+    monkeypatch.setattr(
+        httpx,
+        "post",
+        lambda *a, **k: FakeResponse({"error": "invalid_grant"}, error=True, status_code=400),
+    )
+
+    with pytest.raises(GoogleGrantRevokedError):
+        CLIENT.refresh("rt")
+
+
+def test_a_transport_failure_is_not_mistaken_for_a_revoked_grant(monkeypatch):
+    def boom(*a, **k):
+        raise httpx.ConnectTimeout("timeout")
+
+    monkeypatch.setattr(httpx, "post", boom)
+
+    with pytest.raises(GoogleOAuthError) as exc:
+        CLIENT.refresh("rt")
+
+    # A timeout must never cost the user their grant.
+    assert not isinstance(exc.value, GoogleGrantRevokedError)
 
 
 def test_fetch_user_maps_the_profile(monkeypatch):
