@@ -36,6 +36,15 @@ data from it via a multimodal AI.
   Drive/Sheets integration (uploading documents, exporting extracted data).
 - Root: `bun` workspaces (JS side only — `apps/server` is managed independently via `uv`).
 
+### Logging
+
+`infrastructure/config/logging.py` is the single place logging is set up, called from
+`main.py` before anything else. `ACCOUNTANT_LOG_LEVEL` sets the application's level (the
+`server.*` loggers); uvicorn's access log deliberately stays at INFO so DEBUG does not drown
+in it. `ACCOUNTANT_LOG_FILE` switches from stderr to a rotating file, and
+`ACCOUNTANT_LOG_FORMAT=json` emits one JSON object per line. Use module-level
+`logging.getLogger(__name__)` in infrastructure; keep domain and application free of it.
+
 ### Running the server during a login
 
 `uv run server` autoreloads, which restarts the process on every file change and

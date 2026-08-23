@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     )
 
     anthropic_model: str = "claude-sonnet-5"
+
+    # Logging. DEBUG traces the Drive and OAuth calls; an empty log_file sends
+    # everything to stderr, otherwise it rotates through the given file.
+    log_level: str = "INFO"
+    log_format: Literal["text", "json"] = "text"
+    log_file: str = ""
+    log_file_max_bytes: int = 10 * 1024 * 1024
+    log_file_backups: int = 3
     google_service_account_file: str = ""
 
     # Drive folder whose subfolders each stand for a client. Must be shared with

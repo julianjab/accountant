@@ -14,9 +14,11 @@ from server.infrastructure.api.routers import (
     documents,
     drive_webhook,
 )
+from server.infrastructure.config.logging import configure_logging
 from server.infrastructure.providers.anthropic_http_client import get_auth_mode
 
 load_dotenv()
+configure_logging(get_settings())
 
 
 @asynccontextmanager
