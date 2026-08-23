@@ -225,7 +225,17 @@ class FirestoreExtractedDataRepository:
 
     def get_by_document(self, document_id: str) -> ExtractedData | None:
         snapshot = self._collection.document(document_id).get()
-        return self._to_entity(snapshot.id, snapshot.to_dict()) if snapshot.exists else None
+        if snapshot.exists:
+            return self._to_entity(snapshot.id, snapshot.to_dict())
+        # Rows written before the key changed live under the extraction's own
+        # id, so a point read misses them. Falling back to the query keeps
+        # already-processed documents readable without a migration, and the
+        # ambiguity that motivated the new key cannot arise here: this runs
+        # only when no row exists under it. The next save writes the new key
+        # and the fallback stops being used for that document.
+        for legacy in self._collection.where("document_id", "==", document_id).stream():
+            return self._to_entity(legacy.id, legacy.to_dict())
+        return None
 
     @staticmethod
     def _to_entity(doc_id: str, data: dict[str, Any]) -> ExtractedData:

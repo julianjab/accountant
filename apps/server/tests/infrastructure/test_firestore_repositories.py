@@ -474,3 +474,22 @@ def test_extracted_data_is_keyed_by_document_so_a_rerun_replaces_it() -> None:
 def test_extracted_data_for_an_unprocessed_document_is_absent() -> None:
     repository = FirestoreExtractedDataRepository(FakeFirestore())
     assert repository.get_by_document("doc-missing") is None
+
+
+def test_extracted_data_written_under_the_old_key_is_still_readable() -> None:
+    """Changing the storage key must not orphan what production already holds:
+    an approved document would otherwise lose its extracted data, and the
+    import will not regenerate it because it skips APPROVED."""
+    db = FakeFirestore()
+    db.collection("extracted_data").data["ex-legacy"] = {
+        "document_id": "doc-1",
+        "fields": {"saldo": "1"},
+        "confidence": None,
+        "created_at": NOW,
+    }
+
+    stored = FirestoreExtractedDataRepository(db).get_by_document("doc-1")
+
+    assert stored is not None
+    assert stored.fields == {"saldo": "1"}
+    assert stored.id == "ex-legacy"

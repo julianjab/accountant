@@ -101,6 +101,14 @@ def import_client_documents(
     Change notifications only report what arrives after a subscription starts,
     so this is the only way documents that predate the watch ever enter the
     system.
+
+    Runs classification and OCR inline. That suits the folder sizes this
+    handles today — a taxpayer's year is a handful of certificates — but a
+    folder of dozens of files means minutes of AI calls inside one request,
+    long enough for a proxy to time out. Each document is persisted as it
+    finishes, so a timed-out call loses the response, not the work, and
+    re-running the import resumes. Moving this to a background job is the
+    fix once folder sizes justify it.
     """
     try:
         result = use_case.execute(
