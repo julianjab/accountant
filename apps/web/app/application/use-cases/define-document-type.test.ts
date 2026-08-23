@@ -8,6 +8,10 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
 
   constructor(private readonly documentType: DocumentType) {}
 
+  listActive(): Promise<DocumentType[]> {
+    throw new Error('not implemented')
+  }
+
   list(): Promise<DocumentType[]> {
     throw new Error('not implemented')
   }

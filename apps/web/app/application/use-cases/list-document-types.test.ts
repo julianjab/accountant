@@ -6,6 +6,10 @@ import { ListDocumentTypes } from '~/application/use-cases/list-document-types'
 class FakeDocumentTypeRepository implements DocumentTypeRepository {
   constructor(private readonly documentTypes: DocumentType[]) {}
 
+  listActive(): Promise<DocumentType[]> {
+    throw new Error('not implemented')
+  }
+
   list(): Promise<DocumentType[]> {
     return Promise.resolve(this.documentTypes)
   }
