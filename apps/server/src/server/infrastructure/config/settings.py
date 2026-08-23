@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-5"
     google_service_account_file: str = ""
 
+    # Drive folder whose subfolders each stand for a client. Must be shared with
+    # the service account above.
+    google_drive_clients_folder_id: str = ""
+
     # Google login (authorization-code flow). The client id/secret come from the
     # same "Web application" OAuth client; the redirect URI must be registered on
     # it verbatim.
