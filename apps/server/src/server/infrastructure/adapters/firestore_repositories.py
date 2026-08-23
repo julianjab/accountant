@@ -200,12 +200,22 @@ class FirestoreDocumentTypeRepository:
 
 
 class FirestoreExtractedDataRepository:
+    """Keyed by document id, because a document has exactly one extraction.
+
+    Keying by the extraction's own id let a re-run add a second row for the
+    same document, and the read then picked between them with a `limit(1)` and
+    no ordering — so re-running OCR to correct a bad extraction could keep
+    serving the bad one. The entity's id is kept as a field; the storage key is
+    the thing that has to be one per document.
+    """
+
     def __init__(self, db: FirestoreClient) -> None:
         self._collection = db.collection(EXTRACTED_DATA)
 
     def save(self, extracted_data: ExtractedData) -> None:
-        self._collection.document(extracted_data.id).set(
+        self._collection.document(extracted_data.document_id).set(
             {
+                "id": extracted_data.id,
                 "document_id": extracted_data.document_id,
                 "fields": extracted_data.fields,
                 "confidence": extracted_data.confidence,
@@ -214,15 +224,13 @@ class FirestoreExtractedDataRepository:
         )
 
     def get_by_document(self, document_id: str) -> ExtractedData | None:
-        query = self._collection.where("document_id", "==", document_id).limit(1)
-        for snapshot in query.stream():
-            return self._to_entity(snapshot.id, snapshot.to_dict())
-        return None
+        snapshot = self._collection.document(document_id).get()
+        return self._to_entity(snapshot.id, snapshot.to_dict()) if snapshot.exists else None
 
     @staticmethod
     def _to_entity(doc_id: str, data: dict[str, Any]) -> ExtractedData:
         return ExtractedData(
-            id=doc_id,
+            id=data.get("id", doc_id),
             document_id=data["document_id"],
             fields=data["fields"],
             confidence=data.get("confidence"),

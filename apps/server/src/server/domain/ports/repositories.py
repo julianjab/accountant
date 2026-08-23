@@ -36,6 +36,14 @@ class DocumentTypeRepository(Protocol):
 
 
 class ExtractedDataRepository(Protocol):
+    """A document has at most one extraction: the current one.
+
+    `save` replaces whatever the document had before rather than adding to it.
+    Re-running OCR over a document is how a bad extraction gets corrected, so
+    keeping both would leave `get_by_document` picking between a stale result
+    and a fresh one with nothing to distinguish them.
+    """
+
     def save(self, extracted_data: ExtractedData) -> None: ...
     def get_by_document(self, document_id: str) -> ExtractedData | None: ...
 

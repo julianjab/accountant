@@ -434,3 +434,43 @@ def test_document_lookup_by_drive_file_id_returns_the_most_recent_attempt():
     repo.save(processed_attempt)
 
     assert repo.get_by_drive_file_id_and_client("f1", "c1") == processed_attempt
+
+
+def test_extracted_data_is_keyed_by_document_so_a_rerun_replaces_it() -> None:
+    """Re-running OCR is how a bad extraction gets corrected. Keying by the
+    extraction's own id left both rows in place, and the read picked between
+    them with a limit(1) and no ordering — so the bad one could keep winning.
+    """
+    db = FakeFirestore()
+    repository = FirestoreExtractedDataRepository(db)
+    created = NOW
+
+    repository.save(
+        ExtractedData(
+            id="ex-old",
+            document_id="doc-1",
+            fields={"saldo": "1"},
+            confidence=None,
+            created_at=created,
+        )
+    )
+    repository.save(
+        ExtractedData(
+            id="ex-new",
+            document_id="doc-1",
+            fields={"saldo": "2"},
+            confidence=0.9,
+            created_at=created,
+        )
+    )
+
+    stored = repository.get_by_document("doc-1")
+    assert stored is not None
+    assert stored.fields == {"saldo": "2"}
+    assert stored.id == "ex-new"
+    assert len(db.collection("extracted_data").data) == 1
+
+
+def test_extracted_data_for_an_unprocessed_document_is_absent() -> None:
+    repository = FirestoreExtractedDataRepository(FakeFirestore())
+    assert repository.get_by_document("doc-missing") is None
