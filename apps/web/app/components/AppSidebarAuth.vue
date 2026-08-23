@@ -8,7 +8,7 @@ const { isAuthenticated } = useGoogleAuth()
     <GoogleSignInButton />
     <p
       v-if="isAuthenticated"
-      class="text-[11px] text-invert/45"
+      class="text-[11px] text-invert/70"
     >
       {{ t('auth.driveReadOnly') }}
     </p>

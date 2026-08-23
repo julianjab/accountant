@@ -36,22 +36,22 @@ function select(value: DocumentStatus | 'all') {
 </script>
 
 <template>
-  <div class="flex items-center justify-between gap-3 border-b border-line-50 px-4 py-3">
+  <div class="flex items-center justify-between gap-3 border-b border-default px-4 py-3">
     <div class="flex flex-wrap items-center gap-2">
       <button
         v-for="chip in CHIPS"
         :key="chip.value"
         type="button"
-        class="rounded-full border px-[11px] py-[5px] text-[12.5px] font-medium transition-colors duration-[120ms]"
+        class="rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors duration-[120ms]"
         :class="isActive(chip.value)
           ? 'border-neutral-950 bg-neutral-950 text-invert'
-          : 'border-line-150 bg-white text-neutral-800 hover:bg-paper-50'"
+          : 'border-default bg-default text-toned hover:bg-elevated'"
         @click="select(chip.value)"
       >
         {{ t(chip.labelKey) }}
       </button>
     </div>
-    <span class="shrink-0 text-[12px] text-neutral-600">
+    <span class="shrink-0 text-[12px] text-muted">
       {{ t('inbox.filterCount', { filtered, total }) }}
     </span>
   </div>

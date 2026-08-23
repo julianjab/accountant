@@ -55,8 +55,8 @@ const avgProcessingLabel = computed(() => {
 </script>
 
 <template>
-  <UContainer class="max-w-[1180px] py-[30px]">
-    <h1 class="text-[27px] font-bold tracking-[-0.02em] text-neutral-900">
+  <UContainer class="max-w-[1180px] py-8">
+    <h1 class="text-[27px] font-bold tracking-[-0.02em] text-highlighted">
       {{ t('inbox.title') }}
     </h1>
 
@@ -110,7 +110,7 @@ const avgProcessingLabel = computed(() => {
           />
         </div>
 
-        <div class="mt-[26px] overflow-hidden rounded-xl border border-line-100 bg-white">
+        <div class="mt-[26px] overflow-hidden rounded-xl border border-default bg-default">
           <InboxStatusFilter
             :status="status"
             :total="totalDocuments"

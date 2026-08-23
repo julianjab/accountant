@@ -16,10 +16,10 @@ const activeCount = computed(() => props.types.filter(type => type.active).lengt
     :ui="{ root: 'bg-neutral-950 text-invert', body: 'p-4' }"
   >
     <div class="flex items-center justify-between">
-      <span class="text-[11.5px] font-medium tracking-[0.08em] text-invert/55 uppercase">
+      <span class="text-[11.5px] font-medium tracking-[0.08em] text-invert/80 uppercase">
         {{ t('clients.detail.configuredTypes.title') }}
       </span>
-      <span class="font-mono text-[11.5px] text-invert/55">
+      <span class="font-mono text-[11.5px] text-invert/80">
         {{ t('clients.detail.configuredTypes.activeCount', { count: activeCount }) }}
       </span>
     </div>

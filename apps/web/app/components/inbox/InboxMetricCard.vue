@@ -10,15 +10,15 @@ withDefaults(
 )
 
 const VALUE_COLOR_BY_VARIANT = {
-  default: 'text-neutral-900',
+  default: 'text-highlighted',
   success: 'text-green-600',
   danger: 'text-status-failed-fg'
 } as const
 </script>
 
 <template>
-  <UCard :ui="{ body: 'p-[15px_16px] sm:p-[15px_16px]' }">
-    <div class="text-[11.5px] font-medium uppercase tracking-[.08em] text-neutral-600">
+  <UCard :ui="{ body: 'p-4 sm:p-4' }">
+    <div class="text-[11.5px] font-medium uppercase tracking-[.08em] text-muted">
       {{ label }}
     </div>
     <div
@@ -29,7 +29,7 @@ const VALUE_COLOR_BY_VARIANT = {
     </div>
     <div
       v-if="hint"
-      class="text-[12px] text-neutral-600"
+      class="text-[12px] text-muted"
     >
       {{ hint }}
     </div>

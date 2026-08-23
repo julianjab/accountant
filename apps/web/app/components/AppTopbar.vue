@@ -3,20 +3,20 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <header class="flex h-[62px] shrink-0 items-center gap-4 border-b border-line-100 bg-white px-[30px]">
+  <header class="flex h-16 shrink-0 items-center gap-4 border-b border-default bg-default px-8">
     <AppBreadcrumb />
 
     <div class="flex-1" />
 
     <div
-      class="flex w-[270px] items-center gap-2 rounded-md border border-line-100 bg-[#F2F2EE] px-[11px] py-1.5 text-[12.5px] text-neutral-600"
+      class="flex w-[270px] items-center gap-2 rounded-md border border-default bg-elevated px-[11px] py-1.5 text-[12.5px] text-toned"
     >
       <UIcon
         name="i-lucide-search"
         class="size-4 shrink-0"
       />
       <span class="truncate">{{ t('topbar.search') }}</span>
-      <span class="ml-auto rounded border border-line-150 px-1.5 py-0.5 font-mono text-[10px]">⌘K</span>
+      <span class="ml-auto rounded border border-default px-1.5 py-0.5 font-mono text-[10px] text-muted">⌘K</span>
     </div>
 
     <slot name="actions" />
