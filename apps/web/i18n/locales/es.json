@@ -162,5 +162,47 @@
       "amount": "Valor",
       "tax": "IVA"
     }
+  },
+  "inbox": {
+    "title": "Bandeja de entrada",
+    "metrics": {
+      "unprocessed": "Sin procesar",
+      "processedToday": "Procesados hoy",
+      "failed": "Fallidos",
+      "avgProcessingTime": "Tiempo medio",
+      "avgProcessingTimeEmpty": "—"
+    },
+    "filter": {
+      "all": "Todos",
+      "pending": "Pendiente",
+      "classifying": "Clasificando",
+      "runningOcr": "OCR",
+      "processed": "Procesado",
+      "failed": "Fallido"
+    },
+    "filterCount": "{filtered} de {total} documentos",
+    "status": {
+      "pending": "Pendiente",
+      "classifying": "Clasificando",
+      "running_ocr": "OCR",
+      "processed": "Procesado",
+      "failed": "Fallido"
+    },
+    "unclassified": "Sin clasificar",
+    "emptyState": {
+      "empty": {
+        "title": "La bandeja está vacía",
+        "description": "Todavía no llegaron documentos por Drive.",
+        "action": "Ver clientes"
+      },
+      "noResults": {
+        "title": "Ningún documento coincide con el filtro",
+        "description": "Probá con otro estado o mostrá todos los documentos.",
+        "action": "Ver todos"
+      }
+    },
+    "group": {
+      "count": "({count})"
+    }
   }
 }

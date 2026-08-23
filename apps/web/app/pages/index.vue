@@ -1,7 +1,94 @@
 <script setup lang="ts">
-const route = useRoute()
+import type { DocumentStatus } from '~/domain/entities/document'
 
-// Keep the query: the OAuth callback lands here with ?auth_error=<code>, and
-// dropping it would make a failed sign-in look like nothing happened.
-await navigateTo({ path: '/clients', query: route.query })
+const { t } = useI18n()
+const route = useRoute()
+const status = computed(() => route.query.status as DocumentStatus | undefined)
+const useCase = useListInboxUseCase()
+
+const { data: inbox } = await useAsyncData(
+  'inbox',
+  () => useCase.execute({ status: status.value, now: new Date() }),
+  { watch: [status] }
+)
+
+const totals = computed(() => inbox.value?.totals)
+const groups = computed(() => inbox.value?.groups ?? [])
+const totalDocuments = computed(() => inbox.value?.totalDocuments ?? 0)
+const filteredDocuments = computed(() => inbox.value?.filteredDocuments ?? 0)
+const documentTypesById = computed(() => inbox.value?.documentTypesById ?? {})
+
+const emptyStateVariant = computed(() => {
+  if (totalDocuments.value === 0) return 'empty'
+  if (filteredDocuments.value === 0) return 'no-results'
+  return null
+})
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.round(ms / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return minutes === 0 ? `${seconds}s` : `${minutes}m ${seconds}s`
+}
+
+const avgProcessingLabel = computed(() => {
+  const ms = totals.value?.avgProcessingMs
+  return ms == null ? t('inbox.metrics.avgProcessingTimeEmpty') : formatDuration(ms)
+})
 </script>
+
+<template>
+  <UContainer class="max-w-[1180px] py-[30px]">
+    <h1 class="text-[27px] font-bold tracking-[-0.02em] text-neutral-900">
+      {{ t('inbox.title') }}
+    </h1>
+
+    <div class="mt-[26px] grid grid-cols-4 gap-3">
+      <InboxMetricCard
+        :label="t('inbox.metrics.unprocessed')"
+        :value="String(totals?.unprocessed ?? 0)"
+      />
+      <InboxMetricCard
+        :label="t('inbox.metrics.processedToday')"
+        :value="String(totals?.processedToday ?? 0)"
+        variant="success"
+      />
+      <InboxMetricCard
+        :label="t('inbox.metrics.failed')"
+        :value="String(totals?.failed ?? 0)"
+        variant="danger"
+      />
+      <InboxMetricCard
+        :label="t('inbox.metrics.avgProcessingTime')"
+        :value="avgProcessingLabel"
+      />
+    </div>
+
+    <div class="mt-[26px] overflow-hidden rounded-xl border border-line-100 bg-white">
+      <InboxStatusFilter
+        :status="status"
+        :total="totalDocuments"
+        :filtered="filteredDocuments"
+      />
+
+      <InboxEmptyState
+        v-if="emptyStateVariant"
+        :variant="emptyStateVariant"
+      />
+
+      <InboxGroup
+        v-for="group in groups"
+        :key="group.client.id"
+        :client="group.client"
+        :count="group.documents.length"
+      >
+        <InboxDocumentRow
+          v-for="document in group.documents"
+          :key="document.id"
+          :document="document"
+          :document-type="document.documentTypeId ? documentTypesById[document.documentTypeId] : undefined"
+        />
+      </InboxGroup>
+    </div>
+  </UContainer>
+</template>
