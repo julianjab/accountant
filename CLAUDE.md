@@ -66,9 +66,10 @@ infrastructure (not `domain/ports` — it's a transport detail, not a business c
   process env — not an `ACCOUNTANT_`-prefixed setting), reusing Claude Code/subscription auth
   instead of a billed API key.
 
-All prompt text (system prompts + instruction templates) lives in `apps/server/config/prompts.yaml`,
-loaded via `infrastructure/config/prompts.py::get_prompts()` — edit the YAML to iterate on
-prompts without touching adapter code. Per-document-type `extraction_prompt`/`extraction_schema`
+All prompt text (system prompts + instruction templates) lives in
+`apps/server/src/server/infrastructure/config/prompts.yaml`, loaded via
+`infrastructure/config/prompts.py::get_prompts()` via `importlib.resources` (it ships inside the
+package on purpose) — edit the YAML to iterate on prompts without touching adapter code. Per-document-type `extraction_prompt`/`extraction_schema`
 (the Config UI output) stay on the `DocumentType` entity itself; the YAML only holds the
 system-level prompts these adapters always send.
 

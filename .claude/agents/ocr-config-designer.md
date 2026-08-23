@@ -18,8 +18,9 @@ Read `/CLAUDE.md` first for the domain model and processing flow.
   against a document type's stored prompt + schema.
 - The `extraction_schema`/`extraction_prompt` pairs stored on `DocumentType` entities
   themselves.
-- The system-level prompts in `apps/server/config/prompts.yaml` (`document_classification`,
-  `document_type_configuration`, `ocr_extraction`) — these are what the three adapters above
+- The system-level prompts in `apps/server/src/server/infrastructure/config/prompts.yaml`
+  (`document_classification`, `document_type_configuration`, `ocr_extraction`) — these are
+  what the three adapters above
   always send; edit the YAML to iterate on them, no code change needed.
 
 ## Design rules

@@ -2,7 +2,7 @@ import base64
 
 from server.domain.entities import DocumentType
 from server.domain.ports import DocumentContent
-from server.infrastructure.config.prompts import PromptSpec
+from server.infrastructure.config.prompts import TemplatedPrompt
 from server.infrastructure.providers.ai_provider import AIProvider
 
 _CLASSIFY_TOOL_NAME = "pick_document_type"
@@ -12,7 +12,7 @@ class ClaudeDocumentClassifier:
     """DocumentClassifier adapter: a cheap/fast Claude call picks the matching
     document type among the ones configured, or none if there is no match."""
 
-    def __init__(self, provider: AIProvider, model: str, prompt: PromptSpec) -> None:
+    def __init__(self, provider: AIProvider, model: str, prompt: TemplatedPrompt) -> None:
         self._provider = provider
         self._model = model
         self._prompt = prompt
@@ -76,7 +76,6 @@ class ClaudeDocumentClassifier:
         return None
 
 
-def _build_instructions(prompt: PromptSpec, available_types: list[DocumentType]) -> str:
+def _build_instructions(prompt: TemplatedPrompt, available_types: list[DocumentType]) -> str:
     options = "\n".join(f"- {t.id}: {t.name} — {t.description}" for t in available_types)
-    template = prompt.instructions_template or ""
-    return template.replace("{options}", options)
+    return prompt.instructions_template.replace("{options}", options)

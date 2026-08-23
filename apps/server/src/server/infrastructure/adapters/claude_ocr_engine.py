@@ -3,7 +3,7 @@ from typing import Any
 
 from server.domain.entities import DocumentType
 from server.domain.ports import DocumentContent
-from server.infrastructure.config.prompts import PromptSpec
+from server.infrastructure.config.prompts import SystemOnlyPrompt
 from server.infrastructure.providers.ai_provider import AIProvider
 
 _EXTRACT_TOOL_NAME = "record_extracted_fields"
@@ -12,7 +12,7 @@ _EXTRACT_TOOL_NAME = "record_extracted_fields"
 class ClaudeOcrEngine:
     """OcrEngine adapter backed by Claude's vision + structured tool-use output."""
 
-    def __init__(self, provider: AIProvider, model: str, prompt: PromptSpec) -> None:
+    def __init__(self, provider: AIProvider, model: str, prompt: SystemOnlyPrompt) -> None:
         self._provider = provider
         self._model = model
         self._prompt = prompt

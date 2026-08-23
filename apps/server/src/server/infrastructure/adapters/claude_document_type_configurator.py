@@ -1,7 +1,7 @@
 import base64
 
 from server.domain.ports import DocumentContent, ProposedOcrConfig
-from server.infrastructure.config.prompts import PromptSpec
+from server.infrastructure.config.prompts import TemplatedPrompt
 from server.infrastructure.providers.ai_provider import AIProvider
 
 _PROPOSE_TOOL_NAME = "propose_ocr_config"
@@ -11,7 +11,7 @@ class ClaudeDocumentTypeConfigurator:
     """DocumentTypeConfigurator adapter: Claude inspects a sample document and
     proposes the extraction prompt + JSON schema to use for that document type."""
 
-    def __init__(self, provider: AIProvider, model: str, prompt: PromptSpec) -> None:
+    def __init__(self, provider: AIProvider, model: str, prompt: TemplatedPrompt) -> None:
         self._provider = provider
         self._model = model
         self._prompt = prompt
@@ -61,7 +61,7 @@ class ClaudeDocumentTypeConfigurator:
                         },
                         {
                             "type": "text",
-                            "text": (self._prompt.instructions_template or "").replace(
+                            "text": self._prompt.instructions_template.replace(
                                 "{type_name}", type_name
                             ),
                         },
