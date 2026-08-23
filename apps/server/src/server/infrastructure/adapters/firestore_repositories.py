@@ -122,20 +122,17 @@ class FirestoreDocumentRepository:
     def get_by_drive_file_id_and_client(
         self, drive_file_id: str, client_id: str
     ) -> Document | None:
-        # A retried Drive file can have more than one Document row for the
-        # same (drive_file_id, client_id): each attempt gets a fresh id.
-        # Ordering by created_at desc is what guarantees this returns the
-        # most recent attempt's status (in particular, an eventual PROCESSED)
-        # instead of an arbitrary earlier FAILED one.
-        query = (
-            self._collection.where("drive_file_id", "==", drive_file_id)
-            .where("client_id", "==", client_id)
-            .order_by("created_at", direction="DESCENDING")
-            .limit(1)
+        # ProcessUploadedDocument reuses one row per (drive_file_id, client_id)
+        # across retries, so this is almost always a single match; sorting
+        # client-side (instead of an order_by on a third field, which would
+        # need a composite index not covered by Firestore's automatic
+        # single-field indexes) still returns the most recent one on the rare
+        # chance more than one exists (e.g. a race between two attempts).
+        query = self._collection.where("drive_file_id", "==", drive_file_id).where(
+            "client_id", "==", client_id
         )
-        for snapshot in query.stream():
-            return self._to_entity(snapshot.id, snapshot.to_dict())
-        return None
+        documents = [self._to_entity(d.id, d.to_dict()) for d in query.stream()]
+        return max(documents, key=lambda d: d.created_at, default=None)
 
     @staticmethod
     def _to_entity(doc_id: str, data: dict[str, Any]) -> Document:

@@ -418,3 +418,34 @@ def test_a_file_that_keeps_failing_stops_being_retried_after_the_attempt_cap():
     assert results[4] == []
     assert channels.saved != []
     assert channels.saved[-1].page_token == "token-2"
+
+
+def test_a_download_that_keeps_failing_also_frees_the_cursor_after_the_cap():
+    # Unlike a classify/OCR failure, a download failure never produces a
+    # Document to return, but the cursor still must not stay stuck forever.
+    channels = FakeDriveWatchChannelRepository(_CHANNEL)
+    change_reader = FakeDriveChangeReader(
+        DriveChangesPage(
+            files=[
+                DriveChangedFile(
+                    id="file-1",
+                    name="broken.pdf",
+                    mime_type="application/pdf",
+                    parents=["folder-1"],
+                    trashed=False,
+                )
+            ],
+            next_page_token="token-2",
+        )
+    )
+    process_document = FakeProcessUploadedDocument(raise_for={"file-1"})
+    claims = FakeDriveFileClaimRepository()
+
+    results = []
+    for _ in range(3):
+        use_case = _use_case(channels, change_reader, process_document, claims)
+        results.append(use_case.execute(channel_id="channel-1", resource_state="update"))
+
+    assert results == [[], [], []]
+    assert channels.saved != []
+    assert channels.saved[-1].page_token == "token-2"

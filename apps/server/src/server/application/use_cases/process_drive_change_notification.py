@@ -98,21 +98,28 @@ class ProcessDriveChangeNotification:
             if not self._claims.try_claim(claim_key):
                 continue
 
-            document = self._attempt(channel, file)
-            if document is None:
+            document, needs_retry = self._attempt(channel, file)
+            if needs_retry:
                 had_failures = True
                 continue
-            processed.append(document)
-            if document.status == DocumentStatus.PROCESSED:
-                self._claims.clear_failures(claim_key)
+            if document is not None:
+                processed.append(document)
+                if document.status == DocumentStatus.PROCESSED:
+                    self._claims.clear_failures(claim_key)
 
         return processed, had_failures
 
-    def _attempt(self, channel: DriveWatchChannel, file: DriveChangedFile) -> Document | None:
+    def _attempt(
+        self, channel: DriveWatchChannel, file: DriveChangedFile
+    ) -> tuple[Document | None, bool]:
         """Runs one processing attempt.
 
-        Returns the resulting Document, or None if the caller should retry
-        this file on a future notification instead of treating it as done.
+        Returns the resulting Document (None if nothing could be persisted,
+        e.g. the download itself failed) and whether the caller should treat
+        this file as still needing a retry on a future notification. A False
+        here means "done with this file for now", whether that is a genuine
+        success or giving up on it after too many failures — either way the
+        channel's cursor must be free to move on.
         """
         claim_key = f"{channel.id}:{file.id}"
         try:
@@ -125,13 +132,14 @@ class ProcessDriveChangeNotification:
             )
         except Exception:
             # Only storage.download can still raise here: nothing was
-            # persisted, so this attempt is a clean, safe-to-retry no-op.
+            # persisted, so this attempt is a clean, safe-to-retry no-op. If
+            # this was the last allowed attempt, there is no document to
+            # leave behind either way; a log entry is the only record.
             logger.exception("Failed to download Drive file %s for channel %s", file.id, channel.id)
-            self._should_retry(claim_key, file.id, channel.id)
-            return None
+            return None, self._should_retry(claim_key, file.id, channel.id)
 
         if document.status != DocumentStatus.FAILED:
-            return document
+            return document, False
 
         logger.warning(
             "Drive file %s for channel %s failed to process: %s",
@@ -139,11 +147,11 @@ class ProcessDriveChangeNotification:
             channel.id,
             document.error,
         )
-        if self._should_retry(claim_key, file.id, channel.id):
-            return None
-        # Gave up: keep the FAILED document as the visible, inspectable
-        # record of what happened, rather than discarding it silently.
-        return document
+        needs_retry = self._should_retry(claim_key, file.id, channel.id)
+        # Keep the FAILED document either way: whether it will be retried or
+        # this was the last attempt, it is the visible, inspectable record of
+        # what happened, instead of being discarded silently.
+        return document, needs_retry
 
     def _should_retry(self, claim_key: str, file_id: str, channel_id: str) -> bool:
         attempts = self._claims.record_failure(claim_key)

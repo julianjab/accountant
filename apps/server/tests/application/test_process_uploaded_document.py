@@ -145,3 +145,41 @@ def test_an_ocr_failure_is_turned_into_a_failed_document_instead_of_raising() ->
 
     assert document.status == DocumentStatus.FAILED
     assert document.error == "Anthropic timeout"
+
+
+def test_a_retry_reuses_the_row_from_the_previous_failed_attempt() -> None:
+    # Without this, every retry of the same (client, drive file) would pile
+    # up a new row instead of updating the one that already exists for it.
+    documents = InMemoryDocumentRepository()
+    failing_use_case = _use_case(
+        ocr=_FakeOcrEngine(raises=RuntimeError("boom")), documents=documents
+    )
+    data = ProcessUploadedDocumentInput(
+        client_id="client-1", drive_file_id="drive-1", file_reference="ref-1"
+    )
+
+    first = failing_use_case.execute(data)
+    assert first.status == DocumentStatus.FAILED
+
+    succeeding_use_case = _use_case(classifier_result=_SAMPLE_TYPE, documents=documents)
+    second = succeeding_use_case.execute(data)
+
+    assert second.status == DocumentStatus.PROCESSED
+    assert second.id == first.id
+    assert documents.list_by_client("client-1") == [second]
+
+
+def test_a_retry_after_processed_creates_a_new_row() -> None:
+    # A PROCESSED row is never reused: a caller should not be re-invoking
+    # this for an already-completed file, so treat it as a distinct upload.
+    documents = InMemoryDocumentRepository()
+    use_case = _use_case(classifier_result=_SAMPLE_TYPE, documents=documents)
+    data = ProcessUploadedDocumentInput(
+        client_id="client-1", drive_file_id="drive-1", file_reference="ref-1"
+    )
+
+    first = use_case.execute(data)
+    second = use_case.execute(data)
+
+    assert first.id != second.id
+    assert len(documents.list_by_client("client-1")) == 2

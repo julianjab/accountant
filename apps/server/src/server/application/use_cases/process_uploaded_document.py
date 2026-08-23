@@ -49,8 +49,22 @@ class ProcessUploadedDocument:
         # here as "nothing happened yet, try again".
         content = self._storage.download(data.file_reference)
 
+        # Reuse a still-not-PROCESSED row from an earlier attempt at the same
+        # (client, drive file) instead of creating a fresh one: a caller that
+        # retries after a FAILED result would otherwise pile up one row per
+        # attempt for the same underlying file. A PROCESSED row is never
+        # reused; a caller must not be re-invoking this for one of those.
+        existing = self._documents.get_by_drive_file_id_and_client(
+            data.drive_file_id, data.client_id
+        )
+        document_id = (
+            existing.id
+            if existing is not None and existing.status != DocumentStatus.PROCESSED
+            else str(uuid.uuid4())
+        )
+
         document = Document(
-            id=str(uuid.uuid4()),
+            id=document_id,
             client_id=data.client_id,
             document_type_id=None,
             drive_file_id=data.drive_file_id,
