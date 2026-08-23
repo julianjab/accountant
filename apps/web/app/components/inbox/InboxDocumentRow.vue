@@ -41,21 +41,21 @@ const time = computed(() =>
 <template>
   <NuxtLink
     :to="`/documents/${document.id}`"
-    class="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)_auto_90px] items-center gap-3 border-b border-line-25 py-[9px] pr-4 pl-12 transition-colors duration-[120ms] hover:bg-paper-50"
+    class="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)_auto_90px] items-center gap-3 border-b border-muted py-[9px] pr-4 pl-12 transition-colors duration-[120ms] hover:bg-elevated"
   >
     <div class="flex min-w-0 items-center gap-2.5">
-      <div class="flex h-[26px] w-[22px] shrink-0 items-center justify-center rounded-[3px] border border-line-150 bg-paper-100">
+      <div class="flex h-[26px] w-[22px] shrink-0 items-center justify-center rounded-[3px] border border-default bg-muted">
         <UIcon
           :name="icon"
-          class="size-3.5 text-neutral-600"
+          class="size-3.5 text-muted"
         />
       </div>
       <span
-        class="truncate text-[13.5px] font-medium text-neutral-900"
+        class="truncate text-[13.5px] font-medium text-highlighted"
         :title="document.fileName"
       >{{ document.fileName }}</span>
     </div>
-    <span class="truncate text-[13px] text-neutral-700">{{ typeLabel }}</span>
+    <span class="truncate text-[13px] text-toned">{{ typeLabel }}</span>
     <UBadge
       :class="[statusColor.bg, statusColor.fg]"
       variant="soft"
@@ -64,7 +64,7 @@ const time = computed(() =>
       {{ t(`inbox.status.${document.status}`) }}
     </UBadge>
     <span
-      class="text-right font-mono text-[12px] text-neutral-500"
+      class="text-right font-mono text-[12px] text-muted"
       :title="document.createdAt"
     >{{ time }}</span>
   </NuxtLink>

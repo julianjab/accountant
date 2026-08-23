@@ -33,14 +33,14 @@ function formattedTime(createdAt: string): string {
 <template>
   <p
     v-if="!documents.length"
-    class="p-4 text-[13px] text-neutral-700"
+    class="p-4 text-[13px] text-toned"
   >
     {{ t('clients.detail.documents.empty') }}
   </p>
 
   <ul
     v-else
-    class="divide-y divide-line-25"
+    class="divide-y divide-default"
   >
     <li
       v-for="doc in documents"
@@ -49,14 +49,14 @@ function formattedTime(createdAt: string): string {
     >
       <UIcon
         name="i-lucide-file-text"
-        class="size-4 shrink-0 text-neutral-500"
+        class="size-4 shrink-0 text-muted"
       />
 
       <div class="min-w-0 max-w-[320px] flex-1">
-        <div class="truncate text-[13.5px] font-medium text-neutral-900">
+        <div class="truncate text-[13.5px] font-medium text-highlighted">
           {{ doc.fileName }}
         </div>
-        <div class="mt-0.5 truncate text-[12px] text-neutral-600">
+        <div class="mt-0.5 truncate text-[12px] text-muted">
           {{ typeName(doc.documentTypeId) }} · {{ formattedTime(doc.createdAt) }}
         </div>
       </div>

@@ -54,7 +54,7 @@ const tabItems = computed(() => [
   <UContainer class="py-8">
     <div
       v-if="isAuthLoading || clientPending"
-      class="text-[13px] text-neutral-700"
+      class="text-[13px] text-toned"
     >
       {{ t('auth.loading') }}
     </div>
@@ -71,10 +71,10 @@ const tabItems = computed(() => [
       v-else-if="!client"
       class="flex flex-col items-start gap-3 py-8"
     >
-      <h1 class="text-[20px] font-semibold text-neutral-900">
+      <h1 class="text-[20px] font-semibold text-highlighted">
         {{ t('clients.detail.notFound.title') }}
       </h1>
-      <p class="text-[13px] text-neutral-700">
+      <p class="text-[13px] text-toned">
         {{ t('clients.detail.notFound.description') }}
       </p>
       <UButton
@@ -93,9 +93,9 @@ const tabItems = computed(() => [
           <UTabs
             :items="tabItems"
             :ui="{
-              list: 'border-b border-line-50 bg-transparent rounded-none p-0 gap-4 px-4',
+              list: 'border-b border-default bg-transparent rounded-none p-0 gap-4 px-4',
               indicator: 'hidden',
-              trigger: 'rounded-none border-b-2 border-transparent px-0 py-2.5 text-[13px] font-semibold text-neutral-600 data-[state=active]:border-green-600 data-[state=active]:text-neutral-900',
+              trigger: 'rounded-none border-b-2 border-transparent px-0 py-2.5 text-[13px] font-semibold text-muted data-[state=active]:border-green-600 data-[state=active]:text-highlighted',
               content: 'p-0'
             }"
           >
@@ -106,12 +106,12 @@ const tabItems = computed(() => [
               />
             </template>
             <template #extractedData>
-              <p class="p-4 text-[13px] text-neutral-700">
+              <p class="p-4 text-[13px] text-toned">
                 {{ t('clients.detail.comingSoon') }}
               </p>
             </template>
             <template #spreadsheets>
-              <p class="p-4 text-[13px] text-neutral-700">
+              <p class="p-4 text-[13px] text-toned">
                 {{ t('clients.detail.comingSoon') }}
               </p>
             </template>

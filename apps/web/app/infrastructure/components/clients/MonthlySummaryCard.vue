@@ -25,16 +25,16 @@ const countsByStatus = computed(() => {
 
 <template>
   <UCard :ui="{ body: 'p-4' }">
-    <div class="mb-3 text-[11.5px] font-medium tracking-[0.08em] text-neutral-600 uppercase">
+    <div class="mb-3 text-[11.5px] font-medium tracking-[0.08em] text-muted uppercase">
       {{ t('clients.detail.summary.title') }}
     </div>
 
     <div
       v-for="row in countsByStatus"
       :key="row.status"
-      class="flex items-baseline justify-between border-b border-line-25 py-[7px] last:border-b-0"
+      class="flex items-baseline justify-between border-b border-default py-[7px] last:border-b-0"
     >
-      <span class="text-[13px] text-neutral-800">{{ t(`documents.status.${row.status}`) }}</span>
+      <span class="text-[13px] text-toned">{{ t(`documents.status.${row.status}`) }}</span>
       <span class="font-mono text-[13px] font-medium">{{ row.count }}</span>
     </div>
   </UCard>

@@ -36,10 +36,10 @@ const driveFolderUrl = computed(() => {
     </div>
 
     <div class="min-w-0 flex-1">
-      <h1 class="truncate text-[26px] font-bold tracking-[-0.02em] text-neutral-900">
+      <h1 class="truncate text-[26px] font-bold tracking-[-0.02em] text-highlighted">
         {{ client.name }}
       </h1>
-      <div class="mt-1.5 flex flex-wrap items-center gap-4 text-[13px] text-neutral-700">
+      <div class="mt-1.5 flex flex-wrap items-center gap-4 text-[13px] text-toned">
         <span class="font-mono">{{ client.taxId }}</span>
         <span>{{ client.email ?? t('clients.detail.noEmail') }}</span>
 
