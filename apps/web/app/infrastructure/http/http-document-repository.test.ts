@@ -34,7 +34,10 @@ describe('HttpDocumentRepository', () => {
       error: null,
       createdAt: '2026-01-01'
     })
-    expect(fetchMock).toHaveBeenCalledWith('/documents/doc-1', { baseURL: 'http://localhost:8000' })
+    expect(fetchMock).toHaveBeenCalledWith('/documents/doc-1', {
+      baseURL: 'http://localhost:8000',
+      credentials: 'include'
+    })
   })
 
   it('propagates a 404 error when the document does not exist', async () => {

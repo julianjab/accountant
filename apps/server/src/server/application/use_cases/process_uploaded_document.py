@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from server.domain.entities import Document, DocumentStatus, ExtractedData
 from server.domain.ports import (
     DocumentClassifier,
+    DocumentContent,
     DocumentRepository,
     DocumentStorage,
     DocumentTypeRepository,
@@ -43,10 +44,27 @@ class ProcessUploadedDocument:
         self._extracted_data = extracted_data
 
     def execute(self, data: ProcessUploadedDocumentInput) -> Document:
+        # Nothing is persisted until this succeeds, so a caller (the Drive
+        # webhook's at-least-once retry) can safely treat a raised exception
+        # here as "nothing happened yet, try again".
         content = self._storage.download(data.file_reference)
 
+        # Reuse a still-not-PROCESSED row from an earlier attempt at the same
+        # (client, drive file) instead of creating a fresh one: a caller that
+        # retries after a FAILED result would otherwise pile up one row per
+        # attempt for the same underlying file. A PROCESSED row is never
+        # reused; a caller must not be re-invoking this for one of those.
+        existing = self._documents.get_by_drive_file_id_and_client(
+            data.drive_file_id, data.client_id
+        )
+        document_id = (
+            existing.id
+            if existing is not None and existing.status != DocumentStatus.PROCESSED
+            else str(uuid.uuid4())
+        )
+
         document = Document(
-            id=str(uuid.uuid4()),
+            id=document_id,
             client_id=data.client_id,
             document_type_id=None,
             drive_file_id=data.drive_file_id,
@@ -58,6 +76,27 @@ class ProcessUploadedDocument:
         )
         self._documents.save(document)
 
+        # From here on, every step writes to `document`'s row. Letting an
+        # exception (a classifier/OCR timeout, a transient Firestore error, a
+        # 5xx from Anthropic, ...) escape past this point would leave that row
+        # stuck in CLASSIFYING/RUNNING_OCR forever with no visible error and no
+        # safe way for a caller to retry without risking a duplicate document
+        # for the same file. Converting it to a FAILED document instead keeps
+        # `execute` always returning a terminal, inspectable result.
+        try:
+            return self._classify_and_extract(document, content)
+        except Exception as exc:
+            # If this save also fails (the repository itself is down), the
+            # exception propagates and the row above stays CLASSIFYING/
+            # RUNNING_OCR; a caller would then, incorrectly, treat that as
+            # "nothing persisted, safe to retry" and create another row. That
+            # residual case needs the repository itself to be healthy to
+            # resolve, which is outside what this use case can guarantee.
+            document = _with_error(document, str(exc))
+            self._documents.save(document)
+            return document
+
+    def _classify_and_extract(self, document: Document, content: DocumentContent) -> Document:
         available_types = self._document_types.list_active()
         document_type = self._classifier.classify(content, available_types)
         if document_type is None:

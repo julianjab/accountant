@@ -11,6 +11,7 @@
     "web:typecheck": "bun run --cwd apps/web typecheck",
     "web:test": "bun run --cwd apps/web test",
     "server:dev": "cd apps/server && uv run server",
+    "server:serve": "cd apps/server && uv run server-noreload",
     "server:lint": "cd apps/server && uv run ruff format . && uv run ruff check --fix .",
     "server:test": "cd apps/server && uv run pytest",
     "lint": "bun run web:lint && bun run server:lint",

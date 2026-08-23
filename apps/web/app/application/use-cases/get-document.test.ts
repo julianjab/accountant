@@ -20,6 +20,10 @@ class FakeDocumentRepository implements DocumentRepository {
   getExtractedData(_id: string): Promise<ExtractedData | null> {
     return Promise.resolve(this.extractedData)
   }
+
+  listByClient(_clientId: string): Promise<ClientDocument[]> {
+    throw new Error('not implemented')
+  }
 }
 
 describe('GetDocument', () => {

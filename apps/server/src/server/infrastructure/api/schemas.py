@@ -1,23 +1,43 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from server.domain.entities import DocumentStatus
 
 
 class ClientCreateRequest(BaseModel):
     name: str
-    tax_id: str
+    tax_id: str | None = None
     email: str | None = None
+    drive_folder_url: str | None = None
+
+    @field_validator("drive_folder_url")
+    @classmethod
+    def _drive_folder_url_must_be_https(cls, value: str | None) -> str | None:
+        # Rendered as a plain <a href> on the client detail page — reject
+        # anything other than an https URL so a value like `javascript:...`
+        # can never end up executable there.
+        if value is not None and not value.startswith("https://"):
+            msg = "drive_folder_url must be an https URL"
+            raise ValueError(msg)
+        return value
 
 
 class ClientResponse(BaseModel):
     id: str
     name: str
-    tax_id: str
+    tax_id: str | None
     email: str | None
     created_at: datetime
+    drive_folder_id: str | None = None
+    drive_folder_url: str | None = None
+
+
+class ClientImportResponse(BaseModel):
+    created: list[ClientResponse]
+    renamed: list[ClientResponse]
+    unchanged: int
 
 
 class DocumentTypeResponse(BaseModel):
@@ -71,7 +91,15 @@ class ExtractedDataResponse(BaseModel):
     created_at: datetime
 
 
-class DriveWebhookPayload(BaseModel):
+class DriveWatchChannelResponse(BaseModel):
+    id: str
+    resource_id: str
+    folder_id: str
     client_id: str
-    drive_file_id: str
-    file_reference: str
+    expires_at: datetime
+
+
+class GoogleUserResponse(BaseModel):
+    email: str
+    name: str
+    picture: str | None

@@ -9,8 +9,9 @@ from server.domain.ports import ClientRepository
 @dataclass(frozen=True, slots=True)
 class RegisterClientInput:
     name: str
-    tax_id: str
+    tax_id: str | None
     email: str | None
+    drive_folder_url: str | None = None
 
 
 class RegisterClient:
@@ -24,6 +25,7 @@ class RegisterClient:
             tax_id=data.tax_id,
             email=data.email,
             created_at=datetime.now(UTC),
+            drive_folder_url=data.drive_folder_url,
         )
         self._clients.save(client)
         return client

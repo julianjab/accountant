@@ -22,7 +22,7 @@ interface ExtractedDataDto {
   created_at: string
 }
 
-function toDocument(dto: DocumentDto): ClientDocument {
+function toClientDocument(dto: DocumentDto): ClientDocument {
   return {
     id: dto.id,
     clientId: dto.client_id,
@@ -56,14 +56,18 @@ export class HttpDocumentRepository implements DocumentRepository {
   constructor(private readonly baseUrl: string) {}
 
   async getById(id: string): Promise<ClientDocument> {
-    const dto = await $fetch<DocumentDto>(`/documents/${id}`, { baseURL: this.baseUrl })
-    return toDocument(dto)
+    const dto = await $fetch<DocumentDto>(`/documents/${id}`, {
+      baseURL: this.baseUrl,
+      credentials: 'include'
+    })
+    return toClientDocument(dto)
   }
 
   async getExtractedData(id: string): Promise<ExtractedData | null> {
     try {
       const dto = await $fetch<ExtractedDataDto>(`/documents/${id}/extracted-data`, {
-        baseURL: this.baseUrl
+        baseURL: this.baseUrl,
+        credentials: 'include'
       })
       return toExtractedData(dto)
     } catch (error) {
@@ -72,5 +76,13 @@ export class HttpDocumentRepository implements DocumentRepository {
       }
       throw error
     }
+  }
+
+  async listByClient(clientId: string): Promise<ClientDocument[]> {
+    const dtos = await $fetch<DocumentDto[]>(`/clients/${clientId}/documents`, {
+      baseURL: this.baseUrl,
+      credentials: 'include'
+    })
+    return dtos.map(toClientDocument)
   }
 }

@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from server.domain.entities import Client, Document, DocumentStatus
+from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import get_client_repository, get_document_repository
 from server.main import app
 
@@ -24,7 +25,48 @@ def documents():
 
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(app)
+    app.dependency_overrides[require_session] = lambda: None
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+def test_create_client_rejects_non_https_drive_folder_url(client) -> None:
+    response = client.post(
+        "/clients",
+        json={
+            "name": "Jane Doe",
+            "tax_id": "123",
+            "drive_folder_url": "javascript:alert(document.cookie)",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_get_client(client, clients) -> None:
+    clients.save(
+        Client(
+            id="client-1",
+            name="Jane Doe",
+            tax_id="123",
+            email=None,
+            created_at=datetime.now(UTC),
+            drive_folder_url="https://drive.google.com/drive/folders/abc",
+        )
+    )
+
+    response = client.get("/clients/client-1")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == "client-1"
+    assert body["drive_folder_url"] == "https://drive.google.com/drive/folders/abc"
+
+
+def test_get_client_returns_404_for_unknown_client(client, clients) -> None:
+    response = client.get("/clients/missing")
+
+    assert response.status_code == 404
 
 
 def test_list_client_documents(client, clients, documents) -> None:

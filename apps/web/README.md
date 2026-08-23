@@ -63,53 +63,42 @@ Check out the [deployment documentation](https://nuxt.com/docs/getting-started/d
 
 Install [Renovate GitHub app](https://github.com/apps/renovate/installations/select_target) on your repository and you are good to go.
 
-## Google login (Drive read access)
+## Google login
 
-The app lets a user sign in with their own Google account, from the browser, to read their
-Google Drive (scope `drive.readonly`, plus `openid email profile` so the sign-in flow can show
-who's logged in via `oauth2/v3/userinfo`). This is separate from the server's service account,
-which is only used for the Drive webhook that processes uploaded documents.
+A user signs in with their own Google account to grant read access to their Drive
+(`drive.readonly`, plus `openid email profile`). The flow is **authorization-code**, handled
+end to end by `apps/server`:
 
-### Create an OAuth Client ID
+1. The button sends the browser to `GET /auth/google/login` on the server, which redirects to
+   Google's consent screen with a `state` nonce stored in a short-lived cookie.
+2. Google redirects back to `GET /auth/google/callback`, which verifies `state`, exchanges the
+   code for an access **and refresh** token, stores them server-side, and sets an httpOnly
+   session cookie.
+3. This app calls `GET /auth/google/me` with `credentials: 'include'` to learn who is signed in.
 
-1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), open (or create)
-   the project used for this app.
-2. Configure the **OAuth consent screen** if you haven't yet (External or Internal, depending on
-   your Workspace setup). Add your own Google account as a **test user** while the app is
-   unverified — Google flags `drive.readonly` as a sensitive scope, so production use will
-   eventually require app verification.
-3. Go to **Credentials → Create credentials → OAuth client ID**.
-4. Application type: **Web application**.
-5. **Authorized JavaScript origins**: add `http://localhost:3000` for local development (add your
-   deployed origin(s) too, once you have one). No redirect URI is needed — this flow uses the
-   Google Identity Services token client (implicit, browser-only), not the redirect-based flow.
-6. Copy the generated **Client ID**.
+The access token never reaches the browser, so there is nothing here for an XSS to steal, and
+the session survives reloads and browser restarts — the server renews the access token from the
+refresh token whenever it has expired.
 
-### Configure the environment variable
+### Setup
 
-Set it as `NUXT_PUBLIC_GOOGLE_CLIENT_ID` in an `.env` file inside `apps/web/`, which maps to
-`runtimeConfig.public.googleClientId` in `nuxt.config.ts`:
+Config lives on the server; see `apps/server/.env.example` for the full list. In the
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials) you need a **Web
+application** OAuth client with:
 
-```bash
-NUXT_PUBLIC_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-```
+- **Authorized redirect URIs**: `http://localhost:8000/auth/google/callback`
+- **Authorized JavaScript origins**: not needed any more (no browser-side Google SDK)
 
-### What this covers today (and what's next)
+Then set `ACCOUNTANT_GOOGLE_OAUTH_CLIENT_ID` and `ACCOUNTANT_GOOGLE_OAUTH_CLIENT_SECRET` in
+`apps/server/.env`. While the app is unverified, add your account as a **test user** on the
+OAuth consent screen — `drive.readonly` is a sensitive scope.
 
-- Sign-in happens entirely in the browser via Google Identity Services
-  (`app/infrastructure/auth/gis-google-auth-provider.ts`); the resulting `access_token` is only
-  ever used client-side, and never sent to `apps/server`.
-- There's no refresh token (implicit flow doesn't issue one) — the adapter tracks the token's
-  `expires_in` and renews it with a silent `requestAccessToken({ prompt: '' })` call once it's
-  close to expiring, and the session itself doesn't persist across page reloads beyond what
-  Google Identity Services offers natively.
-- Because the token lives in the browser, any XSS on this app would expose it — this is why the
-  scope is read-only. Moving to an authorization-code flow with a backend-held refresh token (so
-  `apps/server` can act on the user's behalf, and so the token isn't exposed to the page at all)
-  is a natural next step, but out of scope for this iteration.
-- Picking files from Drive (Drive Picker), uploading documents, and exporting to Sheets are not
-  implemented yet — this only wires up the login and a smoke-tested read call
-  (`GET drive/v3/about`).
+This app only needs `NUXT_PUBLIC_SERVER_API_BASE` (see `.env.example`).
+
+### Not implemented yet
+
+Picking files from Drive (Drive Picker), uploading documents, and exporting to Sheets. The login
+currently establishes the grant; acting on it server-side is the next step.
 
 ## Document review (`/documents/[id]`)
 

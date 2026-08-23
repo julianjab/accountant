@@ -9,6 +9,7 @@ from server.application.use_cases import (
     GetExtractedData,
 )
 from server.domain.entities import DocumentStatus
+from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
     get_approve_document_use_case,
     get_document_metrics_use_case,
@@ -22,7 +23,7 @@ from server.infrastructure.api.schemas import (
     ExtractedDataResponse,
 )
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(prefix="/documents", tags=["documents"], dependencies=[Depends(require_session)])
 
 
 @router.get("", response_model=list[DocumentResponse])

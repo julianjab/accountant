@@ -2,43 +2,37 @@ import type { GoogleUser } from '~/domain/entities/google-user'
 
 export function useGoogleAuth() {
   const user = useState<GoogleUser | null>('google-auth-user', () => null)
-  const accessToken = useState<string | null>('google-auth-token', () => null)
+  const isLoading = useState<boolean>('google-auth-loading', () => true)
 
   const isAuthenticated = computed(() => user.value !== null)
 
-  async function signIn(): Promise<void> {
-    if (!import.meta.client) return
-
-    const session = await useSignInWithGoogleUseCase().execute()
-    user.value = session.user
-    accessToken.value = session.accessToken
-  }
-
-  function signOut(): void {
-    if (!import.meta.client) return
-
-    useSignOutUseCase().execute()
-    user.value = null
-    accessToken.value = null
-  }
-
-  async function getAccessToken(): Promise<string> {
-    if (!import.meta.client) {
-      throw new Error('getAccessToken can only be called on the client')
+  /** Restores the session from the server cookie; this is what survives a reload. */
+  async function loadSession(): Promise<void> {
+    isLoading.value = true
+    try {
+      user.value = await useGetCurrentUserUseCase().execute()
+    } catch {
+      user.value = null
+    } finally {
+      isLoading.value = false
     }
+  }
 
-    const provider = useGoogleAuthProvider()
-    const token = await provider.getAccessToken()
-    accessToken.value = token
-    return token
+  function signIn(): void {
+    useSignInWithGoogleUseCase().execute()
+  }
+
+  async function signOut(): Promise<void> {
+    await useSignOutUseCase().execute()
+    user.value = null
   }
 
   return {
     user,
-    accessToken,
+    isLoading,
     isAuthenticated,
+    loadSession,
     signIn,
-    signOut,
-    getAccessToken
+    signOut
   }
 }
