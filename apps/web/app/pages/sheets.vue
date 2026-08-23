@@ -55,8 +55,18 @@ function rowCountFor(clientId: string): number {
   return rowsByClient.value?.[clientId]?.length ?? 0
 }
 
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/
+
 function formatDate(value: string): string {
   if (!value) return ''
+
+  const dateOnlyMatch = DATE_ONLY.exec(value)
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch
+    const parsed = new Date(Number(year), Number(month) - 1, Number(day))
+    return new Intl.DateTimeFormat(locale.value).format(parsed)
+  }
+
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value
   return new Intl.DateTimeFormat(locale.value).format(parsed)

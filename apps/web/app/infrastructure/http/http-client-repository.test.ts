@@ -83,7 +83,7 @@ describe('HttpClientRepository', () => {
       baseURL: BASE,
       credentials: 'include',
       method: 'POST',
-      body: { name: 'Jane', tax_id: '123', email: null }
+      body: { name: 'Jane', tax_id: '123', email: null, spreadsheet_url: null }
     })
   })
 

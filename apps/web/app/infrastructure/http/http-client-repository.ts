@@ -72,7 +72,12 @@ export class HttpClientRepository implements ClientRepository {
       baseURL: this.baseUrl,
       credentials: 'include',
       method: 'POST',
-      body: { name: input.name, tax_id: input.taxId, email: input.email }
+      body: {
+        name: input.name,
+        tax_id: input.taxId,
+        email: input.email,
+        spreadsheet_url: input.spreadsheetUrl ?? null
+      }
     })
     return toClient(dto)
   }

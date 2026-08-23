@@ -174,3 +174,26 @@ def test_list_client_spreadsheet_rows_returns_404_for_unknown_client(client, cli
     response = client.get("/clients/missing/spreadsheet-rows")
 
     assert response.status_code == 404
+
+
+def test_create_client_accepts_https_spreadsheet_url(client, clients) -> None:
+    response = client.post(
+        "/clients",
+        json={
+            "name": "Jane Doe",
+            "tax_id": "123",
+            "spreadsheet_url": "https://docs.google.com/spreadsheets/d/abc",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["spreadsheet_url"] == "https://docs.google.com/spreadsheets/d/abc"
+
+
+def test_create_client_rejects_non_https_spreadsheet_url(client, clients) -> None:
+    response = client.post(
+        "/clients",
+        json={"name": "Jane Doe", "tax_id": "123", "spreadsheet_url": "javascript:alert(1)"},
+    )
+
+    assert response.status_code == 422
