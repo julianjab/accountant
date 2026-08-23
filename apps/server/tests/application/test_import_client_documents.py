@@ -167,6 +167,9 @@ def test_one_unreadable_file_does_not_abandon_the_rest_of_the_folder():
     result = use_case.execute(ImportClientDocumentsInput(client_id="c1"))
 
     assert {d.drive_file_id for d in result.imported} == {"f1", "f3"}
+    # Reported, not dropped: "imported 2, failed 0, skipped 0" over a folder of
+    # three would give the caller no way to learn one was never looked at.
+    assert result.unreadable == ["f2"]
 
 
 def test_an_empty_folder_imports_nothing_without_failing():
@@ -176,7 +179,12 @@ def test_an_empty_folder_imports_nothing_without_failing():
 
     result = use_case.execute(ImportClientDocumentsInput(client_id="c1"))
 
-    assert (result.imported, result.failed, result.skipped) == ([], [], 0)
+    assert (result.imported, result.failed, result.skipped, result.unreadable) == (
+        [],
+        [],
+        0,
+        [],
+    )
 
 
 def test_an_unknown_client_is_refused():

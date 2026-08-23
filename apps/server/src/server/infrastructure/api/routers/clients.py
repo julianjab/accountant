@@ -116,4 +116,5 @@ def import_client_documents(
         ],
         failed=[DocumentResponse.model_validate(d, from_attributes=True) for d in result.failed],
         skipped=result.skipped,
+        unreadable=result.unreadable,
     )

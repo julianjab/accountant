@@ -233,3 +233,5 @@ class ClientDocumentsImportResponse(BaseModel):
     imported: list[DocumentResponse]
     failed: list[DocumentResponse]
     skipped: int
+    #: Files with no readable bytes, so no document exists for them at all.
+    unreadable: list[str]

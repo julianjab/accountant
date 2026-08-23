@@ -29,6 +29,12 @@ class ImportClientDocumentsResult:
     imported: list[Document]
     skipped: int
     failed: list[Document]
+    #: Files whose bytes could not be read at all, so no document exists for
+    #: them. Reported rather than dropped: a folder of ten files answering
+    #: "imported 3, failed 0, skipped 0" gives the caller no way to learn that
+    #: seven were never looked at. Native Google Docs and Sheets land here —
+    #: they have no bytes to download, only an export.
+    unreadable: list[str]
 
 
 class ImportClientDocuments:
@@ -66,6 +72,7 @@ class ImportClientDocuments:
 
         imported: list[Document] = []
         failed: list[Document] = []
+        unreadable: list[str] = []
         skipped = 0
 
         for file in self._storage.list_files(client.drive_folder_id):
@@ -74,6 +81,7 @@ class ImportClientDocuments:
                 continue
             document = self._process_one(client.id, file.id, replace=data.reprocess)
             if document is None:
+                unreadable.append(file.id)
                 continue
             (failed if document.status == DocumentStatus.FAILED else imported).append(document)
 
@@ -83,10 +91,13 @@ class ImportClientDocuments:
                 "client_id": client.id,
                 "imported": len(imported),
                 "failed": len(failed),
+                "unreadable": len(unreadable),
                 "skipped": skipped,
             },
         )
-        return ImportClientDocumentsResult(imported=imported, skipped=skipped, failed=failed)
+        return ImportClientDocumentsResult(
+            imported=imported, skipped=skipped, failed=failed, unreadable=unreadable
+        )
 
     def _should_skip(self, drive_file_id: str, client_id: str, *, reprocess: bool) -> bool:
         existing = self._documents.get_by_drive_file_id_and_client(drive_file_id, client_id)
