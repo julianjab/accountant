@@ -7,6 +7,7 @@ describe('ImportClientsFromDrive', () => {
     const summary = { created: [], renamed: [], unchanged: 3 }
     const clients: ClientRepository = {
       list: vi.fn(),
+      get: vi.fn(),
       register: vi.fn(),
       importFromDrive: vi.fn().mockResolvedValue(summary)
     }

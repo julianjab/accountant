@@ -5,4 +5,5 @@ export interface Client {
   email: string | null
   createdAt: string
   driveFolderId: string | null
+  driveFolderUrl: string | null
 }

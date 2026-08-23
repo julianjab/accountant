@@ -34,6 +34,7 @@ class ImportClientsFromDrive:
 
         for folder in self._directory.list_client_folders():
             current = existing.get(folder.id)
+            drive_folder_url = f"https://drive.google.com/drive/folders/{folder.id}"
 
             if current is None:
                 client = Client(
@@ -43,6 +44,7 @@ class ImportClientsFromDrive:
                     email=None,
                     created_at=datetime.now(UTC),
                     drive_folder_id=folder.id,
+                    drive_folder_url=drive_folder_url,
                 )
                 self._clients.save(client)
                 created.append(client)
@@ -55,9 +57,23 @@ class ImportClientsFromDrive:
                     email=current.email,
                     created_at=current.created_at,
                     drive_folder_id=current.drive_folder_id,
+                    drive_folder_url=current.drive_folder_url or drive_folder_url,
                 )
                 self._clients.save(client)
                 renamed.append(client)
+            elif current.drive_folder_url is None:
+                # Backfills clients imported before drive_folder_url existed.
+                client = Client(
+                    id=current.id,
+                    name=current.name,
+                    tax_id=current.tax_id,
+                    email=current.email,
+                    created_at=current.created_at,
+                    drive_folder_id=current.drive_folder_id,
+                    drive_folder_url=drive_folder_url,
+                )
+                self._clients.save(client)
+                unchanged += 1
             else:
                 unchanged += 1
 

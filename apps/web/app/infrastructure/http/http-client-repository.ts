@@ -12,6 +12,7 @@ interface ClientDto {
   email: string | null
   created_at: string
   drive_folder_id: string | null
+  drive_folder_url: string | null
 }
 
 interface ImportDto {
@@ -27,8 +28,14 @@ function toClient(dto: ClientDto): Client {
     taxId: dto.tax_id,
     email: dto.email,
     createdAt: dto.created_at,
-    driveFolderId: dto.drive_folder_id
+    driveFolderId: dto.drive_folder_id,
+    driveFolderUrl: dto.drive_folder_url
   }
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'statusCode' in error
+    && (error as { statusCode?: number }).statusCode === 404
 }
 
 export class HttpClientRepository implements ClientRepository {
@@ -41,6 +48,21 @@ export class HttpClientRepository implements ClientRepository {
       credentials: 'include'
     })
     return dtos.map(toClient)
+  }
+
+  async get(id: string): Promise<Client | null> {
+    try {
+      const dto = await $fetch<ClientDto>(`/clients/${id}`, {
+        baseURL: this.baseUrl,
+        credentials: 'include'
+      })
+      return toClient(dto)
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null
+      }
+      throw error
+    }
   }
 
   async register(input: RegisterClientInput): Promise<Client> {

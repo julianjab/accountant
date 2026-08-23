@@ -72,6 +72,7 @@ class FirestoreClientRepository:
                 "email": client.email,
                 "created_at": client.created_at,
                 "drive_folder_id": client.drive_folder_id,
+                "drive_folder_url": client.drive_folder_url,
             }
         )
 
@@ -91,6 +92,7 @@ class FirestoreClientRepository:
             email=data.get("email"),
             created_at=_as_utc(data["created_at"]),
             drive_folder_id=data.get("drive_folder_id"),
+            drive_folder_url=data.get("drive_folder_url"),
         )
 
 

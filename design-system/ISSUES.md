@@ -20,7 +20,7 @@ Hoy `apps/web` es la plantilla de Nuxt UI con un `UHeader`, el botón de Google 
 
 - [x] #A Tokens de diseño y shell (barra lateral + topbar)
 - [ ] #B Bandeja de entrada agrupada por cliente
-- [ ] #C Ficha de cliente
+- [x] #C Ficha de cliente
 - [ ] #D Revisión de documento y datos extraídos
 - [ ] #E Tipos de documento y "Definir tipo"
 - [ ] #F Hojas de cálculo por cliente
@@ -80,19 +80,31 @@ Ruta `/` (hoy redirige a `/clients`; pasa a ser la bandeja).
 
 ---
 
-## C. Ficha de cliente
+## C. Ficha de cliente — ✅ implementado
 
 Ref: README → "§ 3 Ficha de cliente". Depende de A y G.
 
 Ruta `/clients/[id]`. La tabla actual de `/clients` se mantiene como índice.
 
-**Tareas**
+**Implementado** (branch `feat/client-detail-page`):
 
-- [ ] Encabezado: avatar 52px, nombre, NIT en mono, correo (o "sin correo"), enlace a la carpeta de Drive.
-- [ ] Pestañas Documentos / Datos extraídos / Hojas de cálculo (sólo la primera con contenido en esta issue).
-- [ ] Lista de documentos en **layout de dos líneas** (la columna es estrecha): nombre arriba, "tipo · hora" abajo, badge a la derecha.
-- [ ] Panel lateral: "Resumen del mes" y tarjeta profunda de "Tipos configurados" con acceso a la configuración.
-- [ ] Botón "Exportar a hoja de cálculo" (deshabilitado hasta F).
+- [x] `apps/server/src/server/domain/entities/client.py` — `drive_folder_url: str | None = None`; propagado en `ClientCreateRequest`/`ClientResponse` (`infrastructure/api/schemas.py`) y en `RegisterClient.execute` (`application/use_cases/register_client.py`).
+- [x] `apps/server/src/server/infrastructure/api/routers/clients.py` — `GET /clients/{id}` con 404. `GET /clients/{id}/documents` y `GET /document-types?active_only=` **ya existían** (tarea G, mergeada antes que ésta) — se reutilizaron sin cambios.
+- [x] Web dominio: `Client.driveFolderUrl`, `DocumentType` nuevo (`{ id, name, active }`); `ClientDocument`/`DocumentStatus` reutilizados sin redefinir.
+- [x] Web puertos/use cases: `ClientRepository.get`, `DocumentRepository`/`DocumentTypeRepository` nuevos; `GetClient`, `ListClientDocuments`, `ListActiveDocumentTypes` (con test hermano cada uno, patrón `list-clients.test.ts`).
+- [x] Web adapters: `HttpClientRepository.get` (404 → `null` vía `statusCode` de `FetchError`), `HttpDocumentRepository`, `HttpDocumentTypeRepository`; DI en `useDi.ts`.
+- [x] `apps/web/app/infrastructure/components/clients/` — `ClientHeader`, `ClientDocumentList`, `MonthlySummaryCard`, `ConfiguredTypesCard`, `ExportSpreadsheetButton` (directorio nuevo).
+- [x] `apps/web/app/pages/clients/[id].vue` — tres `useAsyncData` independientes (`client:{id}`, `documents:{id}`, `document-types`), estado "no encontrado" traducido para 404, `UTabs` (sólo "Documentos" con contenido) y layout `grid` con panel lateral que colapsa bajo `lg`.
+- [x] `apps/web/app/pages/clients/index.vue` — filas de `UTable` navegables: `onSelect` para clic + un listener `@keydown` en la tabla (Nuxt UI 4 marca la fila seleccionable como `role="button" tabindex="0"` pero **no** conecta Enter/Space a una activación real; se captura el `keydown` que burbujea desde la `<tr>` enfocada y se resuelve el cliente por índice de fila, restando la cantidad real de filas de `<thead>`).
+- [x] i18n: `clients.detail.*` y `documents.status.*` en `es.json`/`en.json`.
+
+**Desvíos respecto al enunciado original**: ninguno funcional. La única ambigüedad resuelta por el builder: el botón "Exportar a hoja de cálculo" se ubicó en el encabezado (`ClientHeader`), no en la pestaña "Hojas de cálculo", porque el diseño de referencia (`ClientScreen.jsx`) lo pone ahí. El botón "Configurar extracción" queda deshabilitado con tooltip (mismo patrón que "Exportar") en vez de enlazar a `/document-types`, porque esa ruta todavía no existe (#12).
+
+**Seguridad**: el hook de pre-push de este repo detectó que `drive_folder_url` se renderiza como `<a href>` sin sanear — un valor `javascript:...` habría sido un XSS activable con un clic. Se corrigió en dos capas: `ClientCreateRequest` en el servidor rechaza (422) cualquier valor que no empiece con `https://` (`field_validator`, con test), y `ClientHeader.vue` repite el chequeo en el cliente antes de bindear el `href`, por si algún dato viejo/editado a mano llegara sin pasar por el validador.
+
+**Tests**: `apps/web` → `bun run lint && bun run typecheck && bun run test` en verde (8 archivos, 15 tests). `apps/server` → `uv run ruff format . && uv run ruff check . && uv run pytest` en verde (36 tests, incluye `GET /clients/{id}` happy-path + 404 y el rechazo de `drive_folder_url` no-https). Verificado manualmente en un browser real (Playwright, ver detalle abajo): fila → ficha por clic, fila → ficha por teclado (`Enter`), estado "no encontrado" para un id inexistente sin excepción sin capturar, tabs, resumen del mes y tarjeta de tipos con datos reales del server.
+
+**Deuda técnica / fuera de alcance**: el servidor no tiene `CORSMiddleware` (pre-existente, no introducido por esta tarea) — cualquier navegación *client-side* que dispare un `$fetch` desde el browser hacia un `serverApiBase` en otro origen falla por CORS en dev con puertos separados; el primer render SSR no se ve afectado porque corre en el servidor de Nuxt, no en el browser. No se tocó porque escapa al alcance de "Ficha de cliente" y afecta a toda la app por igual. Contenido real de "Datos extraídos" y "Hojas de cálculo", funcionalidad de "Exportar" (#11) y paginación de la lista de documentos quedan fuera de esta issue, como estaba previsto.
 
 ---
 

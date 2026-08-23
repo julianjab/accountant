@@ -14,6 +14,10 @@ class FakeClientRepository implements ClientRepository {
     return Promise.resolve(this.clients)
   }
 
+  get(_id: string): Promise<Client | null> {
+    throw new Error('not implemented')
+  }
+
   register(_input: RegisterClientInput): Promise<Client> {
     throw new Error('not implemented')
   }
@@ -32,7 +36,8 @@ describe('ListClients', () => {
         taxId: '123',
         email: null,
         createdAt: '2026-01-01',
-        driveFolderId: null
+        driveFolderId: null,
+        driveFolderUrl: null
       }
     ]
     const useCase = new ListClients(new FakeClientRepository(clients))

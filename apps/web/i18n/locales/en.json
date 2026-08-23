@@ -25,7 +25,49 @@
     },
     "signInRequired": "Sign in with Google to see your clients.",
     "importFromDrive": "Sync with Drive",
-    "importFailed": "Could not read the Drive clients folder"
+    "importFailed": "Could not read the Drive clients folder",
+    "detail": {
+      "notFound": {
+        "title": "Client not found",
+        "description": "We couldn't find a client with that identifier.",
+        "backToList": "Back to clients"
+      },
+      "noEmail": "no email",
+      "driveOpen": "Open Drive folder",
+      "driveMissing": "This client doesn't have a Drive folder configured",
+      "tabs": {
+        "documents": "Documents",
+        "extractedData": "Extracted data",
+        "spreadsheets": "Spreadsheets"
+      },
+      "comingSoon": "Coming soon.",
+      "documents": {
+        "unclassified": "Unclassified",
+        "empty": "This client doesn't have any documents yet."
+      },
+      "summary": {
+        "title": "Monthly summary"
+      },
+      "configuredTypes": {
+        "title": "Configured types",
+        "activeCount": "{count} active",
+        "goToConfig": "Configure extraction",
+        "configComingSoon": "Available once the document-type screen ships (issue #12)"
+      },
+      "export": {
+        "label": "Export to spreadsheet",
+        "disabledTooltip": "Available once spreadsheet export ships (issue #11)"
+      }
+    }
+  },
+  "documents": {
+    "status": {
+      "pending": "Pending",
+      "classifying": "Classifying",
+      "running_ocr": "OCR",
+      "processed": "Processed",
+      "failed": "Failed"
+    }
   },
   "auth": {
     "signIn": "Sign in with Google",
