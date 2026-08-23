@@ -40,6 +40,27 @@ class DocumentResponse(BaseModel):
     status: DocumentStatus
     error: str | None
     created_at: datetime
+    processed_at: datetime | None
+    reviewed_at: datetime | None
+    approved_by: str | None
+
+
+class DocumentApproveRequest(BaseModel):
+    approved_by: str | None = None
+
+
+class DocumentMetricsResponse(BaseModel):
+    """Dashboard figures. "Today" is computed in UTC.
+
+    `avg_processing_seconds` is the mean of (processed_at - created_at) over
+    documents with status in {processed, approved} (approval never reverses
+    the OCR pipeline); `null` when there is no such document yet.
+    """
+
+    unprocessed: int
+    processed_today: int
+    failed: int
+    avg_processing_seconds: float | None
 
 
 class ExtractedDataResponse(BaseModel):
