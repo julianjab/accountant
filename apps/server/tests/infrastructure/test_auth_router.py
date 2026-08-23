@@ -235,3 +235,33 @@ def test_a_failed_callback_clears_the_single_use_state_cookie(client, monkeypatc
 
     # Leaving it behind would let a later forged callback replay it.
     assert f'{STATE_COOKIE}=""' in response.headers["set-cookie"]
+
+
+def test_a_storage_failure_is_reported_without_a_stack_trace(sessions, monkeypatch):
+    class ExplodingSessions:
+        def save(self, session):
+            raise RuntimeError("firestore is unreachable")
+
+        def get(self, session_id):
+            return None
+
+        def delete(self, session_id):
+            pass
+
+        def delete_for_user(self, email):
+            pass
+
+    from server.application.use_cases import CompleteGoogleSignIn
+
+    app.dependency_overrides[deps.get_complete_google_sign_in_use_case] = lambda: (
+        CompleteGoogleSignIn(FakeOAuth(), ExplodingSessions(), lambda _email: True)
+    )
+    configure_oauth(monkeypatch)
+
+    with TestClient(app, follow_redirects=False) as test_client:
+        test_client.cookies.set(STATE_COOKIE, "s1")
+        response = test_client.get("/auth/google/callback", params={"code": "c", "state": "s1"})
+
+    assert response.status_code == 307
+    assert response.headers["location"] == f"{WEB_APP_URL}?auth_error=server"
+    app.dependency_overrides.clear()

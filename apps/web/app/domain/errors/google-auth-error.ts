@@ -6,6 +6,7 @@ export type GoogleAuthErrorCode
     | 'state'
     | 'no_refresh'
     | 'exchange'
+    | 'server'
 
 export class GoogleAuthError extends Error {
   constructor(public readonly code: GoogleAuthErrorCode) {

@@ -1,3 +1,4 @@
+import logging
 import secrets
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
@@ -22,6 +23,8 @@ from server.infrastructure.api.deps import (
 )
 from server.infrastructure.api.schemas import GoogleUserResponse
 from server.infrastructure.config.settings import Settings
+
+_logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth/google", tags=["auth"])
 
@@ -97,6 +100,11 @@ def callback(
         return _failed(settings, "no_refresh")
     except OAuthTransportError:
         return _failed(settings, "exchange")
+    except Exception:
+        # Storage or any other unexpected failure: the sign-in itself succeeded,
+        # so a stack trace in the browser is both useless and a disclosure.
+        _logger.exception("Could not complete the Google sign-in")
+        return _failed(settings, "server")
 
     response = RedirectResponse(settings.web_app_url, status_code=307)
     session_max_age = settings.session_max_age_days * 24 * 60 * 60
