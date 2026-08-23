@@ -51,5 +51,8 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
+      - name: Module boundaries
+        run: uv run lint-imports
+
       - name: Test
         run: uv run pytest

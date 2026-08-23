@@ -1,0 +1,85 @@
+# The module boundary this codebase relies on, checked rather than trusted.
+#
+# The point of these contracts is a single one: a second reconciliation model
+# must be addable without editing the engine. That only holds while the kernel
+# stays ignorant of any particular tax authority and the engine stays ignorant
+# of any particular kind, and neither property survives long on discipline
+# alone.
+#
+# Run with: uv run lint-imports
+
+[importlinter]
+root_packages =
+    server
+include_external_packages = True
+
+[importlinter:contract:kernel-is-standalone]
+name = The shared kernel depends on nothing in the application
+type = forbidden
+source_modules =
+    server.shared
+forbidden_modules =
+    server.domain
+    server.application
+    server.infrastructure
+    server.reconciliation
+
+[importlinter:contract:core-knows-no-kind]
+name = The reconciliation engine never imports a concrete kind
+type = forbidden
+source_modules =
+    server.reconciliation.core
+forbidden_modules =
+    server.reconciliation.kinds
+    server.reconciliation.infrastructure
+    server.domain
+    server.application
+    server.infrastructure
+
+[importlinter:contract:kinds-are-leaves]
+name = A reconciliation kind sees only the kernel and the engine
+type = forbidden
+source_modules =
+    server.reconciliation.kinds
+forbidden_modules =
+    server.domain
+    server.application
+    server.infrastructure
+    server.reconciliation.application
+    server.reconciliation.infrastructure
+
+[importlinter:contract:core-is-framework-free]
+name = The engine and the kernel import no frameworks or SDKs
+type = forbidden
+source_modules =
+    server.shared
+    server.reconciliation.core
+forbidden_modules =
+    fastapi
+    google
+    httpx
+    openpyxl
+    pydantic
+    pydantic_settings
+    uvicorn
+
+[importlinter:contract:reconciliation-application-is-pure]
+name = Reconciliation use cases depend on ports, not on intake or adapters
+type = forbidden
+source_modules =
+    server.reconciliation.application
+forbidden_modules =
+    server.domain
+    server.application
+    server.infrastructure
+    server.reconciliation.kinds
+    server.reconciliation.infrastructure
+
+[importlinter:contract:intake-does-not-know-reconciliation]
+name = Intake is unaware that reconciliation exists
+type = forbidden
+source_modules =
+    server.domain
+    server.application
+forbidden_modules =
+    server.reconciliation
