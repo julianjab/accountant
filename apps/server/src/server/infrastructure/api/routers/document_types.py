@@ -9,14 +9,18 @@ router = APIRouter(prefix="/document-types", tags=["document-types"])
 
 
 @router.post("", response_model=DocumentTypeResponse, status_code=201)
-async def create_document_type(
+def create_document_type(
     name: str = Form(...),
     description: str = Form(...),
     sample_file: UploadFile = File(...),
     use_case: DefineDocumentType = Depends(get_define_document_type_use_case),
 ) -> DocumentTypeResponse:
+    # Sync on purpose: this calls a blocking AIProvider (httpx.Client) — a
+    # `def` handler runs in FastAPI's threadpool instead of on the event
+    # loop, unlike `async def`, which would stall every other request for
+    # as long as the Claude call takes.
     sample_document = DocumentContent(
-        data=await sample_file.read(),
+        data=sample_file.file.read(),
         mime_type=sample_file.content_type or "application/octet-stream",
         file_name=sample_file.filename or "sample",
     )
