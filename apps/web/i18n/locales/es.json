@@ -92,6 +92,38 @@
       "unsupportedMime": "No hay vista previa disponible para este tipo de archivo"
     }
   },
+  "documentTypes": {
+    "title": "Tipos de documento",
+    "empty": "Aún no hay tipos de documento definidos.",
+    "define": "Definir tipo",
+    "status": {
+      "active": "Activo",
+      "draft": "Borrador"
+    },
+    "fields": {
+      "name": "Nombre",
+      "description": "Descripción",
+      "sampleFile": "Documento de muestra",
+      "fieldsCount": "{count} campos",
+      "schemaKeys": "Campos del esquema"
+    },
+    "new": {
+      "title": "Definir tipo de documento",
+      "submit": "Analizar documento",
+      "loading": "Claude está analizando el documento…",
+      "loadingHint": "Esto puede tardar cerca de un minuto",
+      "error": "No se pudo definir el tipo de documento. Intentá de nuevo.",
+      "invalidJson": "El esquema no es un JSON válido"
+    },
+    "proposal": {
+      "title": "Propuesta generada",
+      "prompt": "Prompt de extracción",
+      "schema": "Esquema de extracción",
+      "save": "Guardar tipo",
+      "edit": "Editar",
+      "cancelEdit": "Cancelar edición"
+    }
+  },
   "auth": {
     "signIn": "Iniciar sesión con Google",
     "signOut": "Cerrar sesión",

@@ -11,6 +11,8 @@ import { GetDocument } from '~/application/use-cases/get-document'
 import { GetDocumentExtractedData } from '~/application/use-cases/get-document-extracted-data'
 import { ImportClientsFromDrive } from '~/application/use-cases/import-clients-from-drive'
 import { GetCurrentUser } from '~/application/use-cases/get-current-user'
+import { ListDocumentTypes } from '~/application/use-cases/list-document-types'
+import { DefineDocumentType } from '~/application/use-cases/define-document-type'
 import { SignInWithGoogle } from '~/application/use-cases/sign-in-with-google'
 import { SignOut } from '~/application/use-cases/sign-out'
 import type { GoogleAuthProvider } from '~/application/ports/google-auth-provider'
@@ -44,6 +46,14 @@ export function useListClientDocumentsUseCase() {
 
 export function useListActiveDocumentTypesUseCase() {
   return new ListActiveDocumentTypes(useDocumentTypeRepository())
+}
+
+export function useListDocumentTypesUseCase() {
+  return new ListDocumentTypes(useDocumentTypeRepository())
+}
+
+export function useDefineDocumentTypeUseCase() {
+  return new DefineDocumentType(useDocumentTypeRepository())
 }
 
 export function useRegisterClientUseCase() {
