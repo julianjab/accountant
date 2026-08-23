@@ -186,6 +186,7 @@
       "classifying": "Classifying",
       "running_ocr": "OCR",
       "processed": "Processed",
+      "approved": "Approved",
       "failed": "Failed"
     },
     "unclassified": "Unclassified",

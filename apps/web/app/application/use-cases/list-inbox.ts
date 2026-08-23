@@ -31,6 +31,10 @@ export interface InboxView {
 }
 
 const UNPROCESSED_STATUSES: DocumentStatus[] = ['pending', 'classifying', 'running_ocr']
+// Approval only records a review decision (see the server's ApproveDocument) — it never
+// reverses the OCR pipeline. A document stays "processed" for these figures whether or
+// not it has since been approved (mirrors GetDocumentMetrics on the server).
+const PROCESSED_STATUSES: DocumentStatus[] = ['processed', 'approved']
 
 function isSameLocalDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
@@ -41,7 +45,7 @@ function computeTotals(documents: ClientDocument[], now: Date): InboxTotals {
   const failed = documents.filter(d => d.status === 'failed').length
 
   const processedTodayDocs = documents.filter(
-    d => d.status === 'processed' && d.processedAt !== null && isSameLocalDay(new Date(d.processedAt), now)
+    d => PROCESSED_STATUSES.includes(d.status) && d.processedAt !== null && isSameLocalDay(new Date(d.processedAt), now)
   )
 
   const durationsMs = processedTodayDocs

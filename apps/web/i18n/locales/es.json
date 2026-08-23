@@ -186,6 +186,7 @@
       "classifying": "Clasificando",
       "running_ocr": "OCR",
       "processed": "Procesado",
+      "approved": "Aprobado",
       "failed": "Fallido"
     },
     "unclassified": "Sin clasificar",

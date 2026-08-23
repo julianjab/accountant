@@ -9,11 +9,16 @@ const props = defineProps<{
 
 const { t } = useI18n()
 
+// TODO(design-system): the inbox spec (design-system/README.md § 2) only defines a badge
+// per Document.status pending|classifying|running_ocr|processed|failed. "approved" is a
+// later status (post-processing review) with no dedicated token yet — reusing "processed"
+// until the design system defines one.
 const STATUS_COLOR: Record<DocumentStatus, { bg: string, fg: string }> = {
   pending: { bg: 'bg-status-pending-bg', fg: 'text-status-pending-fg' },
   classifying: { bg: 'bg-status-classifying-bg', fg: 'text-status-classifying-fg' },
   running_ocr: { bg: 'bg-status-running-ocr-bg', fg: 'text-status-running-ocr-fg' },
   processed: { bg: 'bg-status-processed-bg', fg: 'text-status-processed-fg' },
+  approved: { bg: 'bg-status-processed-bg', fg: 'text-status-processed-fg' },
   failed: { bg: 'bg-status-failed-bg', fg: 'text-status-failed-fg' }
 }
 
