@@ -15,13 +15,52 @@ const { data: clients, refresh } = await useAsyncData<Client[]>(
 )
 
 watch(isAuthenticated, authenticated => authenticated && refresh(), { immediate: true })
+
+const importClients = useImportClientsUseCase()
+const isImporting = ref(false)
+const importError = ref(false)
+
+async function syncWithDrive() {
+  isImporting.value = true
+  importError.value = false
+  try {
+    await importClients.execute()
+    await refresh()
+  } catch {
+    importError.value = true
+  } finally {
+    isImporting.value = false
+  }
+}
 </script>
 
 <template>
   <UContainer class="py-8">
-    <h1 class="text-xl font-semibold mb-4">
-      {{ t('clients.title') }}
-    </h1>
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-xl font-semibold">
+        {{ t('clients.title') }}
+      </h1>
+
+      <UButton
+        v-if="isAuthenticated"
+        color="neutral"
+        variant="subtle"
+        size="sm"
+        :loading="isImporting"
+        data-testid="clients-import"
+        @click="syncWithDrive"
+      >
+        {{ t('clients.importFromDrive') }}
+      </UButton>
+    </div>
+
+    <p
+      v-if="importError"
+      class="text-sm text-error mb-4"
+      data-testid="clients-import-error"
+    >
+      {{ t('clients.importFailed') }}
+    </p>
 
     <p
       v-if="isAuthLoading"

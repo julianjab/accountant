@@ -2,6 +2,7 @@ import { HttpClientRepository } from '~/infrastructure/http/http-client-reposito
 import { ServerSessionAuthProvider } from '~/infrastructure/auth/server-session-auth-provider'
 import { ListClients } from '~/application/use-cases/list-clients'
 import { RegisterClient } from '~/application/use-cases/register-client'
+import { ImportClientsFromDrive } from '~/application/use-cases/import-clients-from-drive'
 import { GetCurrentUser } from '~/application/use-cases/get-current-user'
 import { SignInWithGoogle } from '~/application/use-cases/sign-in-with-google'
 import { SignOut } from '~/application/use-cases/sign-out'
@@ -18,6 +19,10 @@ export function useListClientsUseCase() {
 
 export function useRegisterClientUseCase() {
   return new RegisterClient(useClientRepository())
+}
+
+export function useImportClientsUseCase() {
+  return new ImportClientsFromDrive(useClientRepository())
 }
 
 export function useGoogleAuthProvider(): GoogleAuthProvider {

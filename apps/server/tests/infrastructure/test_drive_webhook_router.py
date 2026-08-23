@@ -17,6 +17,7 @@ from server.domain.entities import (
     DriveWatchRegistration,
 )
 from server.infrastructure.adapters.in_memory_repositories import (
+    InMemoryDocumentRepository,
     InMemoryDriveFileClaimRepository,
     InMemoryDriveWatchChannelRepository,
 )
@@ -86,6 +87,11 @@ def claims():
 
 
 @pytest.fixture
+def documents():
+    return InMemoryDocumentRepository()
+
+
+@pytest.fixture
 def process_use_case():
     return FakeProcessUploadedDocument()
 
@@ -101,8 +107,10 @@ def subscribe_use_case(drive_watcher, channels):
 
 
 @pytest.fixture
-def process_notification_use_case(channels, drive_watcher, claims, process_use_case):
-    return ProcessDriveChangeNotification(channels, drive_watcher, claims, process_use_case)
+def process_notification_use_case(channels, drive_watcher, claims, documents, process_use_case):
+    return ProcessDriveChangeNotification(
+        channels, drive_watcher, claims, documents, process_use_case
+    )
 
 
 @pytest.fixture
@@ -158,6 +166,7 @@ def test_drive_webhook_processes_the_channels_changes(
                 )
             ),
             InMemoryDriveFileClaimRepository(),
+            InMemoryDocumentRepository(),
             process_use_case,
         )
     )

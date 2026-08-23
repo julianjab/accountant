@@ -16,14 +16,16 @@
   },
   "clients": {
     "title": "Clients",
-    "empty": "No clients registered yet.",
+    "empty": "No clients yet. Sync with Drive to bring them in.",
     "register": "Register client",
     "fields": {
       "name": "Name",
       "taxId": "Tax id",
       "email": "Email"
     },
-    "signInRequired": "Sign in with Google to see your clients."
+    "signInRequired": "Sign in with Google to see your clients.",
+    "importFromDrive": "Sync with Drive",
+    "importFailed": "Could not read the Drive clients folder"
   },
   "auth": {
     "signIn": "Sign in with Google",

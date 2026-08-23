@@ -16,14 +16,16 @@
   },
   "clients": {
     "title": "Clientes",
-    "empty": "Aún no hay clientes registrados.",
+    "empty": "Aún no hay clientes. Sincroniza con Drive para traerlos.",
     "register": "Registrar cliente",
     "fields": {
       "name": "Nombre",
       "taxId": "Identificación",
       "email": "Correo"
     },
-    "signInRequired": "Inicia sesión con Google para ver tus clientes."
+    "signInRequired": "Inicia sesión con Google para ver tus clientes.",
+    "importFromDrive": "Sincronizar con Drive",
+    "importFailed": "No se pudo leer la carpeta de clientes en Drive"
   },
   "auth": {
     "signIn": "Iniciar sesión con Google",
