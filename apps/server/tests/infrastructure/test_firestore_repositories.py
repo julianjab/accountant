@@ -12,6 +12,7 @@ from server.domain.entities import (
     GoogleSession,
     GoogleUser,
 )
+from server.infrastructure.adapters import firestore_repositories
 from server.infrastructure.adapters.firestore_repositories import (
     FirestoreClientRepository,
     FirestoreDocumentRepository,
@@ -46,11 +47,13 @@ class FakeDocumentRef:
 
 
 class FakeTransaction:
-    def __enter__(self) -> "FakeTransaction":
-        return self
+    """Only implements what ``_increment_attempts``'s body itself calls.
 
-    def __exit__(self, *args: object) -> None:
-        pass
+    Firestore's real begin/retry/commit machinery (``_begin``, ``_commit``,
+    ``_clean_up``) lives in the ``@transactional`` decorator, not in the
+    wrapped function; tests exercise the wrapped function directly (via
+    ``.to_wrap``) instead of trying to fake that machinery.
+    """
 
     def set(self, ref: FakeDocumentRef, data: dict) -> None:
         ref.set(data)
@@ -76,6 +79,11 @@ class FakeQuery:
     def where(self, field: str, op: str, value) -> "FakeQuery":
         assert op == "=="
         return FakeQuery([s for s in self._items if (s.to_dict() or {}).get(field) == value])
+
+    def order_by(self, field: str, direction: str = "ASCENDING") -> "FakeQuery":
+        reverse = direction == "DESCENDING"
+        items = sorted(self._items, key=lambda s: (s.to_dict() or {}).get(field), reverse=reverse)
+        return FakeQuery(items)
 
     def limit(self, count: int) -> "FakeQuery":
         return FakeQuery(self._items[:count])
@@ -297,7 +305,26 @@ def test_drive_file_claim_release_allows_claiming_again():
     assert repo.try_claim("file-1") is True
 
 
-def test_drive_file_claim_record_failure_increments_and_clear_resets():
+def test_increment_attempts_counts_up_from_a_document_that_may_not_exist_yet():
+    # Exercises the wrapped function directly: the @transactional decorator's
+    # begin/commit/retry machinery is Firestore's own well-tested code, not
+    # something worth re-implementing in a fake.
+    collection = FakeCollection()
+    ref = collection.document("file-1")
+    transaction = FakeTransaction()
+
+    assert firestore_repositories._increment_attempts.to_wrap(transaction, ref) == 1
+    assert firestore_repositories._increment_attempts.to_wrap(transaction, ref) == 2
+
+
+def test_drive_file_claim_record_failure_increments_and_clear_resets(monkeypatch):
+    # See the note above: bypass the transactional decorator's real
+    # begin/commit machinery, which a fake Transaction cannot satisfy.
+    monkeypatch.setattr(
+        firestore_repositories,
+        "_increment_attempts",
+        firestore_repositories._increment_attempts.to_wrap,
+    )
     repo = FirestoreDriveFileClaimRepository(FakeFirestore())
 
     assert repo.record_failure("file-1") == 1
@@ -338,3 +365,37 @@ def test_document_is_found_by_drive_file_id_scoped_to_its_client():
     assert repo.get_by_drive_file_id_and_client("f1", "c1") == mine
     assert repo.get_by_drive_file_id_and_client("f1", "c2") == other_clients_copy
     assert repo.get_by_drive_file_id_and_client("f1", "c3") is None
+
+
+def test_document_lookup_by_drive_file_id_returns_the_most_recent_attempt():
+    # A retried Drive file can have more than one row for the same
+    # (drive_file_id, client_id): each attempt gets a fresh id. The most
+    # recent one must win so an eventual PROCESSED is not shadowed by an
+    # earlier FAILED attempt.
+    repo = FirestoreDocumentRepository(FakeFirestore())
+    failed_attempt = Document(
+        id="d1",
+        client_id="c1",
+        document_type_id=None,
+        drive_file_id="f1",
+        file_name="a.pdf",
+        mime_type="application/pdf",
+        status=DocumentStatus.FAILED,
+        error="boom",
+        created_at=NOW,
+    )
+    processed_attempt = Document(
+        id="d2",
+        client_id="c1",
+        document_type_id=None,
+        drive_file_id="f1",
+        file_name="a.pdf",
+        mime_type="application/pdf",
+        status=DocumentStatus.PROCESSED,
+        error=None,
+        created_at=NOW + timedelta(minutes=5),
+    )
+    repo.save(failed_attempt)
+    repo.save(processed_attempt)
+
+    assert repo.get_by_drive_file_id_and_client("f1", "c1") == processed_attempt

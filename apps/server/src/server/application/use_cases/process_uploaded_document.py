@@ -72,6 +72,12 @@ class ProcessUploadedDocument:
         try:
             return self._classify_and_extract(document, content)
         except Exception as exc:
+            # If this save also fails (the repository itself is down), the
+            # exception propagates and the row above stays CLASSIFYING/
+            # RUNNING_OCR; a caller would then, incorrectly, treat that as
+            # "nothing persisted, safe to retry" and create another row. That
+            # residual case needs the repository itself to be healthy to
+            # resolve, which is outside what this use case can guarantee.
             document = _with_error(document, str(exc))
             self._documents.save(document)
             return document

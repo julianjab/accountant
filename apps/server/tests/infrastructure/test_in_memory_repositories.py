@@ -96,3 +96,33 @@ def test_get_by_drive_file_id_and_client_is_scoped_to_the_client():
     assert repo.get_by_drive_file_id_and_client("f1", "c1") == mine
     assert repo.get_by_drive_file_id_and_client("f1", "c2") == other_clients_copy
     assert repo.get_by_drive_file_id_and_client("f1", "c3") is None
+
+
+def test_get_by_drive_file_id_and_client_returns_the_most_recent_attempt():
+    repo = InMemoryDocumentRepository()
+    failed_attempt = Document(
+        id="d1",
+        client_id="c1",
+        document_type_id=None,
+        drive_file_id="f1",
+        file_name="a.pdf",
+        mime_type="application/pdf",
+        status=DocumentStatus.FAILED,
+        error="boom",
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    processed_attempt = Document(
+        id="d2",
+        client_id="c1",
+        document_type_id=None,
+        drive_file_id="f1",
+        file_name="a.pdf",
+        mime_type="application/pdf",
+        status=DocumentStatus.PROCESSED,
+        error=None,
+        created_at=datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
+    )
+    repo.save(failed_attempt)
+    repo.save(processed_attempt)
+
+    assert repo.get_by_drive_file_id_and_client("f1", "c1") == processed_attempt

@@ -13,6 +13,7 @@ from typing import Any
 
 from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import Client as FirestoreClient
+from google.cloud.firestore import transactional
 
 from server.domain.entities import (
     Client,
@@ -40,14 +41,21 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
+@transactional
 def _increment_attempts(transaction, ref) -> int:
     """Reads-then-writes the attempt counter inside a transaction, so two
     concurrent handlers recording a failure for the same key cannot both read
-    the same starting count and silently drop one increment."""
-    with transaction:
-        snapshot = ref.get(transaction=transaction)
-        attempts = (snapshot.to_dict() or {}).get("attempts", 0) + 1 if snapshot.exists else 1
-        transaction.set(ref, {"attempts": attempts})
+    the same starting count and silently drop one increment.
+
+    Must go through the ``@transactional`` decorator rather than a bare
+    ``with transaction:``: ``Transaction`` never begins itself (it inherits
+    ``WriteBatch.__enter__``, which is a no-op), so a plain context manager
+    would try to commit a transaction that was never started. The decorator
+    is what calls ``_begin()``/retries/`_commit()` correctly.
+    """
+    snapshot = ref.get(transaction=transaction)
+    attempts = (snapshot.to_dict() or {}).get("attempts", 0) + 1 if snapshot.exists else 1
+    transaction.set(ref, {"attempts": attempts})
     return attempts
 
 
@@ -114,9 +122,15 @@ class FirestoreDocumentRepository:
     def get_by_drive_file_id_and_client(
         self, drive_file_id: str, client_id: str
     ) -> Document | None:
+        # A retried Drive file can have more than one Document row for the
+        # same (drive_file_id, client_id): each attempt gets a fresh id.
+        # Ordering by created_at desc is what guarantees this returns the
+        # most recent attempt's status (in particular, an eventual PROCESSED)
+        # instead of an arbitrary earlier FAILED one.
         query = (
             self._collection.where("drive_file_id", "==", drive_file_id)
             .where("client_id", "==", client_id)
+            .order_by("created_at", direction="DESCENDING")
             .limit(1)
         )
         for snapshot in query.stream():

@@ -46,14 +46,16 @@ class InMemoryDocumentRepository:
     def get_by_drive_file_id_and_client(
         self, drive_file_id: str, client_id: str
     ) -> Document | None:
-        return next(
-            (
-                d
-                for d in self._items.values()
-                if d.drive_file_id == drive_file_id and d.client_id == client_id
-            ),
-            None,
-        )
+        # A retried Drive file can have more than one row for the same
+        # (drive_file_id, client_id): each attempt gets a fresh id. The most
+        # recent one must win so an eventual PROCESSED is not shadowed by an
+        # earlier FAILED attempt.
+        matches = [
+            d
+            for d in self._items.values()
+            if d.drive_file_id == drive_file_id and d.client_id == client_id
+        ]
+        return max(matches, key=lambda d: d.created_at, default=None)
 
 
 class InMemoryDocumentTypeRepository:
