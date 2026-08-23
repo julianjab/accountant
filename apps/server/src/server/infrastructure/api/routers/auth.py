@@ -11,6 +11,7 @@ from server.application.use_cases import (
     StartGoogleSignIn,
 )
 from server.domain.ports import OAuthTransportError
+from server.infrastructure.api.auth_dependency import SESSION_COOKIE
 from server.infrastructure.api.deps import (
     get_complete_google_sign_in_use_case,
     get_google_session_use_case,
@@ -23,7 +24,6 @@ from server.infrastructure.config.settings import Settings
 
 router = APIRouter(prefix="/auth/google", tags=["auth"])
 
-SESSION_COOKIE = "accountant_session"
 STATE_COOKIE = "accountant_oauth_state"
 
 # The session lives as long as the refresh token stays valid; the cookie is what

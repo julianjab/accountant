@@ -23,13 +23,18 @@ export class HttpClientRepository implements ClientRepository {
   constructor(private readonly baseUrl: string) {}
 
   async list(): Promise<Client[]> {
-    const dtos = await $fetch<ClientDto[]>('/clients', { baseURL: this.baseUrl })
+    // The server requires a session cookie on every business endpoint.
+    const dtos = await $fetch<ClientDto[]>('/clients', {
+      baseURL: this.baseUrl,
+      credentials: 'include'
+    })
     return dtos.map(toClient)
   }
 
   async register(input: RegisterClientInput): Promise<Client> {
     const dto = await $fetch<ClientDto>('/clients', {
       baseURL: this.baseUrl,
+      credentials: 'include',
       method: 'POST',
       body: { name: input.name, tax_id: input.taxId, email: input.email }
     })

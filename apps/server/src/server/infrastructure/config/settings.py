@@ -2,7 +2,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="ACCOUNTANT_")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="ACCOUNTANT_",
+        # The .env also carries unprefixed Anthropic auth vars, read straight
+        # from the process env by anthropic_http_client; they are not settings.
+        extra="ignore",
+    )
 
     anthropic_model: str = "claude-sonnet-5"
     google_service_account_file: str = ""
