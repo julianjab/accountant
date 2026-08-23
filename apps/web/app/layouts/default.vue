@@ -7,14 +7,14 @@
       </template>
     </AppSidebar>
 
-    <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <AppTopbar>
         <template #actions>
           <UColorModeButton />
         </template>
       </AppTopbar>
 
-      <main class="flex-1 overflow-auto">
+      <main class="min-h-0 flex-1 overflow-auto">
         <slot />
       </main>
     </div>
