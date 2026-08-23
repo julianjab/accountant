@@ -2,13 +2,16 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from server.application.use_cases import DefineDocumentType, DefineDocumentTypeInput
 from server.domain.ports import DocumentContent
+from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
     get_define_document_type_use_case,
     get_document_type_repository,
 )
 from server.infrastructure.api.schemas import DocumentTypeResponse
 
-router = APIRouter(prefix="/document-types", tags=["document-types"])
+router = APIRouter(
+    prefix="/document-types", tags=["document-types"], dependencies=[Depends(require_session)]
+)
 
 
 @router.get("", response_model=list[DocumentTypeResponse])

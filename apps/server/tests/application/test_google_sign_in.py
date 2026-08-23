@@ -1,0 +1,203 @@
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from server.application.use_cases import (
+    CompleteGoogleSignIn,
+    GetGoogleSession,
+    MissingRefreshToken,
+    SignInNotAllowed,
+    SignOutGoogle,
+)
+from server.domain.entities import GoogleUser
+from server.domain.ports import (
+    DriveAccessNotGranted,
+    OAuthGrantRevoked,
+    OAuthTokens,
+    OAuthTransportError,
+)
+from server.infrastructure.adapters.in_memory_repositories import InMemorySessionRepository
+
+USER = GoogleUser(email="a@b.com", name="A B", picture=None)
+MAX_AGE = timedelta(days=30)
+
+
+def sign_in(oauth, sessions, is_allowed=lambda _email: True):
+    return CompleteGoogleSignIn(oauth, sessions, is_allowed)
+
+
+def load(oauth, sessions, max_age=MAX_AGE):
+    return GetGoogleSession(oauth, sessions, max_age)
+
+
+class FakeOAuth:
+    def __init__(
+        self,
+        tokens: OAuthTokens,
+        refreshed: OAuthTokens | None = None,
+        refresh_error: Exception | None = None,
+    ) -> None:
+        self._tokens = tokens
+        self._refreshed = refreshed
+        self._refresh_error = refresh_error or OAuthGrantRevoked("revoked")
+        self.revoked: list[str] = []
+        self.refresh_calls = 0
+
+    def authorization_url(self, state: str) -> str:
+        return f"https://accounts.google.com/auth?state={state}"
+
+    def exchange_code(self, code: str) -> OAuthTokens:
+        return self._tokens
+
+    def refresh(self, refresh_token: str) -> OAuthTokens:
+        self.refresh_calls += 1
+        if self._refreshed is None:
+            raise self._refresh_error
+        return self._refreshed
+
+    def fetch_user(self, access_token: str) -> GoogleUser:
+        return USER
+
+    def revoke(self, token: str) -> None:
+        self.revoked.append(token)
+
+
+DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
+
+
+def tokens(
+    access: str, refresh: str | None, ttl_seconds: int, scopes: frozenset[str] | None = None
+) -> OAuthTokens:
+    return OAuthTokens(
+        access_token=access,
+        refresh_token=refresh,
+        expires_at=datetime.now(UTC) + timedelta(seconds=ttl_seconds),
+        granted_scopes=frozenset({DRIVE_SCOPE}) if scopes is None else scopes,
+    )
+
+
+def test_sign_in_persists_the_session():
+    sessions = InMemorySessionRepository()
+    use_case = sign_in(FakeOAuth(tokens("at", "rt", 3600)), sessions)
+
+    session = use_case.execute("code")
+
+    assert session.user == USER
+    assert sessions.get(session.id) == session
+
+
+def test_sign_in_rejects_a_grant_without_a_refresh_token():
+    sessions = InMemorySessionRepository()
+    use_case = sign_in(FakeOAuth(tokens("at", None, 3600)), sessions)
+
+    with pytest.raises(MissingRefreshToken):
+        use_case.execute("code")
+
+
+def test_valid_session_is_returned_without_refreshing():
+    sessions = InMemorySessionRepository()
+    oauth = FakeOAuth(tokens("at", "rt", 3600))
+    session = sign_in(oauth, sessions).execute("code")
+
+    loaded = load(oauth, sessions).execute(session.id)
+
+    assert loaded is not None
+    assert loaded.access_token == "at"
+    assert oauth.refresh_calls == 0
+
+
+def test_expired_session_is_refreshed_and_stored():
+    sessions = InMemorySessionRepository()
+    oauth = FakeOAuth(tokens("old", "rt", -1), refreshed=tokens("new", None, 3600))
+    session = sign_in(oauth, sessions).execute("code")
+
+    loaded = load(oauth, sessions).execute(session.id)
+
+    assert loaded is not None
+    assert loaded.access_token == "new"
+    # Google omits the refresh token on renewal, so the stored one must survive.
+    assert loaded.refresh_token == "rt"
+    assert sessions.get(session.id).access_token == "new"
+
+
+def test_session_is_dropped_only_when_the_grant_is_revoked():
+    sessions = InMemorySessionRepository()
+    oauth = FakeOAuth(tokens("old", "rt", -1), refreshed=None)
+    session = sign_in(oauth, sessions).execute("code")
+
+    assert load(oauth, sessions).execute(session.id) is None
+    assert sessions.get(session.id) is None
+
+
+def test_a_transport_failure_propagates_and_keeps_the_session():
+    sessions = InMemorySessionRepository()
+    oauth = FakeOAuth(
+        tokens("old", "rt", -1), refreshed=None, refresh_error=OAuthTransportError("timeout")
+    )
+    session = sign_in(oauth, sessions).execute("code")
+
+    with pytest.raises(OAuthTransportError):
+        load(oauth, sessions).execute(session.id)
+
+    # A network blip must not cost the user their grant.
+    assert sessions.get(session.id) is not None
+
+
+def test_signing_in_again_replaces_the_previous_session():
+    sessions = InMemorySessionRepository()
+    oauth = FakeOAuth(tokens("at", "rt", 3600))
+    use_case = sign_in(oauth, sessions)
+
+    first = use_case.execute("code")
+    second = use_case.execute("code")
+
+    assert first.id != second.id
+    assert sessions.get(first.id) is None
+    assert sessions.get(second.id) is not None
+
+
+def test_unknown_session_id_returns_none():
+    sessions = InMemorySessionRepository()
+    assert load(FakeOAuth(tokens("at", "rt", 3600)), sessions).execute("nope") is None
+
+
+def test_sign_out_deletes_the_session_and_revokes_the_grant():
+    sessions = InMemorySessionRepository()
+    oauth = FakeOAuth(tokens("at", "rt", 3600))
+    session = sign_in(oauth, sessions).execute("code")
+
+    SignOutGoogle(oauth, sessions).execute(session.id)
+
+    assert sessions.get(session.id) is None
+    assert oauth.revoked == ["rt"]
+
+
+def test_a_disallowed_account_cannot_sign_in():
+    sessions = InMemorySessionRepository()
+    oauth = FakeOAuth(tokens("at", "rt", 3600))
+
+    with pytest.raises(SignInNotAllowed):
+        sign_in(oauth, sessions, is_allowed=lambda _email: False).execute("code")
+
+    # The grant is handed back rather than left live for a rejected account.
+    assert oauth.revoked == ["rt"]
+
+
+def test_a_session_past_its_absolute_lifetime_is_dropped():
+    sessions = InMemorySessionRepository()
+    oauth = FakeOAuth(tokens("at", "rt", 3600))
+    session = sign_in(oauth, sessions).execute("code")
+
+    assert load(oauth, sessions, max_age=timedelta(seconds=0)).execute(session.id) is None
+    assert sessions.get(session.id) is None
+
+
+def test_sign_in_is_rejected_when_drive_access_is_withheld():
+    sessions = InMemorySessionRepository()
+    # Google grants what the user allowed instead of failing, so the identity
+    # scopes can come back without Drive.
+    identity_only = frozenset({"openid", "email", "profile"})
+    oauth = FakeOAuth(tokens("at", "rt", 3600, scopes=identity_only))
+
+    with pytest.raises(DriveAccessNotGranted):
+        sign_in(oauth, sessions).execute("code")

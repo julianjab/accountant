@@ -1,13 +1,9 @@
 import type { GoogleUser } from '~/domain/entities/google-user'
 
-export interface GoogleAuthSession {
-  user: GoogleUser
-  accessToken: string
-}
-
 export interface GoogleAuthProvider {
-  signIn: () => Promise<GoogleAuthSession>
-  signOut: () => void
-  getAccessToken: () => Promise<string>
-  onChange: (callback: (session: GoogleAuthSession | null) => void) => void
+  /** Leaves the app: the browser is handed to Google's consent screen. */
+  startSignIn: () => void
+  /** The signed-in user, or null when there is no live session. */
+  getCurrentUser: () => Promise<GoogleUser | null>
+  signOut: () => Promise<void>
 }

@@ -1,29 +1,26 @@
 <script setup lang="ts">
-import { GoogleAuthError } from '~/domain/errors/google-auth-error'
+import type { GoogleAuthErrorCode } from '~/domain/errors/google-auth-error'
 
 const { t } = useI18n()
-const { user, isAuthenticated, signIn, signOut } = useGoogleAuth()
+const route = useRoute()
+const { user, isLoading, isAuthenticated, loadSession, signIn, signOut } = useGoogleAuth()
 
-const isSigningIn = ref(false)
-const errorKey = ref<string | null>(null)
+// The callback redirects back with ?auth_error=<code> when the flow failed.
+const errorKey = computed(() => {
+  const code = route.query.auth_error
+  return typeof code === 'string' ? `auth.errors.${code as GoogleAuthErrorCode}` : null
+})
 
-async function handleSignIn() {
-  isSigningIn.value = true
-  errorKey.value = null
-
-  try {
-    await signIn()
-  } catch (error) {
-    errorKey.value = `auth.errors.${error instanceof GoogleAuthError ? error.code : 'driveDenied'}`
-  } finally {
-    isSigningIn.value = false
-  }
-}
+onMounted(loadSession)
 </script>
 
 <template>
   <div class="flex items-center gap-3">
-    <template v-if="isAuthenticated && user">
+    <template v-if="isLoading">
+      <span class="text-sm text-muted">{{ t('auth.loading') }}</span>
+    </template>
+
+    <template v-else-if="isAuthenticated && user">
       <span
         class="text-sm text-muted"
         data-testid="google-auth-signed-in-as"
@@ -46,9 +43,8 @@ async function handleSignIn() {
         color="primary"
         variant="solid"
         size="sm"
-        :loading="isSigningIn"
         data-testid="google-auth-sign-in"
-        @click="handleSignIn"
+        @click="signIn"
       >
         {{ t('auth.signIn') }}
       </UButton>

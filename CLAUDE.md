@@ -6,7 +6,11 @@ data from it via a multimodal AI.
 
 ## Domain
 
-- **Client** — a person/company whose tax documents are being processed.
+- **Client** — a person/company whose tax documents are being processed. Clients are
+  imported from Drive: each subfolder of `ACCOUNTANT_GOOGLE_DRIVE_CLIENTS_FOLDER_ID` is one
+  (`POST /clients/import`). Matching is by Drive folder id, so renaming a folder updates the
+  client rather than forking it, and a folder disappearing never deletes one. `tax_id` is
+  therefore optional — a folder carries a name, not a tax id.
 - **Document** — a file uploaded for a client (linked to a Drive file).
 - **Extracted data** — the structured fields an OCR run produced for a document.
 
@@ -32,6 +36,23 @@ data from it via a multimodal AI.
   Drive/Sheets integration (uploading documents, exporting extracted data).
 - Root: `bun` workspaces (JS side only — `apps/server` is managed independently via `uv`).
 
+### Logging
+
+`infrastructure/config/logging.py` is the single place logging is set up, called from
+`main.py` before anything else. `ACCOUNTANT_LOG_LEVEL` sets the application's level (the
+`server.*` loggers); uvicorn's access log deliberately stays at INFO so DEBUG does not drown
+in it. `ACCOUNTANT_LOG_FILE` switches from stderr to a rotating file, and
+`ACCOUNTANT_LOG_FORMAT=json` emits one JSON object per line. Use module-level
+`logging.getLogger(__name__)` in infrastructure; keep domain and application free of it.
+
+### Running the server during a login
+
+`uv run server` autoreloads, which restarts the process on every file change and
+therefore drops the in-memory repositories mid-flow — an OAuth callback can land on a
+server that no longer remembers the `state` it issued, or the session it just stored.
+Use `uv run server-noreload` (`bun run server:serve`) while exercising the login, or
+configure `ACCOUNTANT_FIRESTORE_PROJECT` so sessions outlive a restart.
+
 ## Architecture — hexagonal, in both apps
 
 Both `apps/server` and `apps/web` follow ports & adapters, SOLID-first:
@@ -47,9 +68,33 @@ Dependency rule: `infrastructure` → `application` → `domain`, never the othe
 integrations (a DB, a different OCR/LLM provider, a different storage) are new adapters behind
 an existing port — the use cases don't change.
 
-There is currently no real persistence layer — repositories are in-memory adapters
-(`apps/server/src/server/infrastructure/adapters/in_memory_repositories.py`), swappable behind
-the same `domain/ports` without touching use cases once a DB is chosen.
+Persistence is **Firestore**
+(`apps/server/src/server/infrastructure/adapters/firestore_repositories.py`) for clients,
+documents, document types, extracted data and login sessions. Document *files* themselves stay
+in Google Drive (`GoogleDriveStorage`); Firestore holds only their metadata and extracted
+fields. With `ACCOUNTANT_FIRESTORE_PROJECT` unset the server falls back to the in-memory
+adapters (`in_memory_repositories.py`), which is what the tests use — both sit behind the same
+`domain/ports`, so use cases never change.
+
+### Google login
+
+Users sign in with Google via the **authorization-code** flow, owned entirely by `apps/server`
+(`infrastructure/api/routers/auth.py` + `adapters/google_oauth_client.py`). The browser never
+sees an access token: the server holds the access *and* refresh tokens, keyed by an opaque
+session id delivered as an httpOnly cookie, and renews the access token on demand
+(`GetGoogleSession`). This is what makes a login survive reloads, and it is the same grant the
+server will use to read a user's Drive on their behalf.
+
+Authentication is not authorization: `ACCOUNTANT_ALLOWED_SIGN_INS` (emails and/or `@domains`)
+gates who may establish a session at all, and it is empty by default so a misconfigured deploy
+locks everyone out rather than letting any Google account read the clients' tax data. Every
+business router carries `require_session`; only `/health` and the Drive webhook (guarded by its
+own shared secret) are open.
+
+The `state` nonce is stored in its own short-lived cookie and compared in the callback, so a
+forged callback cannot establish a session. Sessions live in the `sessions` Firestore
+collection and hold refresh tokens — never expose it through an API, and deny all client access
+in its security rules.
 
 ### Talking to Anthropic
 
@@ -95,12 +140,13 @@ bun run dev / build / lint / typecheck / test
 
 # server (apps/server)
 uv run server                              # dev server (uvicorn --reload)
+uv run server-noreload                     # same, without autoreload (see below)
 uv run ruff format . && uv run ruff check --fix .
 uv run pytest
 
 # from repo root
 bun run web:dev / web:lint / web:test
-bun run server:dev / server:lint / server:test
+bun run server:dev / server:serve / server:lint / server:test
 bun run lint   # both apps
 bun run test   # both apps
 ```

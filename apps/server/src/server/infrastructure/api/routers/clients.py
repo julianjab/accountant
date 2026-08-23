@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from server.application.use_cases import RegisterClient, RegisterClientInput
+from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
     get_client_repository,
     get_document_repository,
@@ -8,7 +9,7 @@ from server.infrastructure.api.deps import (
 )
 from server.infrastructure.api.schemas import ClientCreateRequest, ClientResponse, DocumentResponse
 
-router = APIRouter(prefix="/clients", tags=["clients"])
+router = APIRouter(prefix="/clients", tags=["clients"], dependencies=[Depends(require_session)])
 
 
 @router.post("", response_model=ClientResponse, status_code=201)

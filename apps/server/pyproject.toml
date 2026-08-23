@@ -12,6 +12,7 @@ dependencies = [
     "google-api-python-client>=2.199.0",
     "google-auth>=2.56.3",
     "google-auth-oauthlib>=1.4.0",
+    "google-cloud-firestore>=2.19.0",
     "httpx>=0.28.1",
     "pydantic-settings>=2.15.0",
     "python-dotenv>=1.2.3",
@@ -22,6 +23,7 @@ dependencies = [
 
 [project.scripts]
 server = "server:main"
+server-noreload = "server:serve"
 
 [build-system]
 requires = ["uv_build>=0.9.7,<0.10.0"]

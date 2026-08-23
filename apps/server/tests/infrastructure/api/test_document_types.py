@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from server.domain.entities import DocumentType
+from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import get_document_type_repository
 from server.main import app
 
@@ -17,7 +18,9 @@ def document_types():
 
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(app)
+    app.dependency_overrides[require_session] = lambda: None
+    yield TestClient(app)
+    app.dependency_overrides.clear()
 
 
 def _document_type(**overrides) -> DocumentType:
