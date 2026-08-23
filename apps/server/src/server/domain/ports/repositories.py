@@ -5,6 +5,7 @@ from server.domain.entities import (
     Document,
     DocumentStatus,
     DocumentType,
+    DriveWatchChannel,
     ExtractedData,
     GoogleSession,
 )
@@ -40,3 +41,8 @@ class SessionRepository(Protocol):
     def get(self, session_id: str) -> GoogleSession | None: ...
     def delete(self, session_id: str) -> None: ...
     def delete_for_user(self, email: str) -> None: ...
+
+
+class DriveWatchChannelRepository(Protocol):
+    def save(self, channel: DriveWatchChannel) -> None: ...
+    def get_by_channel_id(self, channel_id: str) -> DriveWatchChannel | None: ...

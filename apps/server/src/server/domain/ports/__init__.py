@@ -1,5 +1,5 @@
 from server.domain.ports.document_storage import DocumentContent, DocumentStorage
-from server.domain.ports.drive_watcher import DriveWatcher
+from server.domain.ports.drive_watcher import DriveChangeReader, DriveWatcher
 from server.domain.ports.oauth import (
     DriveAccessNotGranted,
     GoogleOAuthClient,
@@ -17,6 +17,7 @@ from server.domain.ports.repositories import (
     ClientRepository,
     DocumentRepository,
     DocumentTypeRepository,
+    DriveWatchChannelRepository,
     ExtractedDataRepository,
     SessionRepository,
 )
@@ -30,6 +31,8 @@ __all__ = [
     "DriveAccessNotGranted",
     "DocumentTypeConfigurator",
     "DocumentTypeRepository",
+    "DriveChangeReader",
+    "DriveWatchChannelRepository",
     "DriveWatcher",
     "ExtractedDataRepository",
     "GoogleOAuthClient",

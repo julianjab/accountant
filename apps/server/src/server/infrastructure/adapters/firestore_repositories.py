@@ -18,6 +18,7 @@ from server.domain.entities import (
     Document,
     DocumentStatus,
     DocumentType,
+    DriveWatchChannel,
     ExtractedData,
     GoogleSession,
     GoogleUser,
@@ -26,6 +27,7 @@ from server.domain.entities import (
 CLIENTS = "clients"
 DOCUMENTS = "documents"
 DOCUMENT_TYPES = "document_types"
+DRIVE_WATCH_CHANNELS = "drive_watch_channels"
 EXTRACTED_DATA = "extracted_data"
 SESSIONS = "sessions"
 
@@ -223,3 +225,34 @@ class FirestoreSessionRepository:
     def delete_for_user(self, email: str) -> None:
         for snapshot in self._collection.where("email", "==", email).stream():
             self._collection.document(snapshot.id).delete()
+
+
+class FirestoreDriveWatchChannelRepository:
+    def __init__(self, db: FirestoreClient) -> None:
+        self._collection = db.collection(DRIVE_WATCH_CHANNELS)
+
+    def save(self, channel: DriveWatchChannel) -> None:
+        self._collection.document(channel.id).set(
+            {
+                "client_id": channel.client_id,
+                "folder_id": channel.folder_id,
+                "resource_id": channel.resource_id,
+                "page_token": channel.page_token,
+                "expires_at": channel.expires_at,
+            }
+        )
+
+    def get_by_channel_id(self, channel_id: str) -> DriveWatchChannel | None:
+        snapshot = self._collection.document(channel_id).get()
+        if not snapshot.exists:
+            return None
+
+        data = snapshot.to_dict()
+        return DriveWatchChannel(
+            id=snapshot.id,
+            resource_id=data["resource_id"],
+            folder_id=data["folder_id"],
+            client_id=data["client_id"],
+            page_token=data["page_token"],
+            expires_at=_as_utc(data["expires_at"]),
+        )

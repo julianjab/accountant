@@ -10,6 +10,7 @@ from server.application.use_cases import (
     GetDocumentMetrics,
     GetExtractedData,
     GetGoogleSession,
+    ProcessDriveChangeNotification,
     ProcessUploadedDocument,
     RegisterClient,
     SignOutGoogle,
@@ -20,6 +21,7 @@ from server.domain.ports import (
     ClientRepository,
     DocumentRepository,
     DocumentTypeRepository,
+    DriveWatchChannelRepository,
     DriveWatcher,
     ExtractedDataRepository,
     GoogleOAuthClient,
@@ -36,6 +38,7 @@ from server.infrastructure.adapters.firestore_repositories import (
     FirestoreClientRepository,
     FirestoreDocumentRepository,
     FirestoreDocumentTypeRepository,
+    FirestoreDriveWatchChannelRepository,
     FirestoreExtractedDataRepository,
     FirestoreSessionRepository,
 )
@@ -48,6 +51,7 @@ from server.infrastructure.adapters.in_memory_repositories import (
     InMemoryClientRepository,
     InMemoryDocumentRepository,
     InMemoryDocumentTypeRepository,
+    InMemoryDriveWatchChannelRepository,
     InMemoryExtractedDataRepository,
     InMemorySessionRepository,
 )
@@ -106,6 +110,16 @@ def get_document_type_repository() -> DocumentTypeRepository:
 def get_extracted_data_repository() -> ExtractedDataRepository:
     db = get_firestore()
     return InMemoryExtractedDataRepository() if db is None else FirestoreExtractedDataRepository(db)
+
+
+@lru_cache
+def get_drive_watch_channel_repository() -> DriveWatchChannelRepository:
+    db = get_firestore()
+    return (
+        InMemoryDriveWatchChannelRepository()
+        if db is None
+        else FirestoreDriveWatchChannelRepository(db)
+    )
 
 
 @lru_cache
@@ -214,4 +228,12 @@ def get_sign_out_google_use_case() -> SignOutGoogle:
 
 
 def get_subscribe_drive_webhook_use_case() -> SubscribeDriveWebhook:
-    return SubscribeDriveWebhook(get_drive_watcher())
+    return SubscribeDriveWebhook(get_drive_watcher(), get_drive_watch_channel_repository())
+
+
+def get_process_drive_change_notification_use_case() -> ProcessDriveChangeNotification:
+    return ProcessDriveChangeNotification(
+        channels=get_drive_watch_channel_repository(),
+        change_reader=get_drive_watcher(),
+        process_document=get_process_uploaded_document_use_case(),
+    )

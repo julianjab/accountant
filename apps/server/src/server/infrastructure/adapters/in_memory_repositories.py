@@ -3,6 +3,7 @@ from server.domain.entities import (
     Document,
     DocumentStatus,
     DocumentType,
+    DriveWatchChannel,
     ExtractedData,
     GoogleSession,
 )
@@ -85,3 +86,14 @@ class InMemorySessionRepository:
     def delete_for_user(self, email: str) -> None:
         for session_id in [k for k, v in self._items.items() if v.user.email == email]:
             del self._items[session_id]
+
+
+class InMemoryDriveWatchChannelRepository:
+    def __init__(self) -> None:
+        self._items: dict[str, DriveWatchChannel] = {}
+
+    def save(self, channel: DriveWatchChannel) -> None:
+        self._items[channel.id] = channel
+
+    def get_by_channel_id(self, channel_id: str) -> DriveWatchChannel | None:
+        return self._items.get(channel_id)

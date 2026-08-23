@@ -1,13 +1,15 @@
 import io
-import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
-from server.domain.entities import DriveWatchChannel
+from server.domain.entities import DriveChangedFile, DriveChangesPage, DriveWatchRegistration
 from server.domain.ports import DocumentContent
+
+# Drive's documented default channel TTL when a watch response omits "expiration".
+_DEFAULT_CHANNEL_TTL = timedelta(days=7)
 
 _SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 
@@ -43,17 +45,31 @@ class GoogleDriveStorage:
 
 
 class GoogleDriveWatcher:
-    """DriveWatcher adapter that registers a push-notification channel via files().watch()."""
+    """DriveWatcher/DriveChangeReader adapter built on the Drive Changes API.
+
+    ``changes().watch()`` (not ``files().watch()``) is what a folder's *contents*
+    require: watching the folder resource itself only reports changes to the
+    folder's own metadata, not to files created inside it.
+    """
 
     def __init__(self, service_account_file: str) -> None:
         self._drive = _build_drive_client(service_account_file)
 
-    def watch(self, folder_id: str, webhook_url: str, token: str) -> DriveWatchChannel:
-        channel_id = str(uuid.uuid4())
+    def get_start_page_token(self) -> str:
+        return self._drive.changes().getStartPageToken().execute()["startPageToken"]
+
+    def watch(
+        self,
+        channel_id: str,
+        folder_id: str,
+        webhook_url: str,
+        token: str,
+        start_page_token: str,
+    ) -> DriveWatchRegistration:
         response = (
-            self._drive.files()
+            self._drive.changes()
             .watch(
-                fileId=folder_id,
+                pageToken=start_page_token,
                 body={
                     "id": channel_id,
                     "type": "web_hook",
@@ -64,9 +80,38 @@ class GoogleDriveWatcher:
             .execute()
         )
 
-        return DriveWatchChannel(
-            id=channel_id,
-            resource_id=response["resourceId"],
-            folder_id=folder_id,
-            expires_at=datetime.fromtimestamp(int(response["expiration"]) / 1000, tz=UTC),
+        expiration = response.get("expiration")
+        expires_at = (
+            datetime.fromtimestamp(int(expiration) / 1000, tz=UTC)
+            if expiration
+            else datetime.now(UTC) + _DEFAULT_CHANNEL_TTL
         )
+        return DriveWatchRegistration(resource_id=response["resourceId"], expires_at=expires_at)
+
+    def list_changes(self, page_token: str) -> DriveChangesPage:
+        response = (
+            self._drive.changes()
+            .list(
+                pageToken=page_token,
+                fields="nextPageToken,newStartPageToken,changes(fileId,removed,file(name,mimeType,parents,trashed))",
+            )
+            .execute()
+        )
+
+        files = []
+        for change in response.get("changes", []):
+            file = change.get("file")
+            if change.get("removed") or file is None:
+                continue
+            files.append(
+                DriveChangedFile(
+                    id=change["fileId"],
+                    name=file["name"],
+                    mime_type=file["mimeType"],
+                    parents=file.get("parents", []),
+                    trashed=file.get("trashed", False),
+                )
+            )
+
+        next_page_token = response.get("nextPageToken") or response.get("newStartPageToken")
+        return DriveChangesPage(files=files, next_page_token=next_page_token)

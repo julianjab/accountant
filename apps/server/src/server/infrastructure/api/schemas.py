@@ -71,16 +71,11 @@ class ExtractedDataResponse(BaseModel):
     created_at: datetime
 
 
-class DriveWebhookPayload(BaseModel):
-    client_id: str
-    drive_file_id: str
-    file_reference: str
-
-
 class DriveWatchChannelResponse(BaseModel):
     id: str
     resource_id: str
     folder_id: str
+    client_id: str
     expires_at: datetime
 
 

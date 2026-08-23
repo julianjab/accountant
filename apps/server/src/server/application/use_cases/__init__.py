@@ -16,6 +16,9 @@ from server.application.use_cases.define_document_type import (
 from server.application.use_cases.get_document_metrics import DocumentMetrics, GetDocumentMetrics
 from server.application.use_cases.get_extracted_data import GetExtractedData
 from server.application.use_cases.get_google_session import GetGoogleSession
+from server.application.use_cases.process_drive_change_notification import (
+    ProcessDriveChangeNotification,
+)
 from server.application.use_cases.process_uploaded_document import (
     ProcessUploadedDocument,
     ProcessUploadedDocumentInput,
@@ -44,6 +47,7 @@ __all__ = [
     "GetExtractedData",
     "GetGoogleSession",
     "MissingRefreshToken",
+    "ProcessDriveChangeNotification",
     "ProcessUploadedDocument",
     "ProcessUploadedDocumentInput",
     "RegisterClient",
