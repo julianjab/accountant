@@ -1,6 +1,6 @@
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
-import type { DocumentRepository } from '~/application/ports/document-repository'
+import type { DocumentListFilter, DocumentRepository } from '~/application/ports/document-repository'
 
 interface DocumentDto {
   id: string
@@ -12,6 +12,7 @@ interface DocumentDto {
   status: DocumentStatus
   error: string | null
   created_at: string
+  processed_at: string | null
 }
 
 interface ExtractedDataDto {
@@ -32,7 +33,8 @@ function toClientDocument(dto: DocumentDto): ClientDocument {
     mimeType: dto.mime_type,
     status: dto.status,
     error: dto.error,
-    createdAt: dto.created_at
+    createdAt: dto.created_at,
+    processedAt: dto.processed_at
   }
 }
 
@@ -82,6 +84,15 @@ export class HttpDocumentRepository implements DocumentRepository {
     const dtos = await $fetch<DocumentDto[]>(`/clients/${clientId}/documents`, {
       baseURL: this.baseUrl,
       credentials: 'include'
+    })
+    return dtos.map(toClientDocument)
+  }
+
+  async list(filter?: DocumentListFilter): Promise<ClientDocument[]> {
+    const dtos = await $fetch<DocumentDto[]>('/documents', {
+      baseURL: this.baseUrl,
+      credentials: 'include',
+      params: { status: filter?.status }
     })
     return dtos.map(toClientDocument)
   }

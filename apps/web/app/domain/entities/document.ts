@@ -16,4 +16,5 @@ export interface ClientDocument {
   status: DocumentStatus
   error: string | null
   createdAt: string
+  processedAt: string | null
 }
