@@ -134,6 +134,24 @@ def test_client_get_returns_none_when_absent():
     assert FirestoreClientRepository(FakeFirestore()).get("nope") is None
 
 
+def test_client_round_trips_drive_and_spreadsheet_urls():
+    repo = FirestoreClientRepository(FakeFirestore())
+    client = Client(
+        id="c1",
+        name="Jane",
+        tax_id="123",
+        email=None,
+        created_at=NOW,
+        drive_folder_id="f1",
+        drive_folder_url="https://drive.google.com/drive/folders/f1",
+        spreadsheet_url="https://docs.google.com/spreadsheets/d/abc",
+    )
+
+    repo.save(client)
+
+    assert repo.get("c1") == client
+
+
 def test_document_round_trips_and_filters_by_client():
     repo = FirestoreDocumentRepository(FakeFirestore())
     mine = Document(
