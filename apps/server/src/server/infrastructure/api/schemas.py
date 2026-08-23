@@ -10,6 +10,7 @@ class ClientCreateRequest(BaseModel):
     name: str
     tax_id: str
     email: str | None = None
+    drive_folder_url: str | None = None
 
 
 class ClientResponse(BaseModel):
@@ -18,6 +19,7 @@ class ClientResponse(BaseModel):
     tax_id: str
     email: str | None
     created_at: datetime
+    drive_folder_url: str | None
 
 
 class DocumentTypeResponse(BaseModel):

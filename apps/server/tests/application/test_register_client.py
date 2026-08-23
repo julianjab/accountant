@@ -7,8 +7,23 @@ def test_register_client_persists_and_returns_client() -> None:
     use_case = RegisterClient(clients)
 
     client = use_case.execute(
-        RegisterClientInput(name="Jane Doe", tax_id="123456789", email="jane@example.com")
+        RegisterClientInput(
+            name="Jane Doe",
+            tax_id="123456789",
+            email="jane@example.com",
+            drive_folder_url="https://drive.google.com/drive/folders/abc",
+        )
     )
 
     assert clients.get(client.id) == client
     assert client.name == "Jane Doe"
+    assert client.drive_folder_url == "https://drive.google.com/drive/folders/abc"
+
+
+def test_register_client_defaults_drive_folder_url_to_none() -> None:
+    clients = InMemoryClientRepository()
+    use_case = RegisterClient(clients)
+
+    client = use_case.execute(RegisterClientInput(name="Jane Doe", tax_id="123456789", email=None))
+
+    assert client.drive_folder_url is None

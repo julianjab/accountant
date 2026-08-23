@@ -27,6 +27,32 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+def test_get_client(client, clients) -> None:
+    clients.save(
+        Client(
+            id="client-1",
+            name="Jane Doe",
+            tax_id="123",
+            email=None,
+            created_at=datetime.now(UTC),
+            drive_folder_url="https://drive.google.com/drive/folders/abc",
+        )
+    )
+
+    response = client.get("/clients/client-1")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == "client-1"
+    assert body["drive_folder_url"] == "https://drive.google.com/drive/folders/abc"
+
+
+def test_get_client_returns_404_for_unknown_client(client, clients) -> None:
+    response = client.get("/clients/missing")
+
+    assert response.status_code == 404
+
+
 def test_list_client_documents(client, clients, documents) -> None:
     clients.save(
         Client(

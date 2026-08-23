@@ -9,3 +9,4 @@ class Client:
     tax_id: str
     email: str | None
     created_at: datetime
+    drive_folder_url: str | None = None

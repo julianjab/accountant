@@ -17,7 +17,12 @@ def create_client(
     use_case: RegisterClient = Depends(get_register_client_use_case),
 ) -> ClientResponse:
     client = use_case.execute(
-        RegisterClientInput(name=payload.name, tax_id=payload.tax_id, email=payload.email)
+        RegisterClientInput(
+            name=payload.name,
+            tax_id=payload.tax_id,
+            email=payload.email,
+            drive_folder_url=payload.drive_folder_url,
+        )
     )
     return ClientResponse.model_validate(client, from_attributes=True)
 
@@ -27,6 +32,17 @@ def list_clients(
     clients=Depends(get_client_repository),
 ) -> list[ClientResponse]:
     return [ClientResponse.model_validate(c, from_attributes=True) for c in clients.list_all()]
+
+
+@router.get("/{client_id}", response_model=ClientResponse)
+def get_client(
+    client_id: str,
+    clients=Depends(get_client_repository),
+) -> ClientResponse:
+    client = clients.get(client_id)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return ClientResponse.model_validate(client, from_attributes=True)
 
 
 @router.get("/{client_id}/documents", response_model=list[DocumentResponse])
