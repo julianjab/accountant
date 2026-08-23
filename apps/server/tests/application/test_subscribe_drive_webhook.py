@@ -45,20 +45,35 @@ def test_subscribe_drive_webhook_registers_and_persists_a_channel_for_the_folder
         folder_id="folder-1",
         client_id="client-1",
         webhook_url="https://example.com/webhooks/drive",
-        token="secret",
     )
 
     assert channel.folder_id == "folder-1"
     assert channel.client_id == "client-1"
     assert channel.resource_id == "resource-id"
     assert channel.page_token == "start-token"
+    assert channel.token
 
     [call] = watcher.watch_calls
     assert call == (
         channel.id,
         "folder-1",
         "https://example.com/webhooks/drive",
-        "secret",
+        channel.token,
         "start-token",
     )
     assert channels.saved == [channel]
+
+
+def test_subscribe_drive_webhook_generates_a_unique_token_per_channel():
+    watcher = FakeDriveWatcher()
+    channels = FakeDriveWatchChannelRepository()
+    use_case = SubscribeDriveWebhook(watcher, channels)
+
+    first = use_case.execute(
+        folder_id="folder-1", client_id="client-1", webhook_url="https://example.com"
+    )
+    second = use_case.execute(
+        folder_id="folder-1", client_id="client-1", webhook_url="https://example.com"
+    )
+
+    assert first.token != second.token

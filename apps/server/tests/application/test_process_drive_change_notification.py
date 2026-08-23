@@ -17,6 +17,7 @@ _CHANNEL = DriveWatchChannel(
     resource_id="resource-1",
     folder_id="folder-1",
     client_id="client-1",
+    token="channel-secret",
     page_token="token-1",
     expires_at=datetime(2026, 1, 1, tzinfo=UTC),
 )
@@ -47,6 +48,26 @@ class FakeDriveChangeReader:
         return self._page
 
 
+class FakeDocumentRepository:
+    def __init__(self, existing_drive_file_ids: set[str] | None = None) -> None:
+        self._existing_drive_file_ids = existing_drive_file_ids or set()
+
+    def get_by_drive_file_id(self, drive_file_id: str) -> Document | None:
+        if drive_file_id not in self._existing_drive_file_ids:
+            return None
+        return Document(
+            id="existing-doc",
+            client_id="client-1",
+            document_type_id=None,
+            drive_file_id=drive_file_id,
+            file_name="invoice.pdf",
+            mime_type="application/pdf",
+            status=DocumentStatus.PROCESSED,
+            error=None,
+            created_at=datetime.now(UTC),
+        )
+
+
 class FakeProcessUploadedDocument:
     def __init__(self) -> None:
         self.calls: list[ProcessUploadedDocumentInput] = []
@@ -66,11 +87,22 @@ class FakeProcessUploadedDocument:
         )
 
 
+def _use_case(
+    channels: FakeDriveWatchChannelRepository,
+    change_reader: FakeDriveChangeReader,
+    process_document: FakeProcessUploadedDocument,
+    documents: FakeDocumentRepository | None = None,
+) -> ProcessDriveChangeNotification:
+    return ProcessDriveChangeNotification(
+        channels, change_reader, documents or FakeDocumentRepository(), process_document
+    )
+
+
 def test_sync_notification_is_ignored():
     channels = FakeDriveWatchChannelRepository(_CHANNEL)
     change_reader = FakeDriveChangeReader(DriveChangesPage(files=[], next_page_token="token-2"))
     process_document = FakeProcessUploadedDocument()
-    use_case = ProcessDriveChangeNotification(channels, change_reader, process_document)
+    use_case = _use_case(channels, change_reader, process_document)
 
     processed = use_case.execute(channel_id="channel-1", resource_state="sync")
 
@@ -83,7 +115,7 @@ def test_unknown_channel_is_ignored():
     channels = FakeDriveWatchChannelRepository(None)
     change_reader = FakeDriveChangeReader(DriveChangesPage(files=[], next_page_token="token-2"))
     process_document = FakeProcessUploadedDocument()
-    use_case = ProcessDriveChangeNotification(channels, change_reader, process_document)
+    use_case = _use_case(channels, change_reader, process_document)
 
     processed = use_case.execute(channel_id="unknown", resource_state="update")
 
@@ -123,7 +155,7 @@ def test_processes_only_files_that_belong_to_the_watched_folder_and_are_not_tras
         )
     )
     process_document = FakeProcessUploadedDocument()
-    use_case = ProcessDriveChangeNotification(channels, change_reader, process_document)
+    use_case = _use_case(channels, change_reader, process_document)
 
     processed = use_case.execute(channel_id="channel-1", resource_state="update")
 
@@ -134,4 +166,64 @@ def test_processes_only_files_that_belong_to_the_watched_folder_and_are_not_tras
     assert call.file_reference == "file-1"
 
     assert change_reader.list_changes_calls == ["token-1"]
+    assert channels.saved[-1].page_token == "token-2"
+
+
+def test_skips_native_google_types_that_cannot_be_downloaded():
+    channels = FakeDriveWatchChannelRepository(_CHANNEL)
+    change_reader = FakeDriveChangeReader(
+        DriveChangesPage(
+            files=[
+                DriveChangedFile(
+                    id="folder-2",
+                    name="subfolder",
+                    mime_type="application/vnd.google-apps.folder",
+                    parents=["folder-1"],
+                    trashed=False,
+                ),
+                DriveChangedFile(
+                    id="doc-1",
+                    name="native doc",
+                    mime_type="application/vnd.google-apps.document",
+                    parents=["folder-1"],
+                    trashed=False,
+                ),
+            ],
+            next_page_token="token-2",
+        )
+    )
+    process_document = FakeProcessUploadedDocument()
+    use_case = _use_case(channels, change_reader, process_document)
+
+    processed = use_case.execute(channel_id="channel-1", resource_state="update")
+
+    assert processed == []
+    assert process_document.calls == []
+
+
+def test_skips_a_file_that_was_already_processed():
+    channels = FakeDriveWatchChannelRepository(_CHANNEL)
+    change_reader = FakeDriveChangeReader(
+        DriveChangesPage(
+            files=[
+                DriveChangedFile(
+                    id="file-1",
+                    name="invoice.pdf",
+                    mime_type="application/pdf",
+                    parents=["folder-1"],
+                    trashed=False,
+                )
+            ],
+            next_page_token="token-2",
+        )
+    )
+    process_document = FakeProcessUploadedDocument()
+    documents = FakeDocumentRepository(existing_drive_file_ids={"file-1"})
+    use_case = _use_case(channels, change_reader, process_document, documents)
+
+    processed = use_case.execute(channel_id="channel-1", resource_state="update")
+
+    # Drive notifications are at-least-once: a retry must not duplicate the document.
+    assert processed == []
+    assert process_document.calls == []
     assert channels.saved[-1].page_token == "token-2"

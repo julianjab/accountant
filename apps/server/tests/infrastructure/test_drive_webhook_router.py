@@ -17,13 +17,14 @@ from server.domain.entities import (
     DriveWatchRegistration,
 )
 from server.infrastructure.adapters.in_memory_repositories import (
+    InMemoryDocumentRepository,
     InMemoryDriveWatchChannelRepository,
 )
 from server.infrastructure.api import deps
 from server.infrastructure.api.auth_dependency import require_session
 from server.main import app
 
-WEBHOOK_SECRET = "shared-secret"
+CHANNEL_TOKEN = "channel-secret"
 
 
 @pytest.fixture(autouse=True)
@@ -80,6 +81,11 @@ def channels():
 
 
 @pytest.fixture
+def documents():
+    return InMemoryDocumentRepository()
+
+
+@pytest.fixture
 def process_use_case():
     return FakeProcessUploadedDocument()
 
@@ -95,17 +101,18 @@ def subscribe_use_case(drive_watcher, channels):
 
 
 @pytest.fixture
-def process_notification_use_case(channels, drive_watcher, process_use_case):
-    return ProcessDriveChangeNotification(channels, drive_watcher, process_use_case)
+def process_notification_use_case(channels, drive_watcher, documents, process_use_case):
+    return ProcessDriveChangeNotification(channels, drive_watcher, documents, process_use_case)
 
 
 @pytest.fixture
-def client(process_use_case, subscribe_use_case, process_notification_use_case):
+def client(process_use_case, subscribe_use_case, process_notification_use_case, channels):
     app.dependency_overrides[deps.get_process_uploaded_document_use_case] = lambda: process_use_case
     app.dependency_overrides[deps.get_subscribe_drive_webhook_use_case] = lambda: subscribe_use_case
     app.dependency_overrides[deps.get_process_drive_change_notification_use_case] = lambda: (
         process_notification_use_case
     )
+    app.dependency_overrides[deps.get_drive_watch_channel_repository] = lambda: channels
     app.dependency_overrides[require_session] = lambda: None
 
     with TestClient(app) as test_client:
@@ -114,23 +121,25 @@ def client(process_use_case, subscribe_use_case, process_notification_use_case):
     app.dependency_overrides.clear()
 
 
-def configure_webhook_secret(monkeypatch, secret: str = WEBHOOK_SECRET):
-    monkeypatch.setattr(deps.get_settings(), "google_drive_webhook_secret", secret)
+def _save_channel(channels, **overrides) -> DriveWatchChannel:
+    defaults = {
+        "id": "channel-1",
+        "resource_id": "resource-1",
+        "folder_id": "folder-1",
+        "client_id": "client-1",
+        "token": CHANNEL_TOKEN,
+        "page_token": "token-1",
+        "expires_at": datetime(2026, 1, 1, tzinfo=UTC),
+    }
+    channel = DriveWatchChannel(**{**defaults, **overrides})
+    channels.save(channel)
+    return channel
 
 
 def test_drive_webhook_processes_the_channels_changes(
-    client, monkeypatch, channels, process_use_case
+    client, channels, process_use_case, process_notification_use_case
 ):
-    configure_webhook_secret(monkeypatch)
-    channel = DriveWatchChannel(
-        id="channel-1",
-        resource_id="resource-1",
-        folder_id="folder-1",
-        client_id="client-1",
-        page_token="token-1",
-        expires_at=datetime(2026, 1, 1, tzinfo=UTC),
-    )
-    channels.save(channel)
+    _save_channel(channels)
     client.app.dependency_overrides[deps.get_process_drive_change_notification_use_case] = lambda: (
         ProcessDriveChangeNotification(
             channels,
@@ -148,6 +157,7 @@ def test_drive_webhook_processes_the_channels_changes(
                     next_page_token="token-2",
                 )
             ),
+            InMemoryDocumentRepository(),
             process_use_case,
         )
     )
@@ -155,7 +165,7 @@ def test_drive_webhook_processes_the_channels_changes(
     response = client.post(
         "/webhooks/drive",
         headers={
-            "X-Goog-Channel-Token": WEBHOOK_SECRET,
+            "X-Goog-Channel-Token": CHANNEL_TOKEN,
             "X-Goog-Channel-Id": "channel-1",
             "X-Goog-Resource-State": "update",
         },
@@ -166,16 +176,16 @@ def test_drive_webhook_processes_the_channels_changes(
     assert process_use_case.calls[0].drive_file_id == "file-1"
 
 
-def test_drive_webhook_rejects_a_missing_token(client, monkeypatch):
-    configure_webhook_secret(monkeypatch)
+def test_drive_webhook_rejects_a_missing_token(client, channels):
+    _save_channel(channels)
 
     response = client.post("/webhooks/drive", headers={"X-Goog-Channel-Id": "channel-1"})
 
     assert response.status_code == 401
 
 
-def test_drive_webhook_rejects_a_mismatched_token(client, monkeypatch):
-    configure_webhook_secret(monkeypatch)
+def test_drive_webhook_rejects_a_mismatched_token(client, channels):
+    _save_channel(channels)
 
     response = client.post(
         "/webhooks/drive",
@@ -185,28 +195,22 @@ def test_drive_webhook_rejects_a_mismatched_token(client, monkeypatch):
     assert response.status_code == 401
 
 
-def test_drive_webhook_rejects_everything_when_no_secret_is_configured(client, monkeypatch):
-    configure_webhook_secret(monkeypatch, secret="")
-
+def test_drive_webhook_rejects_an_unknown_channel(client):
     response = client.post(
         "/webhooks/drive",
-        headers={"X-Goog-Channel-Token": "anything", "X-Goog-Channel-Id": "channel-1"},
+        headers={"X-Goog-Channel-Token": "anything", "X-Goog-Channel-Id": "unknown"},
     )
 
     assert response.status_code == 401
 
 
-def test_drive_webhook_rejects_a_missing_channel_id(client, monkeypatch):
-    configure_webhook_secret(monkeypatch)
-
-    response = client.post("/webhooks/drive", headers={"X-Goog-Channel-Token": WEBHOOK_SECRET})
+def test_drive_webhook_rejects_a_missing_channel_id(client):
+    response = client.post("/webhooks/drive", headers={"X-Goog-Channel-Token": "anything"})
 
     assert response.status_code == 400
 
 
-def test_subscribe_drive_webhook_registers_a_channel(client, monkeypatch):
-    configure_webhook_secret(monkeypatch)
-
+def test_subscribe_drive_webhook_registers_a_channel(client):
     response = client.post(
         "/webhooks/drive/subscribe", params={"folder_id": "folder-1", "client_id": "client-1"}
     )
@@ -215,16 +219,8 @@ def test_subscribe_drive_webhook_registers_a_channel(client, monkeypatch):
     body = response.json()
     assert body["folder_id"] == "folder-1"
     assert body["client_id"] == "client-1"
-
-
-def test_subscribe_drive_webhook_fails_when_no_secret_is_configured(client, monkeypatch):
-    configure_webhook_secret(monkeypatch, secret="")
-
-    response = client.post(
-        "/webhooks/drive/subscribe", params={"folder_id": "folder-1", "client_id": "client-1"}
-    )
-
-    assert response.status_code == 500
+    # The channel's shared secret must never be handed back over the API.
+    assert "token" not in body
 
 
 def test_subscribe_drive_webhook_requires_a_session():

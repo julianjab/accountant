@@ -32,11 +32,11 @@ class FakeFiles:
 
 class FakeChanges:
     def __init__(
-        self, start_page_token_result: dict, watch_result: dict, list_result: dict
+        self, start_page_token_result: dict, watch_result: dict, list_results: list[dict]
     ) -> None:
         self._start_page_token_result = start_page_token_result
         self._watch_result = watch_result
-        self._list_result = list_result
+        self._list_results = list(list_results)
         self.watch_calls: list[dict] = []
         self.list_calls: list[dict] = []
 
@@ -49,7 +49,7 @@ class FakeChanges:
 
     def list(self, **kwargs: object) -> FakeRequest:
         self.list_calls.append(dict(kwargs))
-        return FakeRequest(self._list_result)
+        return FakeRequest(self._list_results[len(self.list_calls) - 1])
 
 
 class FakeDriveClient:
@@ -58,11 +58,11 @@ class FakeDriveClient:
         get_result: dict | None = None,
         start_page_token_result: dict | None = None,
         watch_result: dict | None = None,
-        list_result: dict | None = None,
+        list_results: list[dict] | None = None,
     ) -> None:
         self.files_obj = FakeFiles(get_result or {})
         self.changes_obj = FakeChanges(
-            start_page_token_result or {}, watch_result or {}, list_result or {}
+            start_page_token_result or {}, watch_result or {}, list_results or []
         )
 
     def files(self) -> FakeFiles:
@@ -164,23 +164,25 @@ def test_watch_defaults_the_expiration_when_drive_omits_it(monkeypatch):
 def test_list_changes_skips_removed_and_missing_files(monkeypatch):
     patch_credentials(monkeypatch)
     fake_client = FakeDriveClient(
-        list_result={
-            "nextPageToken": "token-2",
-            "changes": [
-                {
-                    "fileId": "file-1",
-                    "removed": False,
-                    "file": {
-                        "name": "invoice.pdf",
-                        "mimeType": "application/pdf",
-                        "parents": ["folder-1"],
-                        "trashed": False,
+        list_results=[
+            {
+                "newStartPageToken": "token-2",
+                "changes": [
+                    {
+                        "fileId": "file-1",
+                        "removed": False,
+                        "file": {
+                            "name": "invoice.pdf",
+                            "mimeType": "application/pdf",
+                            "parents": ["folder-1"],
+                            "trashed": False,
+                        },
                     },
-                },
-                {"fileId": "file-2", "removed": True},
-                {"fileId": "file-3", "removed": False},
-            ],
-        }
+                    {"fileId": "file-2", "removed": True},
+                    {"fileId": "file-3", "removed": False},
+                ],
+            }
+        ]
     )
     monkeypatch.setattr(google_drive_storage, "build", lambda *a, **k: fake_client)
 
@@ -199,9 +201,63 @@ def test_list_changes_skips_removed_and_missing_files(monkeypatch):
     assert page.next_page_token == "token-2"
 
 
+def test_list_changes_follows_pagination_until_the_new_start_page_token(monkeypatch):
+    # A single call returning only "nextPageToken" would silently drop every
+    # change past the first page; the adapter must keep paging until Drive
+    # hands back "newStartPageToken", the cursor that is safe to persist.
+    patch_credentials(monkeypatch)
+    fake_client = FakeDriveClient(
+        list_results=[
+            {
+                "nextPageToken": "token-2",
+                "changes": [
+                    {
+                        "fileId": "file-1",
+                        "removed": False,
+                        "file": {
+                            "name": "a.pdf",
+                            "mimeType": "application/pdf",
+                            "parents": ["folder-1"],
+                            "trashed": False,
+                        },
+                    }
+                ],
+            },
+            {
+                "newStartPageToken": "token-final",
+                "changes": [
+                    {
+                        "fileId": "file-2",
+                        "removed": False,
+                        "file": {
+                            "name": "b.pdf",
+                            "mimeType": "application/pdf",
+                            "parents": ["folder-1"],
+                            "trashed": False,
+                        },
+                    }
+                ],
+            },
+        ]
+    )
+    monkeypatch.setattr(google_drive_storage, "build", lambda *a, **k: fake_client)
+
+    watcher = GoogleDriveWatcher("service-account.json")
+    page = watcher.list_changes("token-1")
+
+    assert [call["pageToken"] for call in fake_client.changes_obj.list_calls] == [
+        "token-1",
+        "token-2",
+    ]
+    assert [f.id for f in page.files] == ["file-1", "file-2"]
+    assert page.next_page_token == "token-final"
+
+
 def test_list_changes_falls_back_to_the_new_start_page_token_on_the_last_page(monkeypatch):
     patch_credentials(monkeypatch)
-    fake_client = FakeDriveClient(list_result={"newStartPageToken": "token-final", "changes": []})
+    fake_client = FakeDriveClient(
+        list_results=[{"newStartPageToken": "token-final", "changes": []}]
+    )
     monkeypatch.setattr(google_drive_storage, "build", lambda *a, **k: fake_client)
 
     watcher = GoogleDriveWatcher("service-account.json")
