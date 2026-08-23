@@ -3,8 +3,18 @@ import type { Client } from '~/domain/entities/client'
 
 const { t } = useI18n()
 const listClients = useListClientsUseCase()
+const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
 
-const { data: clients } = await useAsyncData<Client[]>('clients', () => listClients.execute())
+// Deferred and client-only on purpose: the endpoint needs the session cookie,
+// which SSR does not carry, and fetching before sign-in would answer 401 and
+// render as "no clients yet" — which is a different statement entirely.
+const { data: clients, refresh } = await useAsyncData<Client[]>(
+  'clients',
+  () => listClients.execute(),
+  { immediate: false, server: false, default: () => [] }
+)
+
+watch(isAuthenticated, authenticated => authenticated && refresh(), { immediate: true })
 </script>
 
 <template>
@@ -14,7 +24,22 @@ const { data: clients } = await useAsyncData<Client[]>('clients', () => listClie
     </h1>
 
     <p
-      v-if="!clients?.length"
+      v-if="isAuthLoading"
+      class="text-muted"
+    >
+      {{ t('auth.loading') }}
+    </p>
+
+    <p
+      v-else-if="!isAuthenticated"
+      class="text-muted"
+      data-testid="clients-signed-out"
+    >
+      {{ t('clients.signInRequired') }}
+    </p>
+
+    <p
+      v-else-if="!clients?.length"
       class="text-muted"
     >
       {{ t('clients.empty') }}

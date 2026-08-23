@@ -22,7 +22,8 @@
       "name": "Name",
       "taxId": "Tax id",
       "email": "Email"
-    }
+    },
+    "signInRequired": "Sign in with Google to see your clients."
   },
   "auth": {
     "signIn": "Sign in with Google",

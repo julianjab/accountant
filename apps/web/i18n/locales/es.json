@@ -22,7 +22,8 @@
       "name": "Nombre",
       "taxId": "Identificación",
       "email": "Correo"
-    }
+    },
+    "signInRequired": "Inicia sesión con Google para ver tus clientes."
   },
   "auth": {
     "signIn": "Iniciar sesión con Google",
