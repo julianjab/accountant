@@ -20,6 +20,11 @@ from server.application.use_cases.import_clients_from_drive import (
     ImportClientsFromDrive,
     ImportResult,
 )
+from server.application.use_cases.list_client_sheet_rows import (
+    ClientNotFound,
+    ListClientSheetRows,
+    ListClientSheetRowsInput,
+)
 from server.application.use_cases.process_drive_change_notification import (
     ProcessDriveChangeNotification,
 )
@@ -41,6 +46,7 @@ from server.application.use_cases.subscribe_drive_webhook import SubscribeDriveW
 __all__ = [
     "ApproveDocument",
     "ApproveDocumentInput",
+    "ClientNotFound",
     "CompleteGoogleSignIn",
     "DefineDocumentType",
     "DefineDocumentTypeInput",
@@ -52,6 +58,8 @@ __all__ = [
     "GetGoogleSession",
     "ImportClientsFromDrive",
     "ImportResult",
+    "ListClientSheetRows",
+    "ListClientSheetRowsInput",
     "MissingRefreshToken",
     "ProcessDriveChangeNotification",
     "ProcessUploadedDocument",

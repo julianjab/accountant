@@ -12,6 +12,7 @@ class RegisterClientInput:
     tax_id: str | None
     email: str | None
     drive_folder_url: str | None = None
+    spreadsheet_url: str | None = None
 
 
 class RegisterClient:
@@ -26,6 +27,7 @@ class RegisterClient:
             email=data.email,
             created_at=datetime.now(UTC),
             drive_folder_url=data.drive_folder_url,
+            spreadsheet_url=data.spreadsheet_url,
         )
         self._clients.save(client)
         return client

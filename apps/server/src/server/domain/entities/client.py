@@ -15,3 +15,4 @@ class Client:
     # incoming document be attributed to a client by where it landed.
     drive_folder_id: str | None = None
     drive_folder_url: str | None = None
+    spreadsheet_url: str | None = None

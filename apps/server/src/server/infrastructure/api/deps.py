@@ -11,6 +11,7 @@ from server.application.use_cases import (
     GetExtractedData,
     GetGoogleSession,
     ImportClientsFromDrive,
+    ListClientSheetRows,
     ProcessDriveChangeNotification,
     ProcessUploadedDocument,
     RegisterClient,
@@ -271,3 +272,9 @@ def get_client_directory() -> GoogleDriveClientDirectory:
 
 def get_import_clients_use_case() -> ImportClientsFromDrive:
     return ImportClientsFromDrive(get_client_directory(), get_client_repository())
+
+
+def get_list_client_sheet_rows_use_case() -> ListClientSheetRows:
+    return ListClientSheetRows(
+        get_client_repository(), get_document_repository(), get_extracted_data_repository()
+    )

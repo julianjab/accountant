@@ -11,6 +11,7 @@ class ClientCreateRequest(BaseModel):
     tax_id: str | None = None
     email: str | None = None
     drive_folder_url: str | None = None
+    spreadsheet_url: str | None = None
 
     @field_validator("drive_folder_url")
     @classmethod
@@ -32,6 +33,7 @@ class ClientResponse(BaseModel):
     created_at: datetime
     drive_folder_id: str | None = None
     drive_folder_url: str | None = None
+    spreadsheet_url: str | None = None
 
 
 class ClientImportResponse(BaseModel):
@@ -89,6 +91,15 @@ class ExtractedDataResponse(BaseModel):
     fields: dict[str, Any]
     confidence: float | None
     created_at: datetime
+
+
+class SheetRowResponse(BaseModel):
+    source_document_id: str
+    source_document_file_name: str
+    date: str
+    description: str
+    amount: str
+    tax: str
 
 
 class DriveWatchChannelResponse(BaseModel):

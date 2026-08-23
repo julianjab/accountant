@@ -3,9 +3,13 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 
-from server.domain.entities import Client, Document, DocumentStatus
+from server.domain.entities import Client, Document, DocumentStatus, ExtractedData
 from server.infrastructure.api.auth_dependency import require_session
-from server.infrastructure.api.deps import get_client_repository, get_document_repository
+from server.infrastructure.api.deps import (
+    get_client_repository,
+    get_document_repository,
+    get_extracted_data_repository,
+)
 from server.main import app
 
 
@@ -21,6 +25,13 @@ def documents():
     get_document_repository.cache_clear()
     yield get_document_repository()
     get_document_repository.cache_clear()
+
+
+@pytest.fixture
+def extracted_data():
+    get_extracted_data_repository.cache_clear()
+    yield get_extracted_data_repository()
+    get_extracted_data_repository.cache_clear()
 
 
 @pytest.fixture
@@ -111,5 +122,55 @@ def test_list_client_documents(client, clients, documents) -> None:
 
 def test_list_client_documents_returns_404_for_unknown_client(client, clients) -> None:
     response = client.get("/clients/missing/documents")
+
+    assert response.status_code == 404
+
+
+def test_list_client_spreadsheet_rows(client, clients, documents, extracted_data) -> None:
+    clients.save(
+        Client(
+            id="client-1", name="Jane Doe", tax_id="123", email=None, created_at=datetime.now(UTC)
+        )
+    )
+    documents.save(
+        Document(
+            id="doc-1",
+            client_id="client-1",
+            document_type_id="type-1",
+            drive_file_id="drive-1",
+            file_name="doc.pdf",
+            mime_type="application/pdf",
+            status=DocumentStatus.APPROVED,
+            error=None,
+            created_at=datetime.now(UTC),
+        )
+    )
+    extracted_data.save(
+        ExtractedData(
+            id="ed-1",
+            document_id="doc-1",
+            fields={"date": "2026-01-05", "description": "Pago", "amount": "1000", "tax": "190"},
+            confidence=0.95,
+            created_at=datetime.now(UTC),
+        )
+    )
+
+    response = client.get("/clients/client-1/spreadsheet-rows")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "source_document_id": "doc-1",
+            "source_document_file_name": "doc.pdf",
+            "date": "2026-01-05",
+            "description": "Pago",
+            "amount": "1000",
+            "tax": "190",
+        }
+    ]
+
+
+def test_list_client_spreadsheet_rows_returns_404_for_unknown_client(client, clients) -> None:
+    response = client.get("/clients/missing/spreadsheet-rows")
 
     assert response.status_code == 404

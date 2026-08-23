@@ -1,13 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from server.application.use_cases import RegisterClient, RegisterClientInput
+from server.application.use_cases import (
+    ClientNotFound,
+    ListClientSheetRows,
+    ListClientSheetRowsInput,
+    RegisterClient,
+    RegisterClientInput,
+)
 from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
     get_client_repository,
     get_document_repository,
+    get_list_client_sheet_rows_use_case,
     get_register_client_use_case,
 )
-from server.infrastructure.api.schemas import ClientCreateRequest, ClientResponse, DocumentResponse
+from server.infrastructure.api.schemas import (
+    ClientCreateRequest,
+    ClientResponse,
+    DocumentResponse,
+    SheetRowResponse,
+)
 
 router = APIRouter(prefix="/clients", tags=["clients"], dependencies=[Depends(require_session)])
 
@@ -23,6 +35,7 @@ def create_client(
             tax_id=payload.tax_id,
             email=payload.email,
             drive_folder_url=payload.drive_folder_url,
+            spreadsheet_url=payload.spreadsheet_url,
         )
     )
     return ClientResponse.model_validate(client, from_attributes=True)
@@ -58,3 +71,15 @@ def list_client_documents(
         DocumentResponse.model_validate(d, from_attributes=True)
         for d in documents.list_by_client(client_id)
     ]
+
+
+@router.get("/{client_id}/spreadsheet-rows", response_model=list[SheetRowResponse])
+def list_client_spreadsheet_rows(
+    client_id: str,
+    use_case: ListClientSheetRows = Depends(get_list_client_sheet_rows_use_case),
+) -> list[SheetRowResponse]:
+    try:
+        rows = use_case.execute(ListClientSheetRowsInput(client_id=client_id))
+    except ClientNotFound as error:
+        raise HTTPException(status_code=404, detail="Client not found") from error
+    return [SheetRowResponse.model_validate(row, from_attributes=True) for row in rows]
