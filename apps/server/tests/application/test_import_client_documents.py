@@ -219,3 +219,49 @@ def test_documents_from_other_clients_are_untouched():
     # processed document must not suppress the other's import.
     assert len(result.imported) == 1
     assert result.skipped == 0
+
+
+def test_reprocess_rewrites_the_document_instead_of_adding_a_second_one():
+    """A file has one document. Without this, every forced re-import would
+    leave another row behind for the same Drive file."""
+    storage = _Storage(_files("f1"))
+    use_case, clients, documents = _use_case(storage)
+    clients.save(_client())
+
+    first = use_case.execute(ImportClientDocumentsInput(client_id="c1"))
+    again = use_case.execute(ImportClientDocumentsInput(client_id="c1", reprocess=True))
+
+    assert len(documents.list_by_client("c1")) == 1
+    assert again.imported[0].id == first.imported[0].id
+
+
+def test_an_approved_document_is_never_reprocessed():
+    """Approval is a person's review. Re-running OCR would reset it to
+    CLASSIFYING and drop the approval with no record it ever happened."""
+    storage = _Storage(_files("f1"))
+    documents = InMemoryDocumentRepository()
+    use_case, clients, _ = _use_case(storage, documents=documents)
+    clients.save(_client())
+
+    imported = use_case.execute(ImportClientDocumentsInput(client_id="c1")).imported[0]
+    approved = Document(
+        id=imported.id,
+        client_id="c1",
+        document_type_id=imported.document_type_id,
+        drive_file_id="f1",
+        file_name=imported.file_name,
+        mime_type=imported.mime_type,
+        status=DocumentStatus.APPROVED,
+        error=None,
+        created_at=imported.created_at,
+        approved_by="preparer@example.com",
+    )
+    documents.save(approved)
+
+    result = use_case.execute(ImportClientDocumentsInput(client_id="c1", reprocess=True))
+
+    assert result.skipped == 1
+    assert result.imported == []
+    still = documents.get_by_drive_file_id_and_client("f1", "c1")
+    assert still.status == DocumentStatus.APPROVED
+    assert still.approved_by == "preparer@example.com"

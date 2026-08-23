@@ -69,10 +69,10 @@ class ImportClientDocuments:
         skipped = 0
 
         for file in self._storage.list_files(client.drive_folder_id):
-            if not data.reprocess and self._already_processed(file.id, client.id):
+            if self._should_skip(file.id, client.id, reprocess=data.reprocess):
                 skipped += 1
                 continue
-            document = self._process_one(client.id, file.id)
+            document = self._process_one(client.id, file.id, replace=data.reprocess)
             if document is None:
                 continue
             (failed if document.status == DocumentStatus.FAILED else imported).append(document)
@@ -88,20 +88,32 @@ class ImportClientDocuments:
         )
         return ImportClientDocumentsResult(imported=imported, skipped=skipped, failed=failed)
 
-    def _already_processed(self, drive_file_id: str, client_id: str) -> bool:
+    def _should_skip(self, drive_file_id: str, client_id: str, *, reprocess: bool) -> bool:
         existing = self._documents.get_by_drive_file_id_and_client(drive_file_id, client_id)
-        return existing is not None and existing.status in (
-            DocumentStatus.PROCESSED,
-            DocumentStatus.APPROVED,
-        )
+        if existing is None:
+            return False
+        # An approved document carries a person's review. Re-running OCR over
+        # it would reset it to CLASSIFYING and drop the approval with no record
+        # that it ever happened, so approval is never overridden — not even by
+        # an explicit reprocess. Undoing it has to be a deliberate act of its
+        # own, not a side effect of re-importing a folder.
+        if existing.status == DocumentStatus.APPROVED:
+            return True
+        if existing.status == DocumentStatus.PROCESSED:
+            return not reprocess
+        # Anything else is unfinished or failed, and worth another attempt.
+        return False
 
-    def _process_one(self, client_id: str, drive_file_id: str) -> Document | None:
+    def _process_one(self, client_id: str, drive_file_id: str, *, replace: bool) -> Document | None:
         try:
             return self._process_document.execute(
                 ProcessUploadedDocumentInput(
                     client_id=client_id,
                     drive_file_id=drive_file_id,
                     file_reference=drive_file_id,
+                    # Without this a reprocess would leave a second document
+                    # behind for the same file on every run.
+                    replace_existing=replace,
                 )
             )
         except Exception:

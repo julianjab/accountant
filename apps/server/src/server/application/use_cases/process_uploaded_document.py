@@ -19,6 +19,12 @@ class ProcessUploadedDocumentInput:
     client_id: str
     drive_file_id: str
     file_reference: str
+    #: Run again over a file that already produced a PROCESSED document,
+    #: rewriting that document rather than creating a second one. Only an
+    #: explicit re-import sets this; the webhook never does, because a repeated
+    #: notification for an already-processed file is a duplicate to ignore, not
+    #: a request to redo the work.
+    replace_existing: bool = False
 
 
 class ProcessUploadedDocument:
@@ -57,11 +63,10 @@ class ProcessUploadedDocument:
         existing = self._documents.get_by_drive_file_id_and_client(
             data.drive_file_id, data.client_id
         )
-        document_id = (
-            existing.id
-            if existing is not None and existing.status != DocumentStatus.PROCESSED
-            else str(uuid.uuid4())
+        reusable = existing is not None and (
+            existing.status != DocumentStatus.PROCESSED or data.replace_existing
         )
+        document_id = existing.id if reusable else str(uuid.uuid4())
 
         document = Document(
             id=document_id,
