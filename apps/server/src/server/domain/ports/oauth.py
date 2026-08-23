@@ -10,6 +10,7 @@ class OAuthTokens:
     access_token: str
     refresh_token: str | None
     expires_at: datetime
+    granted_scopes: frozenset[str] = frozenset()
 
 
 class OAuthTransportError(Exception):
@@ -25,6 +26,14 @@ class OAuthGrantRevoked(OAuthTransportError):
 
     Distinct from a transport failure on purpose: only this one justifies
     dropping a stored session. A timeout must never cost the user their grant.
+    """
+
+
+class DriveAccessNotGranted(Exception):
+    """The user signed in but withheld Drive access.
+
+    Google returns the granted scopes rather than failing, so without this the
+    app would hold a session that cannot read a single document.
     """
 
 

@@ -11,7 +11,7 @@ from server.application.use_cases import (
     SignOutGoogle,
     StartGoogleSignIn,
 )
-from server.domain.ports import OAuthTransportError
+from server.domain.ports import DriveAccessNotGranted, OAuthTransportError
 from server.infrastructure.api.auth_dependency import SESSION_COOKIE
 from server.infrastructure.api.deps import (
     get_complete_google_sign_in_use_case,
@@ -91,6 +91,8 @@ def callback(
         session = use_case.execute(code)
     except SignInNotAllowed:
         return _failed(settings, "not_allowed")
+    except DriveAccessNotGranted:
+        return _failed(settings, "drive_denied")
     except MissingRefreshToken:
         return _failed(settings, "no_refresh")
     except OAuthTransportError:

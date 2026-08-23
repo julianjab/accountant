@@ -132,4 +132,5 @@ class HttpGoogleOAuthClient:
             access_token=payload["access_token"],
             refresh_token=payload.get("refresh_token"),
             expires_at=datetime.now(UTC) + timedelta(seconds=expires_in),
+            granted_scopes=frozenset(payload.get("scope", "").split()),
         )

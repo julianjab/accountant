@@ -32,6 +32,7 @@ class FakeOAuth:
             access_token="at",
             refresh_token=self._refresh_token,
             expires_at=datetime.now(UTC) + timedelta(hours=1),
+            granted_scopes=frozenset({"https://www.googleapis.com/auth/drive.readonly"}),
         )
 
     def refresh(self, refresh_token: str) -> OAuthTokens:

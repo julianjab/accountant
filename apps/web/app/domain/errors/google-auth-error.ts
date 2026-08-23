@@ -2,6 +2,7 @@ export type GoogleAuthErrorCode
   = | 'sessionUnavailable'
     | 'denied'
     | 'not_allowed'
+    | 'drive_denied'
     | 'state'
     | 'no_refresh'
     | 'exchange'

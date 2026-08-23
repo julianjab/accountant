@@ -49,7 +49,14 @@ def test_exchange_code_returns_tokens_with_an_absolute_expiry(monkeypatch):
     def fake_post(url, data=None, timeout=None):
         captured["url"] = url
         captured["data"] = data
-        return FakeResponse({"access_token": "at", "refresh_token": "rt", "expires_in": 60})
+        return FakeResponse(
+            {
+                "access_token": "at",
+                "refresh_token": "rt",
+                "expires_in": 60,
+                "scope": "https://www.googleapis.com/auth/drive.readonly openid",
+            }
+        )
 
     monkeypatch.setattr(httpx, "post", fake_post)
     before = datetime.now(UTC)
@@ -183,3 +190,15 @@ def test_an_unverified_email_is_rejected(monkeypatch):
     # The allowlist keys on the email, so an unverified one must not be trusted.
     with pytest.raises(GoogleOAuthError):
         CLIENT.fetch_user("at")
+
+
+def test_the_granted_scopes_are_reported(monkeypatch):
+    monkeypatch.setattr(
+        httpx,
+        "post",
+        lambda *a, **k: FakeResponse({"access_token": "at", "scope": "openid email"}),
+    )
+
+    # Google grants what the user allowed, so the caller must be able to tell
+    # whether Drive access actually came back.
+    assert CLIENT.refresh("rt").granted_scopes == frozenset({"openid", "email"})

@@ -10,7 +10,12 @@ from server.application.use_cases import (
     SignOutGoogle,
 )
 from server.domain.entities import GoogleUser
-from server.domain.ports import OAuthGrantRevoked, OAuthTokens, OAuthTransportError
+from server.domain.ports import (
+    DriveAccessNotGranted,
+    OAuthGrantRevoked,
+    OAuthTokens,
+    OAuthTransportError,
+)
 from server.infrastructure.adapters.in_memory_repositories import InMemorySessionRepository
 
 USER = GoogleUser(email="a@b.com", name="A B", picture=None)
@@ -57,11 +62,17 @@ class FakeOAuth:
         self.revoked.append(token)
 
 
-def tokens(access: str, refresh: str | None, ttl_seconds: int) -> OAuthTokens:
+DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
+
+
+def tokens(
+    access: str, refresh: str | None, ttl_seconds: int, scopes: frozenset[str] | None = None
+) -> OAuthTokens:
     return OAuthTokens(
         access_token=access,
         refresh_token=refresh,
         expires_at=datetime.now(UTC) + timedelta(seconds=ttl_seconds),
+        granted_scopes=frozenset({DRIVE_SCOPE}) if scopes is None else scopes,
     )
 
 
@@ -179,3 +190,14 @@ def test_a_session_past_its_absolute_lifetime_is_dropped():
 
     assert load(oauth, sessions, max_age=timedelta(seconds=0)).execute(session.id) is None
     assert sessions.get(session.id) is None
+
+
+def test_sign_in_is_rejected_when_drive_access_is_withheld():
+    sessions = InMemorySessionRepository()
+    # Google grants what the user allowed instead of failing, so the identity
+    # scopes can come back without Drive.
+    identity_only = frozenset({"openid", "email", "profile"})
+    oauth = FakeOAuth(tokens("at", "rt", 3600, scopes=identity_only))
+
+    with pytest.raises(DriveAccessNotGranted):
+        sign_in(oauth, sessions).execute("code")

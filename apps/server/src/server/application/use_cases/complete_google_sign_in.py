@@ -3,7 +3,9 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 
 from server.domain.entities import GoogleSession
-from server.domain.ports import GoogleOAuthClient, SessionRepository
+from server.domain.ports import DriveAccessNotGranted, GoogleOAuthClient, SessionRepository
+
+DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
 
 
 class SignInNotAllowed(Exception):
@@ -37,6 +39,11 @@ class CompleteGoogleSignIn:
 
     def execute(self, code: str) -> GoogleSession:
         tokens = self._oauth.exchange_code(code)
+        if DRIVE_SCOPE not in tokens.granted_scopes:
+            # Google grants what the user allowed rather than failing, so a
+            # session without this would exist but read nothing.
+            raise DriveAccessNotGranted
+
         if tokens.refresh_token is None:
             raise MissingRefreshToken
 

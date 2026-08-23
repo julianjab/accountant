@@ -36,7 +36,8 @@
       "state": "Google's response did not match the request; please try again",
       "no_refresh": "Google withheld a refresh token; revoke the app's access in your account and try again",
       "exchange": "Could not complete the credential exchange with Google",
-      "not_allowed": "This Google account is not allowed to use the application"
+      "not_allowed": "This Google account is not allowed to use the application",
+      "drive_denied": "Read access to Google Drive was not granted"
     }
   }
 }
