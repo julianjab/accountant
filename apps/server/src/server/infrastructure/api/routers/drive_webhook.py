@@ -11,7 +11,7 @@ from server.infrastructure.api.deps import (
     get_settings,
     get_subscribe_drive_webhook_use_case,
 )
-from server.infrastructure.api.schemas import DriveWatchChannelResponse
+from server.infrastructure.api.schemas import DocumentResponse, DriveWatchChannelResponse
 from server.infrastructure.config.settings import Settings
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
@@ -68,3 +68,29 @@ def subscribe_drive_webhook(
         webhook_url=f"{settings.server_public_url}/webhooks/drive",
     )
     return DriveWatchChannelResponse.model_validate(channel, from_attributes=True)
+
+
+@router.post(
+    "/drive/{channel_id}/retry",
+    response_model=list[DocumentResponse],
+    dependencies=[Depends(require_session)],
+)
+def retry_drive_channel(
+    channel_id: str,
+    use_case: ProcessDriveChangeNotification = Depends(
+        get_process_drive_change_notification_use_case
+    ),
+    channels: DriveWatchChannelRepository = Depends(get_drive_watch_channel_repository),
+) -> list[DocumentResponse]:
+    # A file that keeps failing holds the channel's cursor back on purpose
+    # (see ProcessDriveChangeNotification), so it is retried automatically
+    # the next time Drive sends a notification for that channel. But if that
+    # failed file was the last real change, nothing ever triggers again on
+    # its own; calling this manually (from a cron, a future scheduler, or an
+    # admin action) re-runs the exact same processing path against the
+    # channel's currently-persisted page_token without waiting for one.
+    if channels.get_by_channel_id(channel_id) is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    documents = use_case.execute(channel_id=channel_id, resource_state="")
+    return [DocumentResponse.model_validate(d, from_attributes=True) for d in documents]

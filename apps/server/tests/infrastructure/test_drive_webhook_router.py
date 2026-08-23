@@ -241,3 +241,54 @@ def test_subscribe_drive_webhook_requires_a_session():
         )
 
     assert response.status_code == 401
+
+
+def test_retry_drive_channel_reruns_processing_against_the_persisted_page_token(
+    client, channels, process_use_case, process_notification_use_case
+):
+    _save_channel(channels)
+    client.app.dependency_overrides[deps.get_process_drive_change_notification_use_case] = lambda: (
+        ProcessDriveChangeNotification(
+            channels,
+            FakeDriveWatcher(
+                DriveChangesPage(
+                    files=[
+                        DriveChangedFile(
+                            id="file-1",
+                            name="invoice.pdf",
+                            mime_type="application/pdf",
+                            parents=["folder-1"],
+                            trashed=False,
+                        )
+                    ],
+                    next_page_token="token-2",
+                )
+            ),
+            InMemoryDriveFileClaimRepository(),
+            InMemoryDocumentRepository(),
+            process_use_case,
+        )
+    )
+
+    response = client.post("/webhooks/drive/channel-1/retry")
+
+    assert response.status_code == 200
+    assert len(process_use_case.calls) == 1
+    assert process_use_case.calls[0].drive_file_id == "file-1"
+    [document] = response.json()
+    assert document["drive_file_id"] == "file-1"
+
+
+def test_retry_drive_channel_returns_404_for_an_unknown_channel(client):
+    response = client.post("/webhooks/drive/unknown/retry")
+
+    assert response.status_code == 404
+
+
+def test_retry_drive_channel_requires_a_session():
+    app.dependency_overrides.clear()
+
+    with TestClient(app) as test_client:
+        response = test_client.post("/webhooks/drive/channel-1/retry")
+
+    assert response.status_code == 401
