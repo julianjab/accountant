@@ -10,15 +10,22 @@ const status = computed(() => {
   return VALID_STATUSES.includes(value as DocumentStatus) ? (value as DocumentStatus) : undefined
 })
 const useCase = useListInboxUseCase()
+const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
+const showSignedOut = computed(() => !isAuthLoading.value && !isAuthenticated.value)
 
 // "Procesados hoy" / "Tiempo medio" must use the preparer's local day (see acceptance
 // criteria), not the SSR host's timezone — `new Date()` evaluated during SSR would use
 // the server's TZ instead. Fetching client-only makes `now` always reflect the browser.
-const { data: inbox } = await useAsyncData(
+// Deferred on top of that: the endpoint needs the session cookie, which SSR does not
+// carry, and fetching before sign-in would answer 401 and render as "inbox is empty" —
+// a different statement entirely (see clients/index.vue).
+const { data: inbox, error: inboxError, refresh: refreshInbox } = await useAsyncData(
   'inbox',
   () => useCase.execute({ status: status.value, now: new Date() }),
-  { watch: [status], server: false }
+  { immediate: false, watch: [status], server: false }
 )
+
+watch(isAuthenticated, authenticated => authenticated && refreshInbox(), { immediate: true })
 
 const totals = computed(() => inbox.value?.totals)
 const groups = computed(() => inbox.value?.groups ?? [])
@@ -60,53 +67,76 @@ const avgProcessingLabel = computed(() => {
       hydration warning.
     -->
     <ClientOnly>
-      <div class="mt-[26px] grid grid-cols-4 gap-3">
-        <InboxMetricCard
-          :label="t('inbox.metrics.unprocessed')"
-          :value="String(totals?.unprocessed ?? 0)"
-        />
-        <InboxMetricCard
-          :label="t('inbox.metrics.processedToday')"
-          :value="String(totals?.processedToday ?? 0)"
-          variant="success"
-        />
-        <InboxMetricCard
-          :label="t('inbox.metrics.failed')"
-          :value="String(totals?.failed ?? 0)"
-          variant="danger"
-        />
-        <InboxMetricCard
-          :label="t('inbox.metrics.avgProcessingTime')"
-          :value="avgProcessingLabel"
-        />
-      </div>
+      <p
+        v-if="isAuthLoading"
+        class="mt-[26px] text-muted"
+      >
+        {{ t('auth.loading') }}
+      </p>
 
-      <div class="mt-[26px] overflow-hidden rounded-xl border border-line-100 bg-white">
-        <InboxStatusFilter
-          :status="status"
-          :total="totalDocuments"
-          :filtered="filteredDocuments"
-        />
+      <p
+        v-else-if="showSignedOut"
+        class="mt-[26px] text-muted"
+      >
+        {{ t('inbox.signInRequired') }}
+      </p>
 
-        <InboxEmptyState
-          v-if="emptyStateVariant"
-          :variant="emptyStateVariant"
-        />
+      <p
+        v-else-if="inboxError"
+        class="mt-[26px] text-error"
+      >
+        {{ t('inbox.loadError') }}
+      </p>
 
-        <InboxGroup
-          v-for="group in groups"
-          :key="group.client.id"
-          :client="group.client"
-          :count="group.documents.length"
-        >
-          <InboxDocumentRow
-            v-for="document in group.documents"
-            :key="document.id"
-            :document="document"
-            :document-type="document.documentTypeId ? documentTypesById[document.documentTypeId] : undefined"
+      <template v-else>
+        <div class="mt-[26px] grid grid-cols-4 gap-3">
+          <InboxMetricCard
+            :label="t('inbox.metrics.unprocessed')"
+            :value="String(totals?.unprocessed ?? 0)"
           />
-        </InboxGroup>
-      </div>
+          <InboxMetricCard
+            :label="t('inbox.metrics.processedToday')"
+            :value="String(totals?.processedToday ?? 0)"
+            variant="success"
+          />
+          <InboxMetricCard
+            :label="t('inbox.metrics.failed')"
+            :value="String(totals?.failed ?? 0)"
+            variant="danger"
+          />
+          <InboxMetricCard
+            :label="t('inbox.metrics.avgProcessingTime')"
+            :value="avgProcessingLabel"
+          />
+        </div>
+
+        <div class="mt-[26px] overflow-hidden rounded-xl border border-line-100 bg-white">
+          <InboxStatusFilter
+            :status="status"
+            :total="totalDocuments"
+            :filtered="filteredDocuments"
+          />
+
+          <InboxEmptyState
+            v-if="emptyStateVariant"
+            :variant="emptyStateVariant"
+          />
+
+          <InboxGroup
+            v-for="group in groups"
+            :key="group.client.id"
+            :client="group.client"
+            :count="group.documents.length"
+          >
+            <InboxDocumentRow
+              v-for="document in group.documents"
+              :key="document.id"
+              :document="document"
+              :document-type="document.documentTypeId ? documentTypesById[document.documentTypeId] : undefined"
+            />
+          </InboxGroup>
+        </div>
+      </template>
     </ClientOnly>
   </UContainer>
 </template>

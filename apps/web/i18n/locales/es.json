@@ -165,6 +165,8 @@
   },
   "inbox": {
     "title": "Bandeja de entrada",
+    "signInRequired": "Inicia sesión con Google para ver la bandeja.",
+    "loadError": "No se pudo cargar la bandeja",
     "metrics": {
       "unprocessed": "Sin procesar",
       "processedToday": "Procesados hoy",

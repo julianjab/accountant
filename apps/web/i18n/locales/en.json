@@ -165,6 +165,8 @@
   },
   "inbox": {
     "title": "Inbox",
+    "signInRequired": "Sign in with Google to see the inbox.",
+    "loadError": "Could not load the inbox",
     "metrics": {
       "unprocessed": "Unprocessed",
       "processedToday": "Processed today",
