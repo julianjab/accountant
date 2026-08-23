@@ -27,6 +27,19 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+def test_create_client_rejects_non_https_drive_folder_url(client) -> None:
+    response = client.post(
+        "/clients",
+        json={
+            "name": "Jane Doe",
+            "tax_id": "123",
+            "drive_folder_url": "javascript:alert(document.cookie)",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_get_client(client, clients) -> None:
     clients.save(
         Client(
