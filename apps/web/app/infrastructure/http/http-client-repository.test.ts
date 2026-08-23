@@ -49,6 +49,24 @@ describe('HttpClientRepository', () => {
     })
   })
 
+  it('sends the session cookie when fetching a single client', async () => {
+    fetchMock.mockResolvedValue({
+      id: '1',
+      name: 'Jane',
+      tax_id: '123',
+      email: null,
+      created_at: '2026-01-01',
+      drive_folder_id: null
+    })
+
+    await new HttpClientRepository(BASE).get('1')
+
+    expect(fetchMock).toHaveBeenCalledWith('/clients/1', {
+      baseURL: BASE,
+      credentials: 'include'
+    })
+  })
+
   it('sends the session cookie when registering', async () => {
     fetchMock.mockResolvedValue({
       id: '1',
