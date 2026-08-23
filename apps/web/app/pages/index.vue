@@ -28,7 +28,9 @@ const documentTypesById = computed(() => inbox.value?.documentTypesById ?? {})
 
 const emptyStateVariant = computed(() => {
   if (totalDocuments.value === 0) return 'empty'
-  if (filteredDocuments.value === 0) return 'no-results'
+  // groups.length, not filteredDocuments: a document whose client no longer exists is
+  // dropped by ListInbox, so filteredDocuments can be > 0 with nothing left to render.
+  if (groups.value.length === 0) return 'no-results'
   return null
 })
 

@@ -36,6 +36,13 @@ const UNPROCESSED_STATUSES: DocumentStatus[] = ['pending', 'classifying', 'runni
 // not it has since been approved (mirrors GetDocumentMetrics on the server).
 const PROCESSED_STATUSES: DocumentStatus[] = ['processed', 'approved']
 
+function matchesStatusFilter(documentStatus: DocumentStatus, filterStatus: DocumentStatus): boolean {
+  // The "processed" filter must match every status counted in the processedToday/
+  // avgProcessingMs totals above, or the metric card and the filtered list disagree.
+  if (filterStatus === 'processed') return PROCESSED_STATUSES.includes(documentStatus)
+  return documentStatus === filterStatus
+}
+
 function isSameLocalDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
@@ -82,7 +89,7 @@ export class ListInbox {
     const totals = computeTotals(documents, now)
 
     const filtered = input?.status
-      ? documents.filter(d => d.status === input.status)
+      ? documents.filter(d => matchesStatusFilter(d.status, input.status!))
       : documents
 
     const clientsById = new Map(clients.map(c => [c.id, c]))
