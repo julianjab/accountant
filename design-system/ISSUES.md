@@ -137,15 +137,23 @@ Ref: README → "§ 6". Depende de G. **Bloqueada por backend.**
 
 ---
 
-## G. Endpoints faltantes en apps/server
+## G. Endpoints faltantes en apps/server — ✅ implementado
 
 La UI diseñada necesita lecturas que hoy no existen.
 
-**Tareas**
+**Implementado** (branch `feat/add-missing-server-endpoints`):
 
-- [ ] `DocumentRepository`: añadir `list_all()` y `list_by_client(client_id)` (hoy sólo `get`/`save`, ver `domain/ports/repositories.py`).
-- [ ] `GET /documents` con filtro por estado — alimenta la bandeja.
-- [ ] `GET /clients/{id}/documents` — alimenta la ficha de cliente.
-- [ ] `GET /document-types` — hoy sólo existe `POST`.
-- [ ] Conteos para las tarjetas de cifra (sin procesar, procesados hoy, fallidos, tiempo medio de proceso).
-- [ ] Decidir el modelo de "aprobación" de un documento revisado (precondición de F).
+- [x] `DocumentRepository.list_all(status: DocumentStatus | None = None)` y `DocumentTypeRepository.list_all()` en `domain/ports/repositories.py`, implementados en `InMemoryDocumentRepository`/`InMemoryDocumentTypeRepository` (`infrastructure/adapters/in_memory_repositories.py`). `list_by_client` ya existía.
+- [x] `GET /documents?status=&client_id=` — filtra por `DocumentStatus` (422 si el valor es inválido, comportamiento nativo de FastAPI/Pydantic) y por `client_id`. Alimenta la bandeja.
+- [x] `GET /clients/{id}/documents` — 404 si el cliente no existe. Alimenta la ficha de cliente.
+- [x] `GET /document-types?active_only=true|false` (default `true`). `active_only=false` requirió `DocumentTypeRepository.list_all()`.
+- [x] `GET /documents/metrics` → `DocumentMetricsResponse { unprocessed, processed_today, failed, avg_processing_seconds }`. Declarado antes de `/{document_id}` para que FastAPI no matchee `metrics` como id.
+  - `processed_today` compara `processed_at` (nuevo campo en `Document`, poblado en `process_uploaded_document.py` al llegar a `PROCESSED`) contra la fecha actual **en UTC**.
+  - `avg_processing_seconds` promedia `processed_at - created_at` sólo sobre documentos con `status = processed`; `null` si no hay ninguno.
+- [x] Modelo de aprobación — **opción A** del PRD (estado nuevo, no un campo ortogonal): `DocumentStatus.APPROVED` + `Document.reviewed_at`/`approved_by` (ambos `None` por defecto, no rompen datos existentes). Caso de uso `ApproveDocument` (`application/use_cases/approve_document.py`) valida que el documento esté en `PROCESSED`, si no lanza `DocumentNotApprovable`; `DocumentNotFound` si no existe. Endpoint `POST /documents/{id}/approve` (404 / 409). Habilita a F/#11 a consultar `status = approved` como precondición de exportar.
+
+**Desvíos respecto al enunciado original**: ninguno relevante — se implementó tal como está descrito arriba, incluida la opción A de aprobación.
+
+**Tests**: `apps/server/tests/application/test_approve_document.py`, `apps/server/tests/infrastructure/api/{test_documents,test_clients,test_document_types}.py` (vía `TestClient`). `uv run ruff format . && uv run ruff check --fix . && uv run pytest` en verde (29 tests).
+
+**Deuda técnica / fuera de alcance**: sin paginación en los listados; sin auth para `approved_by` (string libre); persistencia sigue in-memory.
