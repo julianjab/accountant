@@ -62,6 +62,7 @@
   },
   "documents": {
     "title": "Document review",
+    "signInRequired": "Sign in with Google to see this document.",
     "notFound": "Document not found",
     "unknownType": "Unknown document type",
     "headerConfidence": "Average confidence",

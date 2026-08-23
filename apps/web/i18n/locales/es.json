@@ -62,6 +62,7 @@
   },
   "documents": {
     "title": "Revisión de documento",
+    "signInRequired": "Inicia sesión con Google para ver este documento.",
     "notFound": "No se encontró el documento",
     "unknownType": "Tipo de documento desconocido",
     "headerConfidence": "Confianza promedio",

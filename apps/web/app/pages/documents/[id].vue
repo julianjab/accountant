@@ -10,7 +10,8 @@ const documentId = route.params.id as string
 
 const getDocument = useGetDocumentUseCase()
 const getExtractedData = useGetDocumentExtractedDataUseCase()
-const { isAuthenticated } = useGoogleAuth()
+const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
+const showSignedOut = computed(() => !isAuthLoading.value && !isAuthenticated.value)
 
 // Deferred and client-only on purpose: these endpoints need the session
 // cookie, which SSR does not carry (see clients/index.vue).
@@ -41,8 +42,22 @@ watch(
 
 <template>
   <UContainer class="py-8">
+    <p
+      v-if="isAuthLoading"
+      class="text-muted"
+    >
+      {{ t('auth.loading') }}
+    </p>
+
+    <p
+      v-else-if="showSignedOut"
+      class="text-muted"
+    >
+      {{ t('documents.signInRequired') }}
+    </p>
+
     <UAlert
-      v-if="documentError"
+      v-else-if="documentError"
       color="error"
       :title="t('documents.notFound')"
     />
