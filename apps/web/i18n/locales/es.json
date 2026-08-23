@@ -62,6 +62,7 @@
   },
   "documents": {
     "title": "Revisión de documento",
+    "signInRequired": "Inicia sesión con Google para ver este documento.",
     "notFound": "No se encontró el documento",
     "unknownType": "Tipo de documento desconocido",
     "headerConfidence": "Confianza promedio",
@@ -161,6 +162,51 @@
       "sourceDocument": "Documento origen",
       "amount": "Valor",
       "tax": "IVA"
+    }
+  },
+  "inbox": {
+    "title": "Bandeja de entrada",
+    "signInRequired": "Inicia sesión con Google para ver la bandeja.",
+    "loadError": "No se pudo cargar la bandeja",
+    "metrics": {
+      "unprocessed": "Sin procesar",
+      "processedToday": "Procesados hoy",
+      "failed": "Fallidos",
+      "avgProcessingTime": "Tiempo medio",
+      "avgProcessingTimeEmpty": "—"
+    },
+    "filter": {
+      "all": "Todos",
+      "pending": "Pendiente",
+      "classifying": "Clasificando",
+      "runningOcr": "OCR",
+      "processed": "Procesado",
+      "failed": "Fallido"
+    },
+    "filterCount": "{filtered} de {total} documentos",
+    "status": {
+      "pending": "Pendiente",
+      "classifying": "Clasificando",
+      "running_ocr": "OCR",
+      "processed": "Procesado",
+      "approved": "Aprobado",
+      "failed": "Fallido"
+    },
+    "unclassified": "Sin clasificar",
+    "emptyState": {
+      "empty": {
+        "title": "La bandeja está vacía",
+        "description": "Todavía no llegaron documentos por Drive.",
+        "action": "Ver clientes"
+      },
+      "noResults": {
+        "title": "Ningún documento coincide con el filtro",
+        "description": "Probá con otro estado o mostrá todos los documentos.",
+        "action": "Ver todos"
+      }
+    },
+    "group": {
+      "count": "({count})"
     }
   }
 }

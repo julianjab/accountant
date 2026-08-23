@@ -10,22 +10,54 @@ const documentId = route.params.id as string
 
 const getDocument = useGetDocumentUseCase()
 const getExtractedData = useGetDocumentExtractedDataUseCase()
+const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
+const showSignedOut = computed(() => !isAuthLoading.value && !isAuthenticated.value)
 
-const { data: document, error: documentError } = await useAsyncData<ClientDocument>(
+// Deferred and client-only on purpose: these endpoints need the session
+// cookie, which SSR does not carry (see clients/index.vue).
+const { data: document, error: documentError, refresh: refreshDocument } = await useAsyncData<ClientDocument>(
   `document-${documentId}`,
-  () => getDocument.execute(documentId)
+  () => getDocument.execute(documentId),
+  { immediate: false, server: false }
 )
 
-const { data: extractedData, error: extractedDataError } = await useAsyncData<ExtractedData | null>(
+const { data: extractedData, error: extractedDataError, refresh: refreshExtractedData } = await useAsyncData<
+  ExtractedData | null
+>(
   `document-${documentId}-extracted-data`,
-  () => getExtractedData.execute(documentId)
+  () => getExtractedData.execute(documentId),
+  { immediate: false, server: false }
+)
+
+watch(
+  isAuthenticated,
+  (authenticated) => {
+    if (!authenticated) return
+    refreshDocument()
+    refreshExtractedData()
+  },
+  { immediate: true }
 )
 </script>
 
 <template>
   <UContainer class="py-8">
+    <p
+      v-if="isAuthLoading"
+      class="text-muted"
+    >
+      {{ t('auth.loading') }}
+    </p>
+
+    <p
+      v-else-if="showSignedOut"
+      class="text-muted"
+    >
+      {{ t('documents.signInRequired') }}
+    </p>
+
     <UAlert
-      v-if="documentError"
+      v-else-if="documentError"
       color="error"
       :title="t('documents.notFound')"
     />

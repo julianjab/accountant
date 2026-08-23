@@ -62,6 +62,7 @@
   },
   "documents": {
     "title": "Document review",
+    "signInRequired": "Sign in with Google to see this document.",
     "notFound": "Document not found",
     "unknownType": "Unknown document type",
     "headerConfidence": "Average confidence",
@@ -161,6 +162,51 @@
       "sourceDocument": "Source document",
       "amount": "Amount",
       "tax": "Tax"
+    }
+  },
+  "inbox": {
+    "title": "Inbox",
+    "signInRequired": "Sign in with Google to see the inbox.",
+    "loadError": "Could not load the inbox",
+    "metrics": {
+      "unprocessed": "Unprocessed",
+      "processedToday": "Processed today",
+      "failed": "Failed",
+      "avgProcessingTime": "Avg. processing time",
+      "avgProcessingTimeEmpty": "—"
+    },
+    "filter": {
+      "all": "All",
+      "pending": "Pending",
+      "classifying": "Classifying",
+      "runningOcr": "OCR",
+      "processed": "Processed",
+      "failed": "Failed"
+    },
+    "filterCount": "{filtered} of {total} documents",
+    "status": {
+      "pending": "Pending",
+      "classifying": "Classifying",
+      "running_ocr": "OCR",
+      "processed": "Processed",
+      "approved": "Approved",
+      "failed": "Failed"
+    },
+    "unclassified": "Unclassified",
+    "emptyState": {
+      "empty": {
+        "title": "The inbox is empty",
+        "description": "No documents have arrived from Drive yet.",
+        "action": "View clients"
+      },
+      "noResults": {
+        "title": "No document matches this filter",
+        "description": "Try another status, or show all documents.",
+        "action": "View all"
+      }
+    },
+    "group": {
+      "count": "({count})"
     }
   }
 }

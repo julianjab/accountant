@@ -8,6 +8,7 @@ import { ListClients } from '~/application/use-cases/list-clients'
 import { ListClientDocuments } from '~/application/use-cases/list-client-documents'
 import { ListActiveDocumentTypes } from '~/application/use-cases/list-active-document-types'
 import { ListClientSheetRows } from '~/application/use-cases/list-client-sheet-rows'
+import { ListInbox } from '~/application/use-cases/list-inbox'
 import { RegisterClient } from '~/application/use-cases/register-client'
 import { GetDocument } from '~/application/use-cases/get-document'
 import { GetDocumentExtractedData } from '~/application/use-cases/get-document-extracted-data'
@@ -65,6 +66,10 @@ export function useDefineDocumentTypeUseCase() {
 
 export function useListClientSheetRowsUseCase() {
   return new ListClientSheetRows(useSpreadsheetRepository())
+}
+
+export function useListInboxUseCase() {
+  return new ListInbox(useDocumentRepository(), useClientRepository(), useDocumentTypeRepository())
 }
 
 export function useRegisterClientUseCase() {
