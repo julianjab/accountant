@@ -36,11 +36,15 @@ AuthMode = Literal["oauth", "api_key"]
 
 
 def get_auth_mode() -> AuthMode:
-    if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
-        return "oauth"
+    # ANTHROPIC_API_KEY takes precedence: it's the right choice for a
+    # server (billed, revocable independently of any individual's
+    # subscription). CLAUDE_CODE_OAUTH_TOKEN is a fallback for local
+    # development when no API key is configured yet.
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "api_key"
-    msg = "No auth configured: set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY"
+    if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        return "oauth"
+    msg = "No auth configured: set ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN"
     raise RuntimeError(msg)
 
 
