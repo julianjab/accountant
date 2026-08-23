@@ -136,6 +136,24 @@ describe('ListInbox', () => {
     expect(view.groups.map(g => g.client.id)).toEqual(['c2'])
   })
 
+  it('filtering by "processed" also matches "approved" documents, consistent with the processedToday total', async () => {
+    const documents = [
+      document({ id: 'd1', status: 'processed' }),
+      document({ id: 'd2', status: 'approved' }),
+      document({ id: 'd3', status: 'pending' })
+    ]
+    const useCase = new ListInbox(
+      new FakeDocumentRepository(documents),
+      new FakeClientRepository([client({})]),
+      new FakeDocumentTypeRepository([])
+    )
+
+    const view = await useCase.execute({ status: 'processed' })
+
+    expect(view.filteredDocuments).toBe(2)
+    expect(view.groups[0]!.documents.map(d => d.id).sort()).toEqual(['d1', 'd2'])
+  })
+
   it('does not break when a document references a client that no longer exists', async () => {
     const documents = [document({ id: 'd1', clientId: 'missing-client' })]
     const useCase = new ListInbox(
