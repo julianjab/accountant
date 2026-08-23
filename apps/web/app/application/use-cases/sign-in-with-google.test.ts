@@ -1,31 +1,21 @@
-import { describe, expect, it } from 'vitest'
-import type { GoogleAuthSession, GoogleAuthProvider } from '~/application/ports/google-auth-provider'
-import { SignInWithGoogle } from '~/application/use-cases/sign-in-with-google'
+import { describe, expect, it, vi } from 'vitest'
+import { SignInWithGoogle } from './sign-in-with-google'
+import type { GoogleAuthProvider } from '~/application/ports/google-auth-provider'
 
-class FakeGoogleAuthProvider implements GoogleAuthProvider {
-  constructor(private readonly session: GoogleAuthSession) {}
-
-  signIn(): Promise<GoogleAuthSession> {
-    return Promise.resolve(this.session)
+function makeProvider(): GoogleAuthProvider {
+  return {
+    startSignIn: vi.fn(),
+    getCurrentUser: vi.fn(),
+    signOut: vi.fn()
   }
-
-  signOut(): void {}
-
-  getAccessToken(): Promise<string> {
-    return Promise.resolve(this.session.accessToken)
-  }
-
-  onChange(): void {}
 }
 
 describe('SignInWithGoogle', () => {
-  it('returns the session from the auth provider', async () => {
-    const session: GoogleAuthSession = {
-      user: { email: 'jane@example.com', name: 'Jane Doe', picture: null },
-      accessToken: 'token-123'
-    }
-    const useCase = new SignInWithGoogle(new FakeGoogleAuthProvider(session))
+  it('hands the browser to the provider sign-in redirect', () => {
+    const provider = makeProvider()
 
-    await expect(useCase.execute()).resolves.toEqual(session)
+    new SignInWithGoogle(provider).execute()
+
+    expect(provider.startSignIn).toHaveBeenCalledOnce()
   })
 })

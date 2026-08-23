@@ -1,4 +1,9 @@
-export type GoogleAuthErrorCode = 'missingClientId' | 'popupClosed' | 'driveDenied'
+export type GoogleAuthErrorCode
+  = | 'sessionUnavailable'
+    | 'denied'
+    | 'state'
+    | 'no_refresh'
+    | 'exchange'
 
 export class GoogleAuthError extends Error {
   constructor(public readonly code: GoogleAuthErrorCode) {

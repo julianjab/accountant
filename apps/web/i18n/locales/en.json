@@ -29,10 +29,13 @@
     "signOut": "Sign out",
     "signedInAs": "Signed in as {email}",
     "driveReadOnly": "Drive · read-only",
+    "loading": "Checking session…",
     "errors": {
-      "missingClientId": "NUXT_PUBLIC_GOOGLE_CLIENT_ID is not configured",
-      "popupClosed": "The Google sign-in window was closed before completing",
-      "driveDenied": "Read access to Google Drive was not granted"
+      "sessionUnavailable": "Could not verify the session with the server",
+      "denied": "Read access to Google Drive was not granted",
+      "state": "Google's response did not match the request; please try again",
+      "no_refresh": "Google withheld a refresh token; revoke the app's access in your account and try again",
+      "exchange": "Could not complete the credential exchange with Google"
     }
   }
 }

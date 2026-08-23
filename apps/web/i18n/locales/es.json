@@ -29,10 +29,13 @@
     "signOut": "Cerrar sesión",
     "signedInAs": "Sesión iniciada como {email}",
     "driveReadOnly": "Drive · solo lectura",
+    "loading": "Verificando sesión…",
     "errors": {
-      "missingClientId": "Falta configurar NUXT_PUBLIC_GOOGLE_CLIENT_ID",
-      "popupClosed": "Se cerró la ventana de Google antes de completar el inicio de sesión",
-      "driveDenied": "No se otorgaron permisos de lectura sobre Google Drive"
+      "sessionUnavailable": "No se pudo verificar la sesión con el servidor",
+      "denied": "No se otorgaron permisos de lectura sobre Google Drive",
+      "state": "La respuesta de Google no coincidió con la solicitud; intenta de nuevo",
+      "no_refresh": "Google no entregó un token de actualización; revoca el acceso de la app en tu cuenta y vuelve a intentarlo",
+      "exchange": "No se pudo completar el intercambio de credenciales con Google"
     }
   }
 }
