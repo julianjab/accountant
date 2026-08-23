@@ -27,6 +27,7 @@ from server.reconciliation.core.findings import (
     ReconciliationFinding,
     ReconciliationReport,
     ReportSummary,
+    report_id_for,
 )
 from server.reconciliation.core.projection import ConceptMapping, ConceptMappingEntry
 from server.shared import (
@@ -164,11 +165,23 @@ class FirestoreReconciliationReportRepository:
             }
         )
         findings = document.collection(FINDINGS)
+        written: set[str] = set()
         for order, finding in enumerate(report.findings):
             # Finding ids are derived from the rule and the parties, so a
             # rebuild overwrites the previous run's finding in place instead of
             # accumulating a second copy of it.
-            findings.document(_document_id(finding.id)).set(_finding_to_doc(finding, order))
+            document_id = _document_id(finding.id)
+            findings.document(document_id).set(_finding_to_doc(finding, order))
+            written.add(document_id)
+
+        # A rebuild can also make a finding disappear: once the certificate for
+        # a claim arrives, the MISSING_EVIDENCE line for it is replaced by a
+        # matched one under a different id. Overwriting alone would leave the
+        # old line in place, so the report would keep reporting a document as
+        # missing after it was supplied.
+        for snapshot in findings.list_documents():
+            if snapshot.id not in written:
+                snapshot.delete()
 
     def get(self, report_id: str) -> ReconciliationReport | None:
         snapshot = self._collection.document(report_id).get()
@@ -179,18 +192,9 @@ class FirestoreReconciliationReportRepository:
     def get_latest(
         self, client_id: str, kind_id: str, period: Period
     ) -> ReconciliationReport | None:
-        query = (
-            self._collection.where("client_id", "==", client_id)
-            .where("kind_id", "==", kind_id)
-            .where("period_key", "==", period.key)
-        )
-        snapshots = list(query.stream())
-        if not snapshots:
-            return None
-        # Ordered client-side so this query needs no composite index; a client
-        # holds a handful of reports per period, not a page's worth.
-        latest = max(snapshots, key=lambda s: _as_utc(s.to_dict()["generated_at"]))
-        return self._to_entity(latest.id, latest.to_dict())
+        # A client and period have exactly one report, at a derived id, so this
+        # is a point read: no query, no composite index, and nothing to scan.
+        return self.get(report_id_for(client_id, kind_id, period))
 
     def _to_entity(self, doc_id: str, data: dict[str, Any]) -> ReconciliationReport:
         findings_query = self._collection.document(doc_id).collection(FINDINGS)

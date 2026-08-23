@@ -251,8 +251,10 @@ def test_reports_are_rebuilt_rather_than_accumulated(wiring):
     request = ReconcileClientPeriodInput("client-1", KIND_ID, Period.of_year(2025))
     first = use_case.execute(request)
     second = use_case.execute(request)
-    assert first.id != second.id
-    assert reports.get(first.id) is not None
+    # A report is the current answer for a client and period, not an entry in
+    # an event log: the rebuild replaces it rather than leaving an orphan
+    # behind for every document that was ever uploaded.
+    assert first.id == second.id
     assert reports.get_latest("client-1", KIND_ID, Period.of_year(2025)).id == second.id
     assert first.summary.counts == second.summary.counts
 

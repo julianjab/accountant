@@ -88,6 +88,18 @@ class ReportSummary:
         )
 
 
+def report_id_for(client_id: str, kind_id: str, period: Period) -> str:
+    """The identity of *the* reconciliation of a client for a period.
+
+    Derived rather than random because a report is not an event log entry: it
+    is the current answer for that client and period, and every rebuild
+    replaces it. A fresh id per run would leave a trail of orphaned reports,
+    each with its own findings, and force every read to scan them to find the
+    newest.
+    """
+    return f"{client_id}__{kind_id}__{period.key}"
+
+
 @dataclass(frozen=True, slots=True)
 class ReconciliationReport:
     id: str

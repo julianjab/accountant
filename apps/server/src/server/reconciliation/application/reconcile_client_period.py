@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from server.reconciliation.application.ports import FactProvider, ReconciliationReportRepository
 from server.reconciliation.core.engine import ReconciliationEngine
-from server.reconciliation.core.findings import ReconciliationReport
+from server.reconciliation.core.findings import ReconciliationReport, report_id_for
 from server.reconciliation.core.registry import KindRegistry
 from server.shared import Period
 
@@ -53,7 +53,11 @@ class ReconcileClientPeriod:
 
         facts = self._facts.facts_for(data.client_id, data.period, kind.id)
         report = self._engine.reconcile(
-            kind=kind, client_id=data.client_id, period=data.period, facts=facts
+            kind=kind,
+            client_id=data.client_id,
+            period=data.period,
+            facts=facts,
+            report_id=report_id_for(data.client_id, kind.id, data.period),
         )
         self._reports.save(report)
         logger.info(
