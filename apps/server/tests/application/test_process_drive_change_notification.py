@@ -53,6 +53,7 @@ class FakeDriveFileClaimRepository:
         self._claimed = set(already_claimed or set())
         self._failures: dict[str, int] = {}
         self.release_calls: list[str] = []
+        self.clear_failures_calls: list[str] = []
 
     def try_claim(self, key: str) -> bool:
         if key in self._claimed:
@@ -68,16 +69,21 @@ class FakeDriveFileClaimRepository:
         self._failures[key] = self._failures.get(key, 0) + 1
         return self._failures[key]
 
+    def clear_failures(self, key: str) -> None:
+        self._failures.pop(key, None)
+        self.clear_failures_calls.append(key)
+
 
 class FakeDocumentRepository:
-    def __init__(self, existing: dict[str, str] | None = None) -> None:
-        # Maps drive_file_id -> the client_id the existing document belongs to.
+    def __init__(self, existing: dict[str, tuple[str, DocumentStatus]] | None = None) -> None:
+        # Maps drive_file_id -> (client_id, status) of the existing document.
         self._existing = dict(existing or {})
 
     def get_by_drive_file_id_and_client(
         self, drive_file_id: str, client_id: str
     ) -> Document | None:
-        if self._existing.get(drive_file_id) != client_id:
+        entry = self._existing.get(drive_file_id)
+        if entry is None or entry[0] != client_id:
             return None
         return Document(
             id="existing-doc",
@@ -86,21 +92,31 @@ class FakeDocumentRepository:
             drive_file_id=drive_file_id,
             file_name="invoice.pdf",
             mime_type="application/pdf",
-            status=DocumentStatus.CLASSIFYING,
+            status=entry[1],
             error=None,
             created_at=datetime.now(UTC),
         )
 
 
 class FakeProcessUploadedDocument:
-    def __init__(self, fail_for: set[str] | None = None) -> None:
+    """``raise_for`` simulates a storage.download failure (nothing persisted);
+    ``fail_for`` simulates a classify/OCR failure (a FAILED document is
+    returned, matching ProcessUploadedDocument's real behavior)."""
+
+    def __init__(self, raise_for: set[str] | None = None, fail_for: set[str] | None = None) -> None:
         self.calls: list[ProcessUploadedDocumentInput] = []
+        self._raise_for = raise_for or set()
         self._fail_for = fail_for or set()
 
     def execute(self, data: ProcessUploadedDocumentInput) -> Document:
         self.calls.append(data)
-        if data.drive_file_id in self._fail_for:
-            raise RuntimeError("permanently broken download")
+        if data.drive_file_id in self._raise_for:
+            raise RuntimeError("download failed")
+        status = (
+            DocumentStatus.FAILED
+            if data.drive_file_id in self._fail_for
+            else DocumentStatus.PROCESSED
+        )
         return Document(
             id="doc-1",
             client_id=data.client_id,
@@ -108,8 +124,8 @@ class FakeProcessUploadedDocument:
             drive_file_id=data.drive_file_id,
             file_name="invoice.pdf",
             mime_type="application/pdf",
-            status=DocumentStatus.PROCESSED,
-            error=None,
+            status=status,
+            error="broken" if status == DocumentStatus.FAILED else None,
             created_at=datetime.now(UTC),
         )
 
@@ -187,7 +203,8 @@ def test_processes_only_files_that_belong_to_the_watched_folder_and_are_not_tras
         )
     )
     process_document = FakeProcessUploadedDocument()
-    use_case = _use_case(channels, change_reader, process_document)
+    claims = FakeDriveFileClaimRepository()
+    use_case = _use_case(channels, change_reader, process_document, claims)
 
     processed = use_case.execute(channel_id="channel-1", resource_state="update")
 
@@ -200,6 +217,8 @@ def test_processes_only_files_that_belong_to_the_watched_folder_and_are_not_tras
     assert change_reader.list_changes_calls == ["token-1"]
     # The whole page succeeded, so the cursor is free to advance.
     assert channels.saved[-1].page_token == "token-2"
+    # A PROCESSED file resets the failure counter for its claim key.
+    assert claims.clear_failures_calls == ["channel-1:file-1"]
 
 
 def test_skips_native_google_types_that_cannot_be_downloaded():
@@ -234,6 +253,34 @@ def test_skips_native_google_types_that_cannot_be_downloaded():
     assert process_document.calls == []
 
 
+def test_skips_a_file_already_processed_for_this_channel():
+    channels = FakeDriveWatchChannelRepository(_CHANNEL)
+    change_reader = FakeDriveChangeReader(
+        DriveChangesPage(
+            files=[
+                DriveChangedFile(
+                    id="file-1",
+                    name="invoice.pdf",
+                    mime_type="application/pdf",
+                    parents=["folder-1"],
+                    trashed=False,
+                )
+            ],
+            next_page_token="token-2",
+        )
+    )
+    process_document = FakeProcessUploadedDocument()
+    documents = FakeDocumentRepository(existing={"file-1": ("client-1", DocumentStatus.PROCESSED)})
+    use_case = _use_case(channels, change_reader, process_document, documents=documents)
+
+    processed = use_case.execute(channel_id="channel-1", resource_state="update")
+
+    # Already PROCESSED for this client: a retry must not duplicate the document.
+    assert processed == []
+    assert process_document.calls == []
+    assert channels.saved[-1].page_token == "token-2"
+
+
 def test_skips_a_file_that_was_already_claimed_by_this_channel():
     channels = FakeDriveWatchChannelRepository(_CHANNEL)
     change_reader = FakeDriveChangeReader(
@@ -256,7 +303,6 @@ def test_skips_a_file_that_was_already_claimed_by_this_channel():
 
     processed = use_case.execute(channel_id="channel-1", resource_state="update")
 
-    # Drive notifications are at-least-once: a retry must not duplicate the document.
     assert processed == []
     assert process_document.calls == []
     assert channels.saved[-1].page_token == "token-2"
@@ -270,7 +316,7 @@ def test_a_file_shared_into_two_watched_folders_is_claimed_independently_per_cha
     assert claims.try_claim("channel-2:file-1") is True
 
 
-def test_a_failure_releases_the_claim_when_nothing_was_persisted():
+def test_a_download_failure_releases_the_claim_and_retries_next_time():
     channels = FakeDriveWatchChannelRepository(_CHANNEL)
     change_reader = FakeDriveChangeReader(
         DriveChangesPage(
@@ -293,10 +339,9 @@ def test_a_failure_releases_the_claim_when_nothing_was_persisted():
             next_page_token="token-2",
         )
     )
-    process_document = FakeProcessUploadedDocument(fail_for={"file-1"})
+    process_document = FakeProcessUploadedDocument(raise_for={"file-1"})
     claims = FakeDriveFileClaimRepository()
-    documents = FakeDocumentRepository()  # nothing was ever persisted for file-1
-    use_case = _use_case(channels, change_reader, process_document, claims, documents)
+    use_case = _use_case(channels, change_reader, process_document, claims)
 
     processed = use_case.execute(channel_id="channel-1", resource_state="update")
 
@@ -308,7 +353,7 @@ def test_a_failure_releases_the_claim_when_nothing_was_persisted():
     assert channels.saved == []
 
 
-def test_a_failure_keeps_the_claim_when_a_document_was_already_persisted():
+def test_a_failed_document_is_returned_and_still_retried():
     channels = FakeDriveWatchChannelRepository(_CHANNEL)
     change_reader = FakeDriveChangeReader(
         DriveChangesPage(
@@ -326,42 +371,15 @@ def test_a_failure_keeps_the_claim_when_a_document_was_already_persisted():
     )
     process_document = FakeProcessUploadedDocument(fail_for={"file-1"})
     claims = FakeDriveFileClaimRepository()
-    # ProcessUploadedDocument always creates a fresh Document id, so a retry
-    # after releasing the claim here would duplicate this partial row.
-    documents = FakeDocumentRepository(existing={"file-1": "client-1"})
-    use_case = _use_case(channels, change_reader, process_document, claims, documents)
+    use_case = _use_case(channels, change_reader, process_document, claims)
 
-    use_case.execute(channel_id="channel-1", resource_state="update")
+    processed = use_case.execute(channel_id="channel-1", resource_state="update")
 
-    assert claims.release_calls == []
-
-
-def test_a_failure_releases_the_claim_when_the_existing_document_belongs_to_another_client():
-    channels = FakeDriveWatchChannelRepository(_CHANNEL)
-    change_reader = FakeDriveChangeReader(
-        DriveChangesPage(
-            files=[
-                DriveChangedFile(
-                    id="file-1",
-                    name="broken.pdf",
-                    mime_type="application/pdf",
-                    parents=["folder-1"],
-                    trashed=False,
-                )
-            ],
-            next_page_token="token-2",
-        )
-    )
-    process_document = FakeProcessUploadedDocument(fail_for={"file-1"})
-    claims = FakeDriveFileClaimRepository()
-    # A file shared into two watched folders: another channel/client already
-    # has a document for it, but this channel's own client still needs one.
-    documents = FakeDocumentRepository(existing={"file-1": "other-client"})
-    use_case = _use_case(channels, change_reader, process_document, claims, documents)
-
-    use_case.execute(channel_id="channel-1", resource_state="update")
-
+    # A transient classify/OCR failure is not swallowed: it is still retried
+    # on the next notification, exactly like a download failure.
+    assert processed == []
     assert claims.release_calls == ["channel-1:file-1"]
+    assert channels.saved == []
 
 
 def test_a_file_that_keeps_failing_stops_being_retried_after_the_attempt_cap():
@@ -385,12 +403,18 @@ def test_a_file_that_keeps_failing_stops_being_retried_after_the_attempt_cap():
 
     # Retry the same notification repeatedly, as Drive would for a channel
     # stuck on a failing page.
+    results = []
     for _ in range(5):
         use_case = _use_case(channels, change_reader, process_document, claims)
-        use_case.execute(channel_id="channel-1", resource_state="update")
+        results.append(use_case.execute(channel_id="channel-1", resource_state="update"))
 
-    # After the cap, the file is no longer released for retry (given up on),
-    # and the channel's cursor is free to advance instead of retrying forever.
+    # After the cap (the 3rd attempt), the file is no longer released for
+    # retry (given up on): its FAILED document is returned instead of being
+    # discarded, and the channel's cursor is free to advance. Later attempts
+    # find the claim still held and do nothing further.
     assert claims.release_calls == ["channel-1:file-1", "channel-1:file-1"]
+    assert [d.status for d in results[2]] == [DocumentStatus.FAILED]
+    assert results[3] == []
+    assert results[4] == []
     assert channels.saved != []
     assert channels.saved[-1].page_token == "token-2"

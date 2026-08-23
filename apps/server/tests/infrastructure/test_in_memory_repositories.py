@@ -1,6 +1,9 @@
 import threading
+from datetime import UTC, datetime
 
+from server.domain.entities import Document, DocumentStatus
 from server.infrastructure.adapters.in_memory_repositories import (
+    InMemoryDocumentRepository,
     InMemoryDriveFileClaimRepository,
 )
 
@@ -50,3 +53,46 @@ def test_try_claim_is_safe_under_concurrent_threads():
 
     assert results.count(True) == 1
     assert results.count(False) == 19
+
+
+def test_record_failure_increments_and_clear_failures_resets():
+    repo = InMemoryDriveFileClaimRepository()
+
+    assert repo.record_failure("file-1") == 1
+    assert repo.record_failure("file-1") == 2
+
+    repo.clear_failures("file-1")
+
+    assert repo.record_failure("file-1") == 1
+
+
+def test_get_by_drive_file_id_and_client_is_scoped_to_the_client():
+    repo = InMemoryDocumentRepository()
+    mine = Document(
+        id="d1",
+        client_id="c1",
+        document_type_id=None,
+        drive_file_id="f1",
+        file_name="a.pdf",
+        mime_type="application/pdf",
+        status=DocumentStatus.PROCESSED,
+        error=None,
+        created_at=datetime.now(UTC),
+    )
+    other_clients_copy = Document(
+        id="d2",
+        client_id="c2",
+        document_type_id=None,
+        drive_file_id="f1",
+        file_name="a.pdf",
+        mime_type="application/pdf",
+        status=DocumentStatus.PROCESSED,
+        error=None,
+        created_at=datetime.now(UTC),
+    )
+    repo.save(mine)
+    repo.save(other_clients_copy)
+
+    assert repo.get_by_drive_file_id_and_client("f1", "c1") == mine
+    assert repo.get_by_drive_file_id_and_client("f1", "c2") == other_clients_copy
+    assert repo.get_by_drive_file_id_and_client("f1", "c3") is None

@@ -40,6 +40,17 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
+def _increment_attempts(transaction, ref) -> int:
+    """Reads-then-writes the attempt counter inside a transaction, so two
+    concurrent handlers recording a failure for the same key cannot both read
+    the same starting count and silently drop one increment."""
+    with transaction:
+        snapshot = ref.get(transaction=transaction)
+        attempts = (snapshot.to_dict() or {}).get("attempts", 0) + 1 if snapshot.exists else 1
+        transaction.set(ref, {"attempts": attempts})
+    return attempts
+
+
 class FirestoreClientRepository:
     def __init__(self, db: FirestoreClient) -> None:
         self._collection = db.collection(CLIENTS)
@@ -289,6 +300,7 @@ class FirestoreDriveFileClaimRepository:
     """
 
     def __init__(self, db: FirestoreClient) -> None:
+        self._db = db
         self._collection = db.collection(DRIVE_FILE_CLAIMS)
         self._failures = db.collection(DRIVE_FILE_CLAIM_FAILURES)
 
@@ -303,8 +315,10 @@ class FirestoreDriveFileClaimRepository:
         self._collection.document(key).delete()
 
     def record_failure(self, key: str) -> int:
-        ref = self._failures.document(key)
-        snapshot = ref.get()
-        attempts = (snapshot.to_dict() or {}).get("attempts", 0) + 1 if snapshot.exists else 1
-        ref.set({"attempts": attempts})
-        return attempts
+        # A transaction (not a plain get-then-set) is what keeps this correct
+        # under two concurrent handlers recording a failure for the same key.
+        transaction = self._db.transaction()
+        return _increment_attempts(transaction, self._failures.document(key))
+
+    def clear_failures(self, key: str) -> None:
+        self._failures.document(key).delete()

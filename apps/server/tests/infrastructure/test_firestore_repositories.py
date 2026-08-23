@@ -38,11 +38,22 @@ class FakeDocumentRef:
             raise AlreadyExists("already exists")
         self._collection.data[self._id] = data
 
-    def get(self) -> "FakeSnapshot":
+    def get(self, transaction: "FakeTransaction | None" = None) -> "FakeSnapshot":
         return FakeSnapshot(self._id, self._collection.data.get(self._id))
 
     def delete(self) -> None:
         self._collection.data.pop(self._id, None)
+
+
+class FakeTransaction:
+    def __enter__(self) -> "FakeTransaction":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        pass
+
+    def set(self, ref: FakeDocumentRef, data: dict) -> None:
+        ref.set(data)
 
 
 class FakeSnapshot:
@@ -61,6 +72,10 @@ class FakeSnapshot:
 class FakeQuery:
     def __init__(self, items: list[FakeSnapshot]) -> None:
         self._items = items
+
+    def where(self, field: str, op: str, value) -> "FakeQuery":
+        assert op == "=="
+        return FakeQuery([s for s in self._items if (s.to_dict() or {}).get(field) == value])
 
     def limit(self, count: int) -> "FakeQuery":
         return FakeQuery(self._items[:count])
@@ -92,6 +107,9 @@ class FakeFirestore:
 
     def collection(self, name: str) -> FakeCollection:
         return self._collections.setdefault(name, FakeCollection())
+
+    def transaction(self) -> FakeTransaction:
+        return FakeTransaction()
 
 
 def test_client_round_trips():
@@ -268,3 +286,55 @@ def test_drive_file_claim_succeeds_only_once():
 
     assert repo.try_claim("file-1") is True
     assert repo.try_claim("file-1") is False
+
+
+def test_drive_file_claim_release_allows_claiming_again():
+    repo = FirestoreDriveFileClaimRepository(FakeFirestore())
+    repo.try_claim("file-1")
+
+    repo.release("file-1")
+
+    assert repo.try_claim("file-1") is True
+
+
+def test_drive_file_claim_record_failure_increments_and_clear_resets():
+    repo = FirestoreDriveFileClaimRepository(FakeFirestore())
+
+    assert repo.record_failure("file-1") == 1
+    assert repo.record_failure("file-1") == 2
+
+    repo.clear_failures("file-1")
+
+    assert repo.record_failure("file-1") == 1
+
+
+def test_document_is_found_by_drive_file_id_scoped_to_its_client():
+    repo = FirestoreDocumentRepository(FakeFirestore())
+    mine = Document(
+        id="d1",
+        client_id="c1",
+        document_type_id=None,
+        drive_file_id="f1",
+        file_name="a.pdf",
+        mime_type="application/pdf",
+        status=DocumentStatus.PROCESSED,
+        error=None,
+        created_at=NOW,
+    )
+    other_clients_copy = Document(
+        id="d2",
+        client_id="c2",
+        document_type_id=None,
+        drive_file_id="f1",
+        file_name="a.pdf",
+        mime_type="application/pdf",
+        status=DocumentStatus.PROCESSED,
+        error=None,
+        created_at=NOW,
+    )
+    repo.save(mine)
+    repo.save(other_clients_copy)
+
+    assert repo.get_by_drive_file_id_and_client("f1", "c1") == mine
+    assert repo.get_by_drive_file_id_and_client("f1", "c2") == other_clients_copy
+    assert repo.get_by_drive_file_id_and_client("f1", "c3") is None

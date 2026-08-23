@@ -5,7 +5,7 @@ from server.application.use_cases.process_uploaded_document import (
     ProcessUploadedDocument,
     ProcessUploadedDocumentInput,
 )
-from server.domain.entities import Document, DriveChangedFile, DriveWatchChannel
+from server.domain.entities import Document, DocumentStatus, DriveChangedFile, DriveWatchChannel
 from server.domain.ports import (
     DocumentRepository,
     DriveChangeReader,
@@ -77,6 +77,17 @@ class ProcessDriveChangeNotification:
         for file in files:
             if not self._should_process(channel.folder_id, file):
                 continue
+            # A document already PROCESSED for this channel's client is the
+            # only thing that should block a retry: ProcessUploadedDocument
+            # always creates a fresh Document id rather than resuming one, so
+            # retrying past a real success would duplicate it. A FAILED (or
+            # missing) document for this file/client is exactly what should be
+            # retried; a document another channel/client already has for the
+            # same Drive file id does not count, since claims are per-channel.
+            existing = self._documents.get_by_drive_file_id_and_client(file.id, channel.client_id)
+            if existing is not None and existing.status == DocumentStatus.PROCESSED:
+                continue
+
             # Scoped to the channel: the same Drive file can sit under more than
             # one watched folder (e.g. shared with two different clients), and
             # each of those channels must still get to process it once.
@@ -86,47 +97,66 @@ class ProcessDriveChangeNotification:
             # instead of racing another in-flight handler into a duplicate.
             if not self._claims.try_claim(claim_key):
                 continue
-            try:
-                processed.append(
-                    self._process_document.execute(
-                        ProcessUploadedDocumentInput(
-                            client_id=channel.client_id,
-                            drive_file_id=file.id,
-                            file_reference=file.id,
-                        )
-                    )
-                )
-            except Exception:
-                logger.exception(
-                    "Failed to process Drive file %s for channel %s", file.id, channel.id
-                )
-                # Only undo the claim if nothing was persisted for *this*
-                # channel's client: ProcessUploadedDocument always creates a
-                # fresh Document id rather than resuming one, so releasing the
-                # claim after it already wrote a partial (CLASSIFYING/
-                # RUNNING_OCR) row for this client would let a retry create a
-                # second Document for the same file. A document another
-                # channel/client already has for this same Drive file id does
-                # not count: claims are per-channel, so this channel still owes
-                # its own client a document.
-                existing = self._documents.get_by_drive_file_id_and_client(
-                    file.id, channel.client_id
-                )
-                if existing is not None:
-                    continue
 
-                attempts = self._claims.record_failure(claim_key)
-                if attempts < _MAX_ATTEMPTS:
-                    self._claims.release(claim_key)
-                    had_failures = True
-                else:
-                    logger.error(
-                        "Giving up on Drive file %s for channel %s after %d attempts",
-                        file.id,
-                        channel.id,
-                        attempts,
-                    )
+            document = self._attempt(channel, file)
+            if document is None:
+                had_failures = True
+                continue
+            processed.append(document)
+            if document.status == DocumentStatus.PROCESSED:
+                self._claims.clear_failures(claim_key)
+
         return processed, had_failures
+
+    def _attempt(self, channel: DriveWatchChannel, file: DriveChangedFile) -> Document | None:
+        """Runs one processing attempt.
+
+        Returns the resulting Document, or None if the caller should retry
+        this file on a future notification instead of treating it as done.
+        """
+        claim_key = f"{channel.id}:{file.id}"
+        try:
+            document = self._process_document.execute(
+                ProcessUploadedDocumentInput(
+                    client_id=channel.client_id,
+                    drive_file_id=file.id,
+                    file_reference=file.id,
+                )
+            )
+        except Exception:
+            # Only storage.download can still raise here: nothing was
+            # persisted, so this attempt is a clean, safe-to-retry no-op.
+            logger.exception("Failed to download Drive file %s for channel %s", file.id, channel.id)
+            self._should_retry(claim_key, file.id, channel.id)
+            return None
+
+        if document.status != DocumentStatus.FAILED:
+            return document
+
+        logger.warning(
+            "Drive file %s for channel %s failed to process: %s",
+            file.id,
+            channel.id,
+            document.error,
+        )
+        if self._should_retry(claim_key, file.id, channel.id):
+            return None
+        # Gave up: keep the FAILED document as the visible, inspectable
+        # record of what happened, rather than discarding it silently.
+        return document
+
+    def _should_retry(self, claim_key: str, file_id: str, channel_id: str) -> bool:
+        attempts = self._claims.record_failure(claim_key)
+        if attempts < _MAX_ATTEMPTS:
+            self._claims.release(claim_key)
+            return True
+        logger.error(
+            "Giving up on Drive file %s for channel %s after %d attempts",
+            file_id,
+            channel_id,
+            attempts,
+        )
+        return False
 
     @staticmethod
     def _should_process(folder_id: str, file: DriveChangedFile) -> bool:

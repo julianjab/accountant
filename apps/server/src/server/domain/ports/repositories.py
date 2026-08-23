@@ -83,3 +83,12 @@ class DriveFileClaimRepository(Protocol):
         re-attempted on every future notification for that channel, forever.
         """
         ...
+
+    def clear_failures(self, key: str) -> None:
+        """Resets the failure count for a key after it is eventually processed.
+
+        Without this, an old, unrelated run of failures years ago against a
+        key that later succeeded (and could reasonably fail again for a new,
+        unrelated reason) would count towards today's retry cap immediately.
+        """
+        ...

@@ -139,3 +139,7 @@ class InMemoryDriveFileClaimRepository:
         with self._lock:
             self._failures[key] = self._failures.get(key, 0) + 1
             return self._failures[key]
+
+    def clear_failures(self, key: str) -> None:
+        with self._lock:
+            self._failures.pop(key, None)
