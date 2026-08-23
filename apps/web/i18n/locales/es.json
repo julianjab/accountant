@@ -2,6 +2,18 @@
   "app": {
     "name": "Contador"
   },
+  "nav": {
+    "inbox": "Bandeja",
+    "clients": "Clientes",
+    "documentTypes": "Tipos de documento",
+    "sheets": "Hojas de cálculo"
+  },
+  "breadcrumb": {
+    "home": "inicio"
+  },
+  "topbar": {
+    "search": "Buscar cliente o documento"
+  },
   "clients": {
     "title": "Clientes",
     "empty": "Aún no hay clientes registrados.",
@@ -16,6 +28,8 @@
     "signIn": "Iniciar sesión con Google",
     "signOut": "Cerrar sesión",
     "signedInAs": "Sesión iniciada como {email}",
+    "driveReadOnly": "Drive · solo lectura",
+    "signedOut": "Sin sesión",
     "errors": {
       "missingClientId": "Falta configurar NUXT_PUBLIC_GOOGLE_CLIENT_ID",
       "popupClosed": "Se cerró la ventana de Google antes de completar el inicio de sesión",

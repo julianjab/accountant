@@ -2,6 +2,18 @@
   "app": {
     "name": "Accountant"
   },
+  "nav": {
+    "inbox": "Inbox",
+    "clients": "Clients",
+    "documentTypes": "Document types",
+    "sheets": "Sheets"
+  },
+  "breadcrumb": {
+    "home": "home"
+  },
+  "topbar": {
+    "search": "Search a client or document"
+  },
   "clients": {
     "title": "Clients",
     "empty": "No clients registered yet.",
@@ -16,6 +28,8 @@
     "signIn": "Sign in with Google",
     "signOut": "Sign out",
     "signedInAs": "Signed in as {email}",
+    "driveReadOnly": "Drive · read-only",
+    "signedOut": "Not signed in",
     "errors": {
       "missingClientId": "NUXT_PUBLIC_GOOGLE_CLIENT_ID is not configured",
       "popupClosed": "The Google sign-in window was closed before completing",
