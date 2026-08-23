@@ -48,7 +48,8 @@
       "configuredTypes": {
         "title": "Tipos configurados",
         "activeCount": "{count} activos",
-        "goToConfig": "Configurar extracción"
+        "goToConfig": "Configurar extracción",
+        "configComingSoon": "Disponible cuando se implemente la pantalla de tipos de documento (issue #12)"
       },
       "export": {
         "label": "Exportar a hoja de cálculo",

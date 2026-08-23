@@ -37,16 +37,18 @@ const activeCount = computed(() => props.types.filter(type => type.active).lengt
       </span>
     </div>
 
-    <!-- TODO(#12): point to the real document-type configuration route once it exists. -->
-    <UButton
-      class="mt-3.5"
-      block
-      variant="outline"
-      color="neutral"
-      size="sm"
-      :label="t('clients.detail.configuredTypes.goToConfig')"
-      to="/TODO(#12)"
-      :ui="{ base: 'ring-white/14 bg-transparent hover:bg-white/[.07] active:bg-white/[.07]', label: 'text-invert' }"
-    />
+    <!-- TODO(#12): enable and link to the real document-type configuration route once it exists. -->
+    <UTooltip :text="t('clients.detail.configuredTypes.configComingSoon')">
+      <UButton
+        class="mt-3.5"
+        block
+        variant="outline"
+        color="neutral"
+        size="sm"
+        :label="t('clients.detail.configuredTypes.goToConfig')"
+        disabled
+        :ui="{ base: 'ring-white/14 bg-transparent', label: 'text-invert' }"
+      />
+    </UTooltip>
   </UCard>
 </template>

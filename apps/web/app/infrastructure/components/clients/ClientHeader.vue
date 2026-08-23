@@ -17,6 +17,14 @@ const initials = computed(() =>
     .join('')
     .toUpperCase()
 )
+
+// The server rejects non-https values, but the link is rendered as a plain
+// <a href> — re-check here too so a stale/hand-edited value can never
+// become an executable `javascript:` href.
+const driveFolderUrl = computed(() => {
+  const url = props.client.driveFolderUrl
+  return url && url.startsWith('https://') ? url : null
+})
 </script>
 
 <template>
@@ -36,7 +44,7 @@ const initials = computed(() =>
         <span>{{ client.email ?? t('clients.detail.noEmail') }}</span>
 
         <UTooltip
-          v-if="!client.driveFolderUrl"
+          v-if="!driveFolderUrl"
           :text="t('clients.detail.driveMissing')"
         >
           <UButton
@@ -55,7 +63,7 @@ const initials = computed(() =>
           color="neutral"
           variant="outline"
           size="sm"
-          :to="client.driveFolderUrl"
+          :to="driveFolderUrl"
           target="_blank"
           rel="noopener noreferrer"
         />

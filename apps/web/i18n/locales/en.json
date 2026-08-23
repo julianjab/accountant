@@ -48,7 +48,8 @@
       "configuredTypes": {
         "title": "Configured types",
         "activeCount": "{count} active",
-        "goToConfig": "Configure extraction"
+        "goToConfig": "Configure extraction",
+        "configComingSoon": "Available once the document-type screen ships (issue #12)"
       },
       "export": {
         "label": "Export to spreadsheet",
