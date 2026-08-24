@@ -210,4 +210,34 @@ describe('HttpDocumentRepository.importForClient', () => {
       body: { approved_by: null }
     })
   })
+
+  it('withdraws an approval so the document can be changed again', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      id: 'doc-1',
+      client_id: 'client-1',
+      document_type_id: null,
+      drive_file_id: 'drive-1',
+      file_name: 'reporteExogena2025.xlsx',
+      mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      status: 'processed',
+      error: null,
+      created_at: '2026-01-01',
+      processed_at: '2026-01-02',
+      source_id: 'exogena_report'
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const repository = new HttpDocumentRepository('http://localhost:8000')
+    const result = await repository.reopen('doc-1')
+
+    expect(result.status).toBe('processed')
+    // What it was read as survives: withdrawing a review says nothing about
+    // the contents, only that nobody stands behind them any more.
+    expect(result.sourceId).toBe('exogena_report')
+    expect(fetchMock).toHaveBeenCalledWith('/documents/doc-1/reopen', {
+      baseURL: 'http://localhost:8000',
+      credentials: 'include',
+      method: 'POST'
+    })
+  })
 })
