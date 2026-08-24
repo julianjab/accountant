@@ -44,9 +44,11 @@ const TYPE = {
     {
       path: 'base_gravable',
       label: 'Base gravable del GMF',
-      role: 'amount',
+      // No role stored, as every type configured before roles were carried:
+      // the path is what has to say this is money.
+      role: 'context',
       section: 'Gravamen a los movimientos financieros',
-      sample_value: '2.241.275,17'
+      sample_value: '2241275.17'
     }
   ],
   tax_years: [],
@@ -263,5 +265,19 @@ test.describe('Regenerar un tipo de documento', () => {
       section: 'Gravamen a los movimientos financieros',
       note: 'Son mensuales, no acumulados.'
     })
+  })
+
+  test('reads the stored fields as money too, not only the proposed ones', async ({
+    page,
+    baseURL
+  }) => {
+    // The list of what the type extracts today is where the accountant checks
+    // a figure against the paper most often, and it was the one showing the
+    // raw `2241275.17`.
+    await stubServer(page, baseURL!, [])
+    await page.goto('/document-types/type-1')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByTestId('field-rows')).toContainText('$ 2.241.275,17')
   })
 })

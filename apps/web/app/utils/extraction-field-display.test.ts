@@ -3,6 +3,7 @@ import {
   formatAccountingAmountString,
   formatAccountingNumber,
   formatSampleAmount,
+  formatSampleValue,
   formatScalarValue,
   humanizeFieldKey,
   isArrayOfObjects,
@@ -119,5 +120,34 @@ describe('formatSampleAmount', () => {
 
   it('reads a negative as accountants read one', () => {
     expect(formatSampleAmount('-1234.5')).toBe('($ 1.234,50)')
+  })
+})
+
+describe('formatSampleValue', () => {
+  it('reads a figure the model called an amount as money', () => {
+    expect(formatSampleValue('9946131.00', 'amount', 'costos_y_gastos.intereses')).toBe(
+      '$ 9.946.131,00'
+    )
+  })
+
+  it('reads a figure as money when the path says so and the role does not', () => {
+    // The role is the model's guess, and a type configured before roles were
+    // stored has none — which is how a certificate ended up showing
+    // `9946131.00` on the screen built for recognising which figure a row is.
+    expect(
+      formatSampleValue('1117.66', 'context', 'componente_inflacionario.ingreso_no_constitutivo')
+    ).toBe('$ 1.117,66')
+  })
+
+  it('never turns an identifier into a sum of pesos', () => {
+    // A NIT reads as a long number; formatted, the one field that ties the
+    // paper to a party would read as money.
+    expect(formatSampleValue('890903938', 'identifier', 'nit_entidad')).toBe('890903938')
+  })
+
+  it('leaves prose alone', () => {
+    expect(formatSampleValue('BANCOLOMBIA S.A.', 'context', 'razon_social')).toBe(
+      'BANCOLOMBIA S.A.'
+    )
   })
 })
