@@ -297,3 +297,38 @@ def test_a_recognized_exogena_can_be_approved_over_http() -> None:
         deps.get_document_storage = original_storage
         app.dependency_overrides.clear()
         get_document_repository.cache_clear()
+
+
+def test_a_reopened_document_can_be_read_as_a_different_source() -> None:
+    """The way out of the block above. Approving the wrong format used to be
+    permanent: nothing could re-read the file, and nothing could withdraw the
+    approval either."""
+    from server.application.use_cases import ReopenDocument, ReopenDocumentInput
+
+    documents = InMemoryDocumentRepository()
+    documents.save(
+        Document(
+            id="doc-1",
+            client_id="client-1",
+            document_type_id=None,
+            drive_file_id="drive-1",
+            file_name="reporteExogena2025.xlsx",
+            mime_type=XLSX,
+            status=DocumentStatus.APPROVED,
+            error=None,
+            created_at=datetime.now(UTC),
+            approved_by="jane",
+            source_id=EXOGENA_SOURCE,
+        )
+    )
+    use_case = _use_case(
+        documents, InMemoryExtractedDataRepository(), _Storage(fixtures.exogena_workbook_bytes())
+    )
+
+    ReopenDocument(documents).execute(ReopenDocumentInput(document_id="doc-1"))
+    recognized = use_case.execute(
+        RecognizeDocumentSourceInput(document_id="doc-1", source_id=EXOGENA_SOURCE)
+    )
+
+    assert recognized.document.status == DocumentStatus.PROCESSED
+    assert recognized.document.source_id == EXOGENA_SOURCE
