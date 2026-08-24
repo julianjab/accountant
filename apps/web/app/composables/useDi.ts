@@ -2,6 +2,7 @@ import { HttpClientRepository } from '~/infrastructure/http/http-client-reposito
 import { HttpDocumentRepository } from '~/infrastructure/http/http-document-repository'
 import { HttpDocumentTypeRepository } from '~/infrastructure/http/http-document-type-repository'
 import { HttpSpreadsheetRepository } from '~/infrastructure/http/http-spreadsheet-repository'
+import { HttpReconciliationRepository } from '~/infrastructure/http/http-reconciliation-repository'
 import { ServerSessionAuthProvider } from '~/infrastructure/auth/server-session-auth-provider'
 import { GetClient } from '~/application/use-cases/get-client'
 import { ListClients } from '~/application/use-cases/list-clients'
@@ -16,6 +17,8 @@ import { ImportClientsFromDrive } from '~/application/use-cases/import-clients-f
 import { GetCurrentUser } from '~/application/use-cases/get-current-user'
 import { ListDocumentTypes } from '~/application/use-cases/list-document-types'
 import { DefineDocumentType } from '~/application/use-cases/define-document-type'
+import { GetReconciliationReport } from '~/application/use-cases/get-reconciliation-report'
+import { RunReconciliation } from '~/application/use-cases/run-reconciliation'
 import { SignInWithGoogle } from '~/application/use-cases/sign-in-with-google'
 import { SignOut } from '~/application/use-cases/sign-out'
 import type { GoogleAuthProvider } from '~/application/ports/google-auth-provider'
@@ -38,6 +41,19 @@ export function useDocumentTypeRepository() {
 export function useSpreadsheetRepository() {
   const config = useRuntimeConfig()
   return new HttpSpreadsheetRepository(config.public.serverApiBase)
+}
+
+export function useReconciliationRepository() {
+  const config = useRuntimeConfig()
+  return new HttpReconciliationRepository(config.public.serverApiBase)
+}
+
+export function useGetReconciliationReportUseCase() {
+  return new GetReconciliationReport(useReconciliationRepository())
+}
+
+export function useRunReconciliationUseCase() {
+  return new RunReconciliation(useReconciliationRepository())
 }
 
 export function useListClientsUseCase() {
