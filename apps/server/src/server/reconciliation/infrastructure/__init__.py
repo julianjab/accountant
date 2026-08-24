@@ -1,5 +1,6 @@
 from server.reconciliation.infrastructure.document_approval import (
     ApproveDocumentAndReconcile,
+    ReprocessDocumentAndReconcile,
 )
 from server.reconciliation.infrastructure.document_fact_provider import DocumentFactProvider
 from server.reconciliation.infrastructure.document_type_deletion import (
@@ -17,5 +18,6 @@ __all__ = [
     "InMemoryConceptMappingRepository",
     "KindSourceParsers",
     "ApproveDocumentAndReconcile",
+    "ReprocessDocumentAndReconcile",
     "InMemoryReconciliationReportRepository",
 ]

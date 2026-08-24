@@ -24,6 +24,10 @@ from server.application.use_cases.describe_document_type_fields import (
     DescribeDocumentTypeFields,
     DescribeDocumentTypeFieldsInput,
 )
+from server.application.use_cases.extract_document import (
+    DocumentExtraction,
+    ExtractDocument,
+)
 from server.application.use_cases.get_document_metrics import DocumentMetrics, GetDocumentMetrics
 from server.application.use_cases.get_extracted_data import GetExtractedData
 from server.application.use_cases.get_google_session import GetGoogleSession
@@ -60,6 +64,11 @@ from server.application.use_cases.read_stored_document import (
 from server.application.use_cases.register_client import (
     RegisterClient,
     RegisterClientInput,
+)
+from server.application.use_cases.reprocess_document import (
+    ReprocessDocument,
+    ReprocessDocumentInput,
+    ReprocessedDocument,
 )
 from server.application.use_cases.sign_out_google import SignOutGoogle
 from server.application.use_cases.start_google_sign_in import (
@@ -110,6 +119,11 @@ __all__ = [
     "ProcessDriveChangeNotification",
     "ProcessUploadedDocument",
     "ProcessUploadedDocumentInput",
+    "DocumentExtraction",
+    "ExtractDocument",
+    "ReprocessDocument",
+    "ReprocessDocumentInput",
+    "ReprocessedDocument",
     "RegisterClient",
     "RegisterClientInput",
     "SignInNotAllowed",

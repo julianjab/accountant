@@ -6,6 +6,7 @@ from server.application.use_cases import (
     DocumentNotFound,
     GetDocumentMetrics,
     GetExtractedData,
+    ReprocessDocumentInput,
 )
 from server.domain.entities import DocumentStatus
 from server.infrastructure.api.auth_dependency import require_session
@@ -14,6 +15,7 @@ from server.infrastructure.api.deps import (
     get_document_metrics_use_case,
     get_document_repository,
     get_extracted_data_use_case,
+    get_reprocess_document_use_case,
 )
 from server.infrastructure.api.schemas import (
     DocumentApproveRequest,
@@ -87,3 +89,31 @@ def approve_document(
         # to make it — nothing could be read from the file itself.
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return DocumentResponse.model_validate(approved.document, from_attributes=True)
+
+
+@router.post("/{document_id}/reprocess", response_model=DocumentResponse)
+def reprocess_document(
+    document_id: str,
+    use_case=Depends(get_reprocess_document_use_case),
+) -> DocumentResponse:
+    """Reads this one document's file again, whatever state it is in.
+
+    The folder import refuses to touch an APPROVED document, on purpose: a
+    sync must not undo a person's review as a side effect. This endpoint is
+    the deliberate act that may, named per document — it is what a preparer
+    needs after configuring or correcting the type this document belongs to.
+
+    The approval does not survive it: the document comes back PROCESSED and
+    has to be approved again, because the figures on it are now ones nobody
+    has looked at.
+
+    A reading that fails comes back 200 with a FAILED document rather than an
+    error status. Unlike approving — which declines and leaves everything as
+    it was — the reread has already replaced what the document held, so the
+    failure is the document's new state, and the caller needs it to show why.
+    """
+    try:
+        reprocessed = use_case.execute(ReprocessDocumentInput(document_id=document_id))
+    except DocumentNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return DocumentResponse.model_validate(reprocessed.document, from_attributes=True)

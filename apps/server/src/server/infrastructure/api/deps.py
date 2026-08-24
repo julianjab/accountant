@@ -9,6 +9,7 @@ from server.application.use_cases import (
     DefineDocumentType,
     DeleteDocumentType,
     DescribeDocumentTypeFields,
+    ExtractDocument,
     GetDocumentMetrics,
     GetExtractedData,
     GetGoogleSession,
@@ -20,6 +21,7 @@ from server.application.use_cases import (
     ProposeDocumentType,
     ReadStoredDocument,
     RegisterClient,
+    ReprocessDocument,
     SignOutGoogle,
     StartGoogleSignIn,
     SubscribeDriveWebhook,
@@ -90,6 +92,7 @@ from server.reconciliation.infrastructure import (
     InMemoryConceptMappingRepository,
     InMemoryReconciliationReportRepository,
     KindSourceParsers,
+    ReprocessDocumentAndReconcile,
 )
 from server.reconciliation.infrastructure.firestore_repositories import (
     FirestoreConceptMappingRepository,
@@ -242,10 +245,37 @@ def get_approve_document_use_case() -> ApproveDocumentAndReconcile:
     return ApproveDocumentAndReconcile(
         approve=ApproveDocument(
             documents=get_document_repository(),
-            storage=get_document_storage(),
-            parsers=get_source_parsers(),
-            extracted_data=get_extracted_data_repository(),
-            process_document=get_process_uploaded_document_use_case(),
+            extract=get_extract_document_use_case(),
+        ),
+        reconcile=get_reconcile_client_period_use_case(),
+        registry=get_reconciliation_registry(),
+    )
+
+
+def get_extract_document_use_case() -> ExtractDocument:
+    """Reading a file that has already landed, by whichever path it calls for.
+
+    One instance shared by approving and reprocessing so the choice between a
+    dedicated parser and OCR is made in a single place.
+    """
+    return ExtractDocument(
+        storage=get_document_storage(),
+        parsers=get_source_parsers(),
+        extracted_data=get_extracted_data_repository(),
+        process_document=get_process_uploaded_document_use_case(),
+    )
+
+
+def get_reprocess_document_use_case() -> ReprocessDocumentAndReconcile:
+    """Re-reading one document, and rebuilding what that reading changed.
+
+    Composed exactly like approving, because it changes the same figures: what
+    differs is that it drops the approval instead of granting one.
+    """
+    return ReprocessDocumentAndReconcile(
+        reprocess=ReprocessDocument(
+            documents=get_document_repository(),
+            extract=get_extract_document_use_case(),
         ),
         reconcile=get_reconcile_client_period_use_case(),
         registry=get_reconciliation_registry(),
