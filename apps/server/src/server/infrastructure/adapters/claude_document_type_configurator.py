@@ -84,12 +84,15 @@ class ClaudeDocumentTypeConfigurator:
 
         for block in response["content"]:
             if block["type"] == "tool_use" and block["name"] == _PROPOSE_TOOL_NAME:
-                mappings, rejected = _read_mappings(block["input"], concepts)
+                payload = block["input"]
+                mappings, rejected = _read_mappings(
+                    payload, concepts, payload.get("extraction_schema")
+                )
                 return ProposedOcrConfig(
-                    extraction_prompt=block["input"]["extraction_prompt"],
-                    extraction_schema=block["input"]["extraction_schema"],
+                    extraction_prompt=payload["extraction_prompt"],
+                    extraction_schema=payload["extraction_schema"],
                     field_mappings=mappings,
-                    unmapped_fields=(*_read_unmapped(block["input"]), *rejected),
+                    unmapped_fields=(*_read_unmapped(payload), *rejected),
                 )
         msg = "Claude did not return the expected config proposal tool call"
         raise RuntimeError(msg)
@@ -171,38 +174,82 @@ def _mapping_instructions(concepts: Sequence[ConceptOption]) -> str:
 
 
 def _read_mappings(
-    payload: dict, concepts: Sequence[ConceptOption]
+    payload: dict, concepts: Sequence[ConceptOption], schema: object
 ) -> tuple[tuple[ProposedFieldMapping, ...], tuple[tuple[str, str], ...]]:
-    """Reads the mappings, setting aside any the model got wrong.
+    """Reads the mappings, setting aside every entry that cannot be trusted.
 
-    The enum in the tool schema steers the model; it does not bind it. An
-    invented concept id would otherwise reach storage and then select nothing,
-    and a sign of 0 would silently zero the field's amounts. Both are reported
-    as unmapped rather than raised: the document type itself is fine, and
-    failing the request would leave it saved with no mapping at all — the
-    half-configured state this is meant to prevent.
+    The tool schema steers the model; it does not bind it. Its `enum` and its
+    `required` are both advisory, so an entry can arrive with an invented
+    concept, a sign that is neither +1 nor -1, a field the proposed schema
+    never declared, or a missing key altogether.
+
+    Every one of those fails the same silent way: the mapping is stored, the
+    document type looks configured, the projection produces no fact, and the
+    claim it was meant to satisfy stays reported as missing with nothing
+    pointing back here. So each is set aside with a reason rather than stored —
+    and rather than raised, because the document type itself is fine and
+    failing the request would leave it saved with no mapping at all.
     """
     known = {c.id for c in concepts}
     mappings: list[ProposedFieldMapping] = []
     rejected: list[tuple[str, str]] = []
+
     for entry in payload.get("field_mappings", []):
-        field_path, concept_id = entry["field_path"], entry["concept_id"]
+        if not isinstance(entry, dict):
+            rejected.append(("?", f"proposed a mapping that is not an object ({entry!r})"))
+            continue
+        field_path = entry.get("field_path")
+        concept_id = entry.get("concept_id")
         sign = entry.get("sign", 1)
+        if not isinstance(field_path, str) or not field_path:
+            rejected.append(("?", "proposed a mapping with no field path"))
+            continue
         if concept_id not in known:
             rejected.append((field_path, f"proposed an unknown concept ({concept_id})"))
             continue
         if sign not in (1, -1):
             rejected.append((field_path, f"proposed an invalid sign ({sign})"))
             continue
+        if not _resolves_in(field_path, schema):
+            rejected.append((field_path, "proposed a field the schema does not declare"))
+            continue
+        account_path = entry.get("account_path") or None
+        if account_path is not None and not _resolves_in(account_path, schema):
+            # The amount still maps; it just cannot be tied to an account.
+            account_path = None
         mappings.append(
             ProposedFieldMapping(
                 field_path=field_path,
                 concept_id=concept_id,
-                account_path=entry.get("account_path") or None,
+                account_path=account_path,
                 sign=sign,
             )
         )
     return tuple(mappings), tuple(rejected)
+
+
+def _resolves_in(path: str, schema: object) -> bool:
+    """Whether a dotted path points at something the proposed schema declares.
+
+    Walks `properties`, and `items` for a `[]` segment. A schema that declares
+    no properties cannot be checked against, so the path is accepted there:
+    rejecting every mapping would be worse than the gap this closes.
+    """
+    if not isinstance(schema, dict) or not isinstance(schema.get("properties"), dict):
+        return True
+    node: object = schema
+    for segment in path.split("."):
+        iterate = segment.endswith("[]")
+        key = segment[:-2] if iterate else segment
+        properties = node.get("properties") if isinstance(node, dict) else None
+        if not isinstance(properties, dict) or key not in properties:
+            return False
+        node = properties[key]
+        if iterate:
+            if not isinstance(node, dict) or node.get("type") != "array":
+                return False
+            node = node.get("items", {})
+    return True
 
 
 def _read_unmapped(payload: dict) -> tuple[tuple[str, str], ...]:

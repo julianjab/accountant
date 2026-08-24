@@ -1,5 +1,7 @@
 """The Claude adapter that proposes an extraction config, and now a mapping."""
 
+import pytest
+
 from server.domain.ports import ConceptOption, DocumentContent
 from server.infrastructure.adapters.claude_document_type_configurator import (
     ClaudeDocumentTypeConfigurator,
@@ -148,3 +150,76 @@ def test_a_bad_entry_does_not_discard_the_whole_proposal():
     )
     assert proposal.extraction_prompt == "Extract it."
     assert proposal.extraction_schema == {"type": "object"}
+
+
+def test_a_field_the_schema_never_declared_is_reported_instead_of_stored():
+    """Same silent failure as an invented concept: the type looks mapped, the
+    projection finds nothing, and the claim stays reported as missing."""
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "p",
+            "extraction_schema": {
+                "type": "object",
+                "properties": {
+                    "saldo": {"type": "string"},
+                    "cuentas": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"numero": {"type": "string"}},
+                        },
+                    },
+                },
+            },
+            "field_mappings": [
+                {"field_path": "saldo", "concept_id": "bank:cert_gmf_valor"},
+                {"field_path": "inventado", "concept_id": "bank:cert_gmf_valor"},
+                {"field_path": "cuentas[].numero", "concept_id": "bank:cert_gmf_valor"},
+                {"field_path": "cuentas[].ausente", "concept_id": "bank:cert_gmf_valor"},
+                {"field_path": "saldo[]", "concept_id": "bank:cert_gmf_valor"},
+            ],
+        }
+    )
+    assert [m.field_path for m in proposal.field_mappings] == ["saldo", "cuentas[].numero"]
+    assert [path for path, _ in proposal.unmapped_fields] == [
+        "inventado",
+        "cuentas[].ausente",
+        "saldo[]",
+    ]
+
+
+def test_an_account_path_the_schema_lacks_is_dropped_but_the_amount_still_maps():
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "p",
+            "extraction_schema": {"type": "object", "properties": {"saldo": {"type": "string"}}},
+            "field_mappings": [
+                {
+                    "field_path": "saldo",
+                    "concept_id": "bank:cert_gmf_valor",
+                    "account_path": "no_existe",
+                }
+            ],
+        }
+    )
+    assert len(proposal.field_mappings) == 1
+    assert proposal.field_mappings[0].account_path is None
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        {"concept_id": "bank:cert_gmf_valor"},
+        {"field_path": "", "concept_id": "bank:cert_gmf_valor"},
+        {"field_path": 7, "concept_id": "bank:cert_gmf_valor"},
+        "not an object",
+    ],
+)
+def test_a_malformed_entry_does_not_crash_the_request(entry):
+    """`required` in the tool schema is advisory too. Indexing it directly
+    raised after the document type had already been saved."""
+    proposal, _ = _configure(
+        {"extraction_prompt": "p", "extraction_schema": {}, "field_mappings": [entry]}
+    )
+    assert proposal.field_mappings == ()
+    assert len(proposal.unmapped_fields) == 1
