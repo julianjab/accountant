@@ -104,6 +104,17 @@ const { data: offeredDocument, refresh: refreshOfferedDocument } = await useAsyn
 )
 
 /**
+ * The paper a re-read would read.
+ *
+ * The one offered in the URL first — that is someone saying "read *this*
+ * one" — and otherwise the sample the type already records. Without the
+ * fallback the recovery was only reachable by arriving from a document page,
+ * so a type opened from the list showed its gaps and no way to close them,
+ * with the very document it was configured from loaded right beside it.
+ */
+const documentToReadAgain = computed(() => offeredDocument.value ?? sampleDocument.value)
+
+/**
  * Fields a re-reading of the paper could still tell us something about. Zero
  * means there is nothing to recover, and the action is not offered.
  *
@@ -162,7 +173,8 @@ const recovered = ref<{ named: number, total: number } | null>(null)
  * is meant to add the labels they never got, not to reopen their decisions.
  */
 async function recoverDescriptions() {
-  if (recovering.value || !documentType.value || !offeredDocumentId.value) return
+  const paper = documentToReadAgain.value
+  if (recovering.value || !documentType.value || !paper) return
 
   recovering.value = true
   recoveryFailed.value = false
@@ -170,7 +182,7 @@ async function recoverDescriptions() {
   try {
     const proposal = await proposeDocumentType.execute({
       name: documentType.value.name,
-      documentId: offeredDocumentId.value
+      documentId: paper.id
     })
     const known = schemaFields.value.map(field => field.path)
     const stored = documentType.value.fields
@@ -183,7 +195,7 @@ async function recoverDescriptions() {
 
     await updateDocumentType.execute(documentTypeId, {
       fields: merged,
-      sampleDocumentId: offeredDocumentId.value
+      sampleDocumentId: paper.id
     })
     // Counted by what actually changed, not by how many rows appeared. The
     // re-read that matters most adds no rows at all: it fills in the values
@@ -811,7 +823,7 @@ watch(
           reopening the prompt, the schema or the mappings.
         -->
           <section
-            v-if="offeredDocument && !recovered && missingDescriptions > 0"
+            v-if="documentToReadAgain && !recovered && missingDescriptions > 0"
             class="border-default mb-6 flex flex-col gap-3 rounded-lg border p-3"
             data-testid="recover-descriptions"
           >
@@ -820,7 +832,7 @@ watch(
                 {{ t('documentTypes.edit.recover.title') }}
               </h3>
               <p class="text-muted text-xs">
-                {{ t('documentTypes.edit.recover.hint', { file: offeredDocument.fileName }) }}
+                {{ t('documentTypes.edit.recover.hint', { file: documentToReadAgain.fileName }) }}
               </p>
             </div>
             <UAlert
