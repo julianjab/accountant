@@ -9,6 +9,7 @@ from server.domain.ports import (
 )
 from server.infrastructure.config.prompts import TemplatedPrompt
 from server.infrastructure.providers.ai_provider import AIProvider
+from server.reconciliation.core.projection import path_resolves_in
 
 _PROPOSE_TOOL_NAME = "propose_ocr_config"
 
@@ -234,11 +235,11 @@ def _read_mappings(
         if sign not in (1, -1):
             rejected.append((field_path, f"proposed an invalid sign ({sign})"))
             continue
-        if not _resolves_in(field_path, schema):
+        if not path_resolves_in(field_path, schema):
             rejected.append((field_path, "proposed a field the schema does not declare"))
             continue
         account_path = entry.get("account_path") or None
-        if account_path is not None and not _resolves_in(account_path, schema):
+        if account_path is not None and not path_resolves_in(account_path, schema):
             # The amount still maps; it just cannot be tied to an account.
             account_path = None
         mappings.append(
@@ -250,30 +251,6 @@ def _read_mappings(
             )
         )
     return tuple(mappings), tuple(rejected)
-
-
-def _resolves_in(path: str, schema: object) -> bool:
-    """Whether a dotted path points at something the proposed schema declares.
-
-    Walks `properties`, and `items` for a `[]` segment. A schema that declares
-    no properties cannot be checked against, so the path is accepted there:
-    rejecting every mapping would be worse than the gap this closes.
-    """
-    if not isinstance(schema, dict) or not isinstance(schema.get("properties"), dict):
-        return True
-    node: object = schema
-    for segment in path.split("."):
-        iterate = segment.endswith("[]")
-        key = segment[:-2] if iterate else segment
-        properties = node.get("properties") if isinstance(node, dict) else None
-        if not isinstance(properties, dict) or key not in properties:
-            return False
-        node = properties[key]
-        if iterate:
-            if not isinstance(node, dict) or node.get("type") != "array":
-                return False
-            node = node.get("items", {})
-    return True
 
 
 def _read_unmapped(payload: dict) -> tuple[tuple[str, str], ...]:
@@ -332,7 +309,7 @@ def _read_paths(
         if not isinstance(value, str) or not value:
             paths[key] = None
             continue
-        if not _resolves_in(value, schema):
+        if not path_resolves_in(value, schema):
             problems.append((value, f"proposed as {key} but the schema does not declare it"))
             paths[key] = None
             continue

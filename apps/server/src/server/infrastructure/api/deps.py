@@ -19,6 +19,7 @@ from server.application.use_cases import (
     SignOutGoogle,
     StartGoogleSignIn,
     SubscribeDriveWebhook,
+    UpdateDocumentType,
 )
 from server.domain.ports import (
     ClientRepository,
@@ -72,6 +73,7 @@ from server.reconciliation.application import (
     ConceptMappingRepository,
     GetConceptMapping,
     GetReconciliationReport,
+    PruneConceptMappings,
     ReconcileClientPeriod,
     ReconciliationReportRepository,
     SaveConceptMapping,
@@ -200,6 +202,10 @@ def get_register_client_use_case() -> RegisterClient:
 
 def get_define_document_type_use_case() -> DefineDocumentType:
     return DefineDocumentType(get_document_type_configurator(), get_document_type_repository())
+
+
+def get_update_document_type_use_case() -> UpdateDocumentType:
+    return UpdateDocumentType(get_document_type_repository())
 
 
 def get_process_uploaded_document_use_case() -> ProcessUploadedDocument:
@@ -369,3 +375,7 @@ def get_reconciliation_report_use_case() -> GetReconciliationReport:
 
 def get_save_concept_mapping_use_case() -> SaveConceptMapping:
     return SaveConceptMapping(get_reconciliation_registry(), get_concept_mapping_repository())
+
+
+def get_prune_concept_mappings_use_case() -> PruneConceptMappings:
+    return PruneConceptMappings(get_reconciliation_registry(), get_concept_mapping_repository())

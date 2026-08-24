@@ -116,6 +116,35 @@ def project_facts(
     return tuple(facts)
 
 
+def path_resolves_in(path: str, schema: object) -> bool:
+    """Whether a dotted path points at something an extraction schema declares.
+
+    Walks `properties`, and `items` for a `[]` segment. A schema that declares
+    no properties cannot be checked against, so the path is accepted there:
+    rejecting every mapping would be worse than the gap this closes.
+
+    It lives beside `project_facts` because this is the static counterpart of
+    what `_walk` does at runtime: both answer "does this path lead anywhere",
+    one against the schema and one against the extracted values. Keeping them
+    apart is how a mapping stays accepted that the projection then ignores.
+    """
+    if not isinstance(schema, dict) or not isinstance(schema.get("properties"), dict):
+        return True
+    node: object = schema
+    for segment in path.split("."):
+        iterate = segment.endswith("[]")
+        key = segment[:-2] if iterate else segment
+        properties = node.get("properties") if isinstance(node, dict) else None
+        if not isinstance(properties, dict) or key not in properties:
+            return False
+        node = properties[key]
+        if iterate:
+            if not isinstance(node, dict) or node.get("type") != "array":
+                return False
+            node = node.get("items", {})
+    return True
+
+
 def _resolve(node: Any, path: str) -> list[tuple[Any, tuple[int, ...]]]:
     """Walk a dotted path, returning each value with the list indices reached."""
     return _walk(node, [s for s in path.split(".") if s], ())

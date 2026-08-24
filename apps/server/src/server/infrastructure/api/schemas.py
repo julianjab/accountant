@@ -227,6 +227,43 @@ class ConceptMappingResponse(BaseModel):
     period_path: str | None
 
 
+class DocumentTypeUpdateRequest(BaseModel):
+    """A partial edit; an omitted field keeps its stored value.
+
+    Every field is optional because the common edit is a single one — trimming
+    the schema down to the fields the accountant actually needs — and a client
+    that had to resend the whole type would overwrite whatever it read stale.
+    """
+
+    name: str | None = None
+    description: str | None = None
+    active: bool | None = None
+    extraction_prompt: str | None = None
+    extraction_schema: dict[str, Any] | None = None
+
+
+class MappingChangeResponse(BaseModel):
+    """One consequence an edited schema had on a stored concept mapping."""
+
+    kind_id: str | None
+    change: str
+    #: The path in the old mapping that the new schema no longer declares.
+    path: str | None
+    field_path: str | None
+    concept_id: str | None
+    reason: str
+
+
+class DocumentTypeUpdatedResponse(DocumentTypeResponse):
+    """The saved type, plus what editing its schema cost its concept mappings.
+
+    A subclass so anything already reading a document type keeps its shape.
+    """
+
+    #: Empty when the edit left the extraction schema alone.
+    mapping_changes: list[MappingChangeResponse]
+
+
 class ClientDocumentsImportResponse(BaseModel):
     """What one folder import did, split so the caller can act on each part."""
 
