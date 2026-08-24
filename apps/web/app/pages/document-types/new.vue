@@ -9,13 +9,23 @@ const defineDocumentType = useDefineDocumentTypeUseCase()
 // Prefilled when arriving from a client's missing-document row, which already
 // knows who issues the certificate — the part hardest to type correctly.
 const route = useRoute()
-const issuer = computed(() => {
-  const value = route.query.issuer
+function queryText(key: string): string {
+  const value = route.query[key]
   return typeof value === 'string' ? value : ''
-})
+}
+
+const issuer = computed(() => queryText('issuer'))
+const claim = computed(() => queryText('claim'))
 
 const name = ref(issuer.value)
-const description = ref(issuer.value ? t('documentTypes.new.issuerDescription', { issuer: issuer.value }) : '')
+const description = ref(
+  issuer.value
+    ? t(claim.value ? 'documentTypes.new.claimDescription' : 'documentTypes.new.issuerDescription', {
+        issuer: issuer.value,
+        claim: claim.value
+      })
+    : ''
+)
 const sampleFile = ref<File | null>(null)
 
 const step = ref<Step>('form')

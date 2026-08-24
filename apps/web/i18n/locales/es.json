@@ -7,6 +7,7 @@
     "clients": "Clientes",
     "documentTypes": "Tipos de documento",
     "sheets": "Hojas de cálculo",
+    "documents": "Documentos",
     "openMenu": "Abrir menú de navegación",
     "closeMenu": "Cerrar menú de navegación"
   },
@@ -125,7 +126,8 @@
       "loadingHint": "Esto puede tardar cerca de un minuto",
       "error": "No se pudo definir el tipo de documento. Intentá de nuevo.",
       "invalidJson": "El esquema no es un JSON válido",
-      "issuerDescription": "Certificado tributario emitido por {issuer}."
+      "issuerDescription": "Certificado tributario emitido por {issuer}.",
+      "claimDescription": "Certificado tributario de {issuer} que respalda: {claim}."
     },
     "proposal": {
       "title": "Propuesta generada",

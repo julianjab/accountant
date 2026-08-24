@@ -7,6 +7,7 @@
     "clients": "Clients",
     "documentTypes": "Document types",
     "sheets": "Sheets",
+    "documents": "Documents",
     "openMenu": "Open navigation menu",
     "closeMenu": "Close navigation menu"
   },
@@ -125,7 +126,8 @@
       "loadingHint": "This can take about a minute",
       "error": "Could not define the document type. Please try again.",
       "invalidJson": "The schema is not valid JSON",
-      "issuerDescription": "Tax certificate issued by {issuer}."
+      "issuerDescription": "Tax certificate issued by {issuer}.",
+      "claimDescription": "Tax certificate from {issuer} backing: {claim}."
     },
     "proposal": {
       "title": "Generated proposal",

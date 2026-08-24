@@ -18,11 +18,15 @@ const showSignedOut = computed(() => !isAuthLoading.value && !isAuthenticated.va
 
 // Deferred and client-only on purpose: these endpoints need the session
 // cookie, which SSR does not carry (see clients/index.vue).
-const { data: document, error: documentError, refresh: refreshDocument } = await useAsyncData<ClientDocument>(
+const { data: document, pending: documentPending, error: documentError, refresh: refreshDocument } = await useAsyncData<ClientDocument>(
   `document-${documentId}`,
   () => getDocument.execute(documentId),
   { immediate: false, server: false }
 )
+
+// Covers the gap between auth resolving and `document` resolving, where nothing would
+// otherwise render.
+const showSkeleton = computed(() => isAuthLoading.value || (isAuthenticated.value && documentPending.value && !document.value && !documentError.value))
 
 const { data: extractedData, error: extractedDataError, refresh: refreshExtractedData } = await useAsyncData<
   ExtractedData | null
