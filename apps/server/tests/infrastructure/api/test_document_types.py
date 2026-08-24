@@ -521,3 +521,86 @@ def test_a_field_saved_before_sample_values_existed_still_reads(client, document
     )
     assert created.status_code == 201
     assert created.json()["fields"][0]["sample_value"] == ""
+
+
+def test_field_descriptions_are_read_from_a_stored_document() -> None:
+    """The endpoint the recovery uses: the type's own paths are the question,
+    so an answer can only be about fields it actually declares."""
+    from server.application.use_cases import (
+        DescribeDocumentTypeFields,
+        ReadStoredDocument,
+    )
+    from server.domain.ports import DocumentContent, FieldRole, ProposedField
+    from server.infrastructure.api import deps
+
+    class _Describe(DescribeDocumentTypeFields):
+        def __init__(self):
+            self.asked = None
+
+        def execute(self, data):
+            self.asked = data
+            return (
+                ProposedField("nit", "NIT del emisor", FieldRole.IDENTIFIER, "800150280", "Emisor"),
+            )
+
+    class _Read(ReadStoredDocument):
+        def __init__(self):
+            pass
+
+        def execute(self, data):
+            return DocumentContent(data=b"%PDF-", mime_type="application/pdf", file_name="c.pdf")
+
+    describe = _Describe()
+    app.dependency_overrides[require_session] = lambda: None
+    app.dependency_overrides[deps.get_describe_document_type_fields_use_case] = lambda: describe
+    app.dependency_overrides[deps.get_read_stored_document_use_case] = lambda: _Read()
+    try:
+        response = TestClient(app).post(
+            "/document-types/type-1/field-descriptions",
+            data={"document_id": "doc-1"},
+        )
+        assert response.status_code == 200
+        assert response.json()["fields"] == [
+            {
+                "path": "nit",
+                "label": "NIT del emisor",
+                "role": "identifier",
+                "sample_value": "800150280",
+                "section": "Emisor",
+            }
+        ]
+        assert describe.asked.document_type_id == "type-1"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_describing_the_fields_of_a_type_that_is_gone_is_a_404() -> None:
+    from server.application.use_cases import DescribeDocumentTypeFields, ReadStoredDocument
+    from server.application.use_cases.update_document_type import DocumentTypeNotFound
+    from server.domain.ports import DocumentContent
+    from server.infrastructure.api import deps
+
+    class _Describe(DescribeDocumentTypeFields):
+        def __init__(self):
+            pass
+
+        def execute(self, data):
+            raise DocumentTypeNotFound("gone")
+
+    class _Read(ReadStoredDocument):
+        def __init__(self):
+            pass
+
+        def execute(self, data):
+            return DocumentContent(data=b"%PDF-", mime_type="application/pdf", file_name="c.pdf")
+
+    app.dependency_overrides[require_session] = lambda: None
+    app.dependency_overrides[deps.get_describe_document_type_fields_use_case] = lambda: _Describe()
+    app.dependency_overrides[deps.get_read_stored_document_use_case] = lambda: _Read()
+    try:
+        response = TestClient(app).post(
+            "/document-types/gone/field-descriptions", data={"document_id": "doc-1"}
+        )
+        assert response.status_code == 404
+    finally:
+        app.dependency_overrides.clear()

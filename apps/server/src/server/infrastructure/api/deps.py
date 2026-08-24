@@ -8,6 +8,7 @@ from server.application.use_cases import (
     CompleteGoogleSignIn,
     DefineDocumentType,
     DeleteDocumentType,
+    DescribeDocumentTypeFields,
     GetDocumentMetrics,
     GetExtractedData,
     GetGoogleSession,
@@ -199,6 +200,7 @@ def get_document_type_configurator() -> ClaudeDocumentTypeConfigurator:
         get_ai_provider(),
         settings.anthropic_model,
         get_prompts_config().document_type_configuration,
+        get_prompts_config().document_field_description,
     )
 
 
@@ -316,6 +318,12 @@ def get_client_directory() -> GoogleDriveClientDirectory:
     settings = get_settings()
     return GoogleDriveClientDirectory(
         settings.google_service_account_file, settings.google_drive_clients_folder_id
+    )
+
+
+def get_describe_document_type_fields_use_case() -> DescribeDocumentTypeFields:
+    return DescribeDocumentTypeFields(
+        get_document_type_repository(), get_document_type_configurator()
     )
 
 

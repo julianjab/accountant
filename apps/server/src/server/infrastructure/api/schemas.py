@@ -439,6 +439,17 @@ class ProposedFieldResponse(BaseModel):
     section: str
 
 
+class DocumentTypeFieldDescriptionsResponse(BaseModel):
+    """What a re-reading of a sample says about the fields a type already has.
+
+    Only descriptions: the prompt, the schema and the mappings are what someone
+    curated, and this reads a paper to fill in labels, blocks and sample values
+    without reopening any of those decisions.
+    """
+
+    fields: list[ProposedFieldResponse]
+
+
 class DocumentTypeProposalResponse(BaseModel):
     """What the AI would configure, stored nowhere until someone approves it."""
 

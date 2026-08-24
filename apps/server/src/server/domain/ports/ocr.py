@@ -112,3 +112,24 @@ class DocumentTypeConfigurator(Protocol):
         produced.
         """
         ...
+
+    def describe_fields(
+        self,
+        content: DocumentContent,
+        type_name: str,
+        paths: Sequence[str],
+    ) -> tuple[ProposedField, ...]:
+        """Describes the fields a type already declares, reading the paper again.
+
+        The other way round from `propose_config`: the paths are given and the
+        model may only say what each one is called, which block of the page it
+        sits in and what it reads there. Proposing a fresh configuration and
+        keeping whatever happened to line up recovers nothing at all when the
+        second run names its fields differently, and on a long certificate it
+        usually does.
+
+        A path the model does not recognise on the paper is left out rather
+        than guessed: a wrong label on a figure is worse than no label, since
+        it is indistinguishable from a curated one.
+        """
+        ...

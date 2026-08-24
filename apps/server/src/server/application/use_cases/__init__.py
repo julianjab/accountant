@@ -20,6 +20,10 @@ from server.application.use_cases.delete_document_type import (
     DeleteDocumentTypeInput,
     DocumentTypeInUse,
 )
+from server.application.use_cases.describe_document_type_fields import (
+    DescribeDocumentTypeFields,
+    DescribeDocumentTypeFieldsInput,
+)
 from server.application.use_cases.get_document_metrics import DocumentMetrics, GetDocumentMetrics
 from server.application.use_cases.get_extracted_data import GetExtractedData
 from server.application.use_cases.get_google_session import GetGoogleSession
@@ -76,6 +80,8 @@ __all__ = [
     "ReadStoredDocumentInput",
     "ReadStoredDocument",
     "DocumentNotFound",
+    "DescribeDocumentTypeFields",
+    "DescribeDocumentTypeFieldsInput",
     "ProposeDocumentTypeInput",
     "ProposeDocumentType",
     "DefinedDocumentType",

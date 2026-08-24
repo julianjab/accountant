@@ -15,6 +15,11 @@ PROMPT = TemplatedPrompt(
     instructions_template='Sample "{type_name}".{mapping_instructions}',
 )
 
+DESCRIPTION_PROMPT = TemplatedPrompt(
+    system="You describe fields that already exist.",
+    instructions_template='A "{type_name}". Its fields:\n{paths}',
+)
+
 CONCEPTS = (
     ConceptOption(id="bank:cert_saldo_cuentas_ahorro", label="Saldo", description="El saldo"),
     ConceptOption(id="bank:cert_gmf_valor", label="GMF"),
@@ -22,23 +27,28 @@ CONCEPTS = (
 
 
 class _Provider:
-    def __init__(self, tool_input: dict) -> None:
+    def __init__(self, tool_input: dict, tool_name: str = "propose_ocr_config") -> None:
         self._tool_input = tool_input
+        self._tool_name = tool_name
         self.request: dict | None = None
 
     def create_message(self, **kwargs):
         self.request = kwargs
         return {
-            "content": [
-                {"type": "tool_use", "name": "propose_ocr_config", "input": self._tool_input}
-            ]
+            "content": [{"type": "tool_use", "name": self._tool_name, "input": self._tool_input}]
         }
 
 
 def _configure(tool_input, concepts=CONCEPTS):
     provider = _Provider(tool_input)
-    adapter = ClaudeDocumentTypeConfigurator(provider, "claude-x", PROMPT)
+    adapter = ClaudeDocumentTypeConfigurator(provider, "claude-x", PROMPT, DESCRIPTION_PROMPT)
     return adapter.propose_config(SAMPLE, "Certificado", concepts), provider
+
+
+def _describe(tool_input, paths=("saldo", "retenciones[].valor")):
+    provider = _Provider(tool_input, tool_name="describe_known_fields")
+    adapter = ClaudeDocumentTypeConfigurator(provider, "claude-x", PROMPT, DESCRIPTION_PROMPT)
+    return adapter.describe_fields(SAMPLE, "Certificado", paths), provider
 
 
 def test_the_concept_ids_are_an_enum_so_none_can_be_invented():
@@ -91,7 +101,7 @@ def test_the_proposed_mapping_is_read_back():
 def test_a_response_without_the_tool_call_is_an_error():
     provider = _Provider({})
     provider.create_message = lambda **kwargs: {"content": [{"type": "text", "text": "hi"}]}
-    adapter = ClaudeDocumentTypeConfigurator(provider, "claude-x", PROMPT)
+    adapter = ClaudeDocumentTypeConfigurator(provider, "claude-x", PROMPT, DESCRIPTION_PROMPT)
     try:
         adapter.propose_config(SAMPLE, "Certificado", CONCEPTS)
     except RuntimeError as error:
@@ -410,3 +420,69 @@ def test_a_schema_that_is_not_an_object_fails_loudly(value):
     nothing to extract, so this is the part worth refusing over."""
     with pytest.raises(RuntimeError, match="not a JSON object"):
         _configure({"extraction_prompt": "p", "extraction_schema": value})
+
+
+def test_describing_offers_the_known_paths_as_an_enum():
+    """The whole repair: a proposal run invents its own names and matches the
+    stored schema only by luck, so nothing could be recovered from it."""
+    _, provider = _describe({"fields": []})
+    schema = provider.request["tools"][0]["input_schema"]["properties"]
+    assert schema["fields"]["items"]["properties"]["path"]["enum"] == [
+        "saldo",
+        "retenciones[].valor",
+    ]
+
+
+def test_the_known_paths_reach_the_instructions():
+    _, provider = _describe({"fields": []})
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert "- saldo" in text
+    assert "- retenciones[].valor" in text
+    assert 'A "Certificado"' in text
+
+
+def test_a_description_is_read_back_for_a_known_path():
+    fields, _ = _describe(
+        {
+            "fields": [
+                {
+                    "path": "saldo",
+                    "label": "Saldo a 31 de diciembre",
+                    "role": "amount",
+                    "sample_value": "$ 19.586,00",
+                    "section": "Saldos",
+                }
+            ]
+        }
+    )
+    assert [(f.path, f.label, f.sample_value, f.section) for f in fields] == [
+        ("saldo", "Saldo a 31 de diciembre", "$ 19.586,00", "Saldos")
+    ]
+
+
+def test_a_path_the_type_does_not_declare_is_dropped():
+    """An enum steers the model, it does not bind it. A description filed
+    against an invented path names a field that is never extracted."""
+    fields, _ = _describe(
+        {
+            "fields": [
+                {"path": "saldo_final", "label": "Saldo", "role": "amount"},
+                {"path": "saldo", "label": "Saldo", "role": "amount"},
+            ]
+        }
+    )
+    assert [f.path for f in fields] == ["saldo"]
+
+
+def test_a_type_with_no_fields_is_not_worth_a_vision_call():
+    provider = _Provider({"fields": []}, tool_name="describe_known_fields")
+    adapter = ClaudeDocumentTypeConfigurator(provider, "claude-x", PROMPT, DESCRIPTION_PROMPT)
+    assert adapter.describe_fields(SAMPLE, "Certificado", ()) == ()
+    assert provider.request is None
+
+
+def test_a_response_without_the_tool_call_fails_loudly():
+    provider = _Provider({"fields": []}, tool_name="something_else")
+    adapter = ClaudeDocumentTypeConfigurator(provider, "claude-x", PROMPT, DESCRIPTION_PROMPT)
+    with pytest.raises(RuntimeError):
+        adapter.describe_fields(SAMPLE, "Certificado", ("saldo",))

@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from server.application.use_cases import (
     DefineDocumentType,
     DefineDocumentTypeInput,
+    DescribeDocumentTypeFields,
+    DescribeDocumentTypeFieldsInput,
     DocumentNotFound,
     DocumentTypeInUse,
     DocumentTypeNotFound,
@@ -21,6 +23,7 @@ from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
     get_define_document_type_use_case,
     get_delete_document_type_use_case,
+    get_describe_document_type_fields_use_case,
     get_document_type_repository,
     get_propose_document_type_use_case,
     get_prune_concept_mappings_use_case,
@@ -32,6 +35,7 @@ from server.infrastructure.api.deps import (
 from server.infrastructure.api.schemas import (
     DocumentTypeCreatedResponse,
     DocumentTypeCreateRequest,
+    DocumentTypeFieldDescriptionsResponse,
     DocumentTypeFieldPayload,
     DocumentTypeProposalResponse,
     DocumentTypeResponse,
@@ -137,6 +141,56 @@ def propose_document_type(
         reporter_path=proposal.reporter_path,
         reporter_name_path=proposal.reporter_name_path,
         period_path=proposal.period_path,
+    )
+
+
+@router.post(
+    "/{document_type_id}/field-descriptions",
+    response_model=DocumentTypeFieldDescriptionsResponse,
+)
+def describe_document_type_fields(
+    document_type_id: str,
+    sample_file: UploadFile | None = File(None),
+    document_id: str | None = Form(None),
+    use_case: DescribeDocumentTypeFields = Depends(get_describe_document_type_fields_use_case),
+    read_document: ReadStoredDocument = Depends(get_read_stored_document_use_case),
+) -> DocumentTypeFieldDescriptionsResponse:
+    """Reads a paper again and says what this type's own fields are called.
+
+    Distinct from proposing a configuration, which is what this used to be
+    done with: a proposal invents its own field names, so matching them back
+    against a stored schema recovered nothing whenever the two runs disagreed
+    — and on a certificate with thirty fields they usually do. Here the stored
+    paths are the question, so an answer can only be about fields that exist.
+
+    Stores nothing. The caller decides how these meet the descriptions it
+    already has, because a stored label may have been corrected by hand and
+    must not be overwritten by a fresh reading.
+
+    Sync on purpose, like the proposal handler: this calls a blocking
+    AIProvider, and a `def` handler runs in FastAPI's threadpool rather than
+    stalling the event loop for the length of the Claude call.
+    """
+    try:
+        fields = use_case.execute(
+            DescribeDocumentTypeFieldsInput(
+                document_type_id=document_type_id,
+                document=_sample(sample_file, document_id, read_document),
+            )
+        )
+    except DocumentTypeNotFound as exc:
+        raise HTTPException(status_code=404, detail="Document type not found") from exc
+    return DocumentTypeFieldDescriptionsResponse(
+        fields=[
+            ProposedFieldResponse(
+                path=f.path,
+                label=f.label,
+                role=f.role.value,
+                sample_value=f.sample_value,
+                section=f.section,
+            )
+            for f in fields
+        ]
     )
 
 

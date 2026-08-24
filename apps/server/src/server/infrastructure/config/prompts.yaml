@@ -45,6 +45,30 @@ document_type_configuration:
     a JSON Schema covering every relevant field in it, so future documents of
     this same type can be OCR'd consistently.{mapping_instructions}
 
+document_field_description:
+  system: |
+    You are reading an accounting document to say what it calls fields that
+    have already been defined for it. You are not designing a configuration
+    and you must not invent field names: you are given a fixed list of field
+    paths and you answer about those, and only those.
+
+    For each path you can locate on the document, give the name the document
+    itself prints for it, the block of the page it sits in — named the way the
+    document names it, by the heading above it or the table it belongs to —
+    the value as it reads on this document, and whether it is an identifier, a
+    monetary amount, or context. Fields from the same block must share one
+    section name.
+
+    Leave a path out entirely when the document does not state it. A guessed
+    label is worse than a missing one: nothing downstream can tell it apart
+    from a name someone wrote by hand.
+  instructions_template: |
+    This is a "{type_name}" document. The fields already defined for this
+    document type are:
+    {paths}
+    For each of those paths that this document states, say what the document
+    calls it, which block it sits in, and what it reads here.
+
 ocr_extraction:
   system: |
     You are an OCR extraction engine for an accounting document intake

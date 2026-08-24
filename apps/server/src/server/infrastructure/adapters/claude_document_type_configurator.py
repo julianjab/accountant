@@ -15,16 +15,24 @@ from server.infrastructure.providers.ai_provider import AIProvider
 from server.reconciliation.core.projection import path_resolves_in
 
 _PROPOSE_TOOL_NAME = "propose_ocr_config"
+_DESCRIBE_TOOL_NAME = "describe_known_fields"
 
 
 class ClaudeDocumentTypeConfigurator:
     """DocumentTypeConfigurator adapter: Claude inspects a sample document and
     proposes the extraction prompt + JSON schema to use for that document type."""
 
-    def __init__(self, provider: AIProvider, model: str, prompt: TemplatedPrompt) -> None:
+    def __init__(
+        self,
+        provider: AIProvider,
+        model: str,
+        prompt: TemplatedPrompt,
+        description_prompt: TemplatedPrompt,
+    ) -> None:
         self._provider = provider
         self._model = model
         self._prompt = prompt
+        self._description_prompt = description_prompt
 
     def propose_config(
         self,
@@ -123,16 +131,7 @@ class ClaudeDocumentTypeConfigurator:
                 {
                     "role": "user",
                     "content": [
-                        {
-                            "type": "document"
-                            if content.mime_type == "application/pdf"
-                            else "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": content.mime_type,
-                                "data": base64.b64encode(content.data).decode("ascii"),
-                            },
-                        },
+                        _document_block(content),
                         {
                             "type": "text",
                             "text": self._prompt.instructions_template.replace(
@@ -163,6 +162,128 @@ class ClaudeDocumentTypeConfigurator:
                 )
         msg = "Claude did not return the expected config proposal tool call"
         raise RuntimeError(msg)
+
+    def describe_fields(
+        self,
+        content: DocumentContent,
+        type_name: str,
+        paths: Sequence[str],
+    ) -> tuple[ProposedField, ...]:
+        """Asks what the paper calls each of the paths the type already has.
+
+        The paths are an `enum`, which is the whole point: a proposal run
+        invents its own field names and agrees with the stored schema only by
+        luck, so what came back had to be thrown away path by path. Here the
+        model has nothing to invent — it is answering about fields that exist,
+        and anything it returns that is not one of them is dropped.
+        """
+        if not paths:
+            return ()
+
+        response = self._provider.create_message(
+            model=self._model,
+            system=self._description_prompt.system,
+            max_tokens=4096,
+            tools=[
+                {
+                    "name": _DESCRIBE_TOOL_NAME,
+                    "description": "Say what this document calls each of the given fields.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "fields": {
+                                "type": "array",
+                                "description": "One entry per given path you can find on "
+                                "this document. Leave out any path the document does not "
+                                "state.",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "path": {
+                                            "type": "string",
+                                            "enum": list(paths),
+                                            "description": "One of the paths given. Never "
+                                            "a name of your own.",
+                                        },
+                                        "label": {
+                                            "type": "string",
+                                            "description": "How the document itself names "
+                                            "this value, in its own language.",
+                                        },
+                                        "role": {
+                                            "type": "string",
+                                            "enum": ["identifier", "amount", "context"],
+                                            "description": "identifier for a tax, account "
+                                            "or document number; amount for a monetary "
+                                            "figure; context for dates, names, addresses "
+                                            "and notices.",
+                                        },
+                                        "sample_value": {
+                                            "type": "string",
+                                            "description": "The value as it reads on this "
+                                            "document.",
+                                        },
+                                        "section": {
+                                            "type": "string",
+                                            "description": "The block of the document this "
+                                            "field sits in, named the way the document "
+                                            "names it. Fields from one block share one "
+                                            "section.",
+                                        },
+                                    },
+                                    "required": [
+                                        "path",
+                                        "label",
+                                        "role",
+                                        "sample_value",
+                                        "section",
+                                    ],
+                                },
+                            }
+                        },
+                        "required": ["fields"],
+                    },
+                }
+            ],
+            tool_choice={"type": "tool", "name": _DESCRIBE_TOOL_NAME},
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        _document_block(content),
+                        {
+                            "type": "text",
+                            "text": self._description_prompt.instructions_template.replace(
+                                "{type_name}", type_name
+                            ).replace("{paths}", "\n".join(f"- {path}" for path in paths)),
+                        },
+                    ],
+                }
+            ],
+        )
+
+        for block in response["content"]:
+            if block["type"] == "tool_use" and block["name"] == _DESCRIBE_TOOL_NAME:
+                known = set(paths)
+                # Dropped rather than kept under a name of the model's own: a
+                # description filed against a path the type does not declare
+                # names a field that is never extracted, and reads on screen as
+                # a field that exists.
+                return tuple(f for f in _read_fields(block["input"]) if f.path in known)
+        msg = "Claude did not return the expected field description tool call"
+        raise RuntimeError(msg)
+
+
+def _document_block(content: DocumentContent) -> dict:
+    """The document itself, as the Messages API takes it."""
+    return {
+        "type": "document" if content.mime_type == "application/pdf" else "image",
+        "source": {
+            "type": "base64",
+            "media_type": content.mime_type,
+            "data": base64.b64encode(content.data).decode("ascii"),
+        },
+    }
 
 
 def _read_schema(payload: dict) -> dict:

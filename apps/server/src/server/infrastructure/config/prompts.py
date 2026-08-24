@@ -17,6 +17,7 @@ class TemplatedPrompt(BaseModel):
 class PromptsConfig(BaseModel):
     document_classification: TemplatedPrompt
     document_type_configuration: TemplatedPrompt
+    document_field_description: TemplatedPrompt
     ocr_extraction: SystemOnlyPrompt
 
 
