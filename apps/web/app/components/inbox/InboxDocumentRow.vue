@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
+import type { DocumentSource } from '~/domain/entities/document-source'
 import type { DocumentType } from '~/domain/entities/document-type'
 
 const props = defineProps<{
   document: ClientDocument
   documentType: DocumentType | undefined
+  /** Set when someone declared this file's format. Such a document has no type
+   * by design, so without this it reads as unclassified — which is exactly
+   * what it is not. */
+  documentSource?: DocumentSource | undefined
 }>()
 
 const { t } = useI18n()
@@ -31,7 +36,9 @@ function iconForFile(fileName: string): string {
 
 const icon = computed(() => iconForFile(props.document.fileName))
 const statusColor = computed(() => STATUS_COLOR[props.document.status])
-const typeLabel = computed(() => props.documentType?.name ?? t('inbox.unclassified'))
+const typeLabel = computed(() =>
+  props.documentType?.name ?? props.documentSource?.label ?? t('inbox.unclassified')
+)
 
 const time = computed(() =>
   new Date(props.document.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
+import type { DocumentSource } from '~/domain/entities/document-source'
 import type { DocumentType } from '~/domain/entities/document-type'
 import type {
   ContributionStatus,
@@ -13,6 +14,9 @@ const props = defineProps<{
   types: DocumentType[]
   /** Used to list what the exogena says should be here and is not. */
   report?: ReconciliationReport | null
+  /** The formats read by a parser, so a document named that way can be called
+   * what it is even before any reconciliation has run. */
+  sources?: DocumentSource[]
 }>()
 
 const { t, locale } = useI18n()
@@ -50,6 +54,13 @@ function isSpine(status: ContributionStatus | undefined): boolean {
 function documentKind(doc: ClientDocument): string {
   const contribution = contributionsByDocument.value.get(doc.id)
   if (isSpine(contribution?.status)) return t('clients.detail.documents.contribution.exogena')
+  // A document someone declared the format of carries its own answer, and does
+  // not depend on a reconciliation having been run to be called what it is.
+  // Without this it reads as "unclassified", which is exactly what it is not.
+  const source = doc.sourceId
+    ? props.sources?.find(candidate => candidate.id === doc.sourceId)
+    : undefined
+  if (source) return source.label
   return typeName(doc.documentTypeId)
 }
 

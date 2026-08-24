@@ -37,6 +37,7 @@ const groups = computed(() => inbox.value?.groups ?? [])
 const totalDocuments = computed(() => inbox.value?.totalDocuments ?? 0)
 const filteredDocuments = computed(() => inbox.value?.filteredDocuments ?? 0)
 const documentTypesById = computed(() => inbox.value?.documentTypesById ?? {})
+const documentSourcesById = computed(() => inbox.value?.documentSourcesById ?? {})
 
 const emptyStateVariant = computed(() => {
   if (totalDocuments.value === 0) return 'empty'
@@ -155,6 +156,7 @@ const avgProcessingLabel = computed(() => {
               :key="document.id"
               :document="document"
               :document-type="document.documentTypeId ? documentTypesById[document.documentTypeId] : undefined"
+              :document-source="document.sourceId ? documentSourcesById[document.sourceId] : undefined"
             />
           </InboxGroup>
         </div>
