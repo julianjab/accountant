@@ -68,10 +68,16 @@ class DocumentFactProvider:
 
         facts: list[FinancialFact] = []
         for document in self._documents.list_by_client(client_id):
-            if document.status not in _USABLE:
-                continue
+            # A format this kind parses itself is tried whatever intake made of
+            # it. Intake classifies against the configured document types, and
+            # the exogena report is not one of them — it has a parser here
+            # instead of an extraction prompt — so intake marks it FAILED. That
+            # verdict is about OCR, not about this file, and honouring it would
+            # discard the very document the reconciliation is built around.
             extracted = self._from_parser(document, parsed_sources, subject)
             if extracted is None:
+                if document.status not in _USABLE:
+                    continue
                 extracted = self._from_extraction(document, kind_id, subject, period)
             facts.extend(extracted or ())
         return tuple(facts)

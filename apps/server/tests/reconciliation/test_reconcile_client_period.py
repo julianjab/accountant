@@ -280,3 +280,17 @@ def test_concept_mappings_are_stored_per_document_type_and_kind():
     assert repository.get("t2", KIND_ID) is None
     assert repository.list_for_kind(KIND_ID) == [mapping]
     assert repository.list_for_kind("otro_modelo") == []
+
+
+def test_the_spine_is_parsed_even_though_intake_could_not_classify_it(wiring):
+    """Intake classifies against the configured document types, and the exogena
+    is not one of them — it has a parser here rather than an extraction prompt.
+    Honouring intake's FAILED verdict would discard the document the whole
+    reconciliation is built around."""
+    use_case, _, documents, _, _, _ = wiring
+    documents.save(_document("exogena", XLSX, status=DocumentStatus.FAILED))
+
+    report = use_case.execute(ReconcileClientPeriodInput("client-1", KIND_ID, Period.of_year(2025)))
+
+    assert report.summary.total_findings > 0
+    assert any(f.spine_facts for f in report.findings)
