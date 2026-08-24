@@ -101,7 +101,7 @@
     "headerConfidence": "Average confidence",
     "averageConfidence": "Average confidence",
     "approveAndSend": "Approve and send to sheet",
-    "approveDisabledHint": "Will be enabled once approval is wired up (#11)",
+    "approveDisabledHint": "Only a processed document can be approved",
     "errorTitle": "Could not process this document",
     "errorFallback": "An error occurred while processing this document",
     "extractionMissing": "The document was processed but no extracted data was found",
@@ -126,7 +126,15 @@
       "unsupportedMime": "No preview available for this file type"
     },
     "defineTypeFromThis": "Define a type from this document",
-    "configureTypeFromThis": "Configure the type from this document"
+    "configureTypeFromThis": "Configure the type from this document",
+    "declareSource": {
+      "title": "Do you know what this document is?",
+      "description": "The classifier only recognises the configured document types. If this file is one of the formats the server reads directly, say so here and it will be read with its own parser.",
+      "placeholder": "Choose a format",
+      "action": "Read with this format",
+      "failed": "This file could not be read with that format."
+    },
+    "approveFailed": "The document could not be approved."
   },
   "documentTypes": {
     "title": "Document types",

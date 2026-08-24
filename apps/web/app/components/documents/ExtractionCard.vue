@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
+import type { DocumentSource } from '~/domain/entities/document-source'
 import type { DocumentType } from '~/domain/entities/document-type'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
 import ExtractionFieldRow from '~/components/documents/ExtractionFieldRow.vue'
@@ -11,14 +12,41 @@ const props = defineProps<{
   documentType: DocumentType | null
   extractedData: ExtractedData | null
   extractedDataError?: boolean
+  /** The formats this file could be declared to be, already narrowed to ones
+   * whose parser accepts its media type. Empty means there is nothing to
+   * offer, and the picker stays hidden rather than showing an empty select. */
+  sources?: DocumentSource[]
+  recognizing?: boolean
+  approving?: boolean
+  actionError?: string | null
 }>()
+
+const emit = defineEmits<{
+  recognize: [sourceId: string]
+  approve: []
+}>()
+
+const chosenSource = ref<string | undefined>(undefined)
 
 const { t, locale } = useI18n()
 
 // A non-technical accountant should never see `documentTypeId` (a raw uuid) as this card's
 // title — the classified type's name is what tells them what they are looking at, falling
 // back to the id only when the type could not be resolved (e.g. it was deleted since).
-const title = computed(() => props.documentType?.name ?? props.document.documentTypeId ?? t('documents.unknownType'))
+// A document read by a parser has no type to name it, so its source label is
+// what tells the reader what they are looking at. Falling through to the raw
+// uuid stays the last resort, for a type that was deleted since.
+const sourceLabel = computed(() =>
+  props.sources?.find(source => source.id === props.document.sourceId)?.label ?? null
+)
+
+const title = computed(() =>
+  props.documentType?.name
+  ?? sourceLabel.value
+  ?? props.document.sourceId
+  ?? props.document.documentTypeId
+  ?? t('documents.unknownType')
+)
 
 const formattedDate = computed(() => {
   const isoDate = props.document.processedAt ?? props.document.createdAt
@@ -111,10 +139,25 @@ const averageConfidence = computed<number | null>(() => {
   return props.extractedData.confidence
 })
 
+// A document read by a parser is finished and has no `documentTypeId` by
+// design, so the second clause has to look at `sourceId` too — without that,
+// recognising the exogena would leave the screen still reporting a failure.
 const hasExtractionError = computed(() =>
   props.document.status === 'failed'
-  || (EXTRACTION_DONE_STATUSES.includes(props.document.status) && props.document.documentTypeId === null)
+  || (
+    EXTRACTION_DONE_STATUSES.includes(props.document.status)
+    && props.document.documentTypeId === null
+    && props.document.sourceId === null
+  )
 )
+
+const sourceOptions = computed(() =>
+  (props.sources ?? []).map(source => ({ label: source.label, value: source.id }))
+)
+
+const canDeclareSource = computed(() => hasExtractionError.value && sourceOptions.value.length > 0)
+
+const canApprove = computed(() => props.document.status === 'processed')
 
 const isProcessing = computed(() =>
   (['pending', 'classifying', 'running_ocr'] as DocumentStatus[]).includes(props.document.status)
@@ -166,12 +209,56 @@ const isMissingExtraction = computed(() =>
       </div>
     </template>
 
-    <UAlert
+    <div
       v-if="hasExtractionError"
-      color="error"
-      :title="t('documents.errorTitle')"
-      :description="document.error ?? t('documents.errorFallback')"
-    />
+      class="flex flex-col gap-4"
+    >
+      <UAlert
+        color="error"
+        :title="t('documents.errorTitle')"
+        :description="document.error ?? t('documents.errorFallback')"
+      />
+
+      <!--
+        Offered because the classifier structurally cannot reach these: they
+        are read by a parser instead of being configured as document types, so
+        a file of one of those formats always lands here. Naming it by hand is
+        the only way it ever gets read.
+      -->
+      <section
+        v-if="canDeclareSource"
+        class="rounded-lg border border-default p-4"
+      >
+        <h3 class="text-sm font-semibold">
+          {{ t('documents.declareSource.title') }}
+        </h3>
+        <p class="mt-1 text-sm text-muted">
+          {{ t('documents.declareSource.description') }}
+        </p>
+        <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+          <USelectMenu
+            v-model="chosenSource"
+            :items="sourceOptions"
+            value-key="value"
+            :placeholder="t('documents.declareSource.placeholder')"
+            class="sm:flex-1"
+          />
+          <UButton
+            :disabled="!chosenSource"
+            :loading="recognizing"
+            @click="chosenSource && emit('recognize', chosenSource)"
+          >
+            {{ t('documents.declareSource.action') }}
+          </UButton>
+        </div>
+        <p
+          v-if="actionError"
+          class="mt-2 text-sm text-error"
+        >
+          {{ actionError }}
+        </p>
+      </section>
+    </div>
 
     <div
       v-else-if="isProcessing"
@@ -237,12 +324,14 @@ const isMissingExtraction = computed(() =>
 
     <template #footer>
       <UButton
-        disabled
+        :disabled="!canApprove"
+        :loading="approving"
         block
         class="sm:w-auto"
-        :title="t('documents.approveDisabledHint')"
+        :title="canApprove ? undefined : t('documents.approveDisabledHint')"
+        @click="emit('approve')"
       >
-        {{ t('documents.approveAndSend') }}
+        {{ document.status === 'approved' ? t('documents.status.approved') : t('documents.approveAndSend') }}
       </UButton>
     </template>
   </UCard>

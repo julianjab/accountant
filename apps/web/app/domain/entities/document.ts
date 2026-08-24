@@ -17,4 +17,8 @@ export interface ClientDocument {
   error: string | null
   createdAt: string
   processedAt: string | null
+  /** Set when the file was read by a dedicated parser instead of OCR, which is
+   * why such a document has no `documentTypeId`. Without it, a document read
+   * this way is indistinguishable from one nothing could be made of. */
+  sourceId: string | null
 }
