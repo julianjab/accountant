@@ -280,10 +280,28 @@ const regenerationChangesNothing = computed(
  */
 const regeneratedRows = ref<ProposalFieldRow[]>([])
 
+/**
+ * The fields this regeneration would stop extracting, named.
+ *
+ * Everything unticked, whichever way it got there: a field the reading itself
+ * dropped and a field the person just unticked are the same loss to the type,
+ * and separating them would make the reader reconcile two lists to answer one
+ * question. Shown beside the buttons because that is where the decision is
+ * made — a count at the top of a list thirty rows long is not an answer to
+ * "which ones".
+ */
+const droppedByRegeneration = computed(() =>
+  regeneratedRows.value.filter(row => !row.kept)
+)
+
 function readRows(proposal: DocumentTypeProposal, revision: SchemaRevision | null) {
   const previous = regeneratedRows.value
   const proposed = buildProposalRows(proposal, listSchemaFields(proposal.extractionSchema))
-  const removed = rowsForRemovedPaths(revision?.removed ?? [], path => fieldName(path))
+  const removed = rowsForRemovedPaths(
+    revision?.removed ?? [],
+    path => fieldName(path),
+    path => sectionByPath.value.get(path) || null
+  )
   regeneratedRows.value = carryChoices([...proposed, ...removed], previous)
 }
 
@@ -671,6 +689,10 @@ const nameByPath = computed(
  * re-reading never matched. */
 const sampleValueByPath = computed(
   () => new Map(describedFields.value.map(field => [field.path, field.sampleValue]))
+)
+
+const sectionByPath = computed(
+  () => new Map(describedFields.value.map(field => [field.path, field.section]))
 )
 
 /** What the type recorded about its fields when it was created: the document's
@@ -1067,7 +1089,17 @@ watch(
               </p>
             </div>
 
-            <UFormField :label="t('documentTypes.edit.regenerate.guidance')">
+            <!--
+              Asked here only while there is nothing to answer yet. Once a
+              reading is on screen the box moves down beside the buttons: the
+              instruction being written is about the list the reader has just
+              been through, and scrolling back up to a field they cannot see
+              is how a correction ends up describing the wrong thing.
+            -->
+            <UFormField
+              v-if="!regenerated"
+              :label="t('documentTypes.edit.regenerate.guidance')"
+            >
               <UTextarea
                 v-model="regenerationGuidance"
                 :rows="3"
@@ -1113,30 +1145,64 @@ watch(
                 {{ t('documentTypes.edit.regenerate.noChange') }}
               </p>
 
-              <p
-                v-if="regeneratedRevision.removed.length > 0"
-                class="text-warning text-sm"
-                data-testid="regenerate-removed"
-              >
-                {{ t('documentTypes.edit.regenerate.removed', {
-                  count: regeneratedRevision.removed.length
-                }) }}
-              </p>
-
               <!--
                 The diff, as a list that can be answered. Fields this reading
                 added are badged among their neighbours rather than listed
-                apart, and a field it dropped is here unticked — ticking it
-                back is what asks the next reading to bring it home.
+                apart, and a field it dropped is here too — badged, unticked,
+                in the block it belongs to. Ticking it back is what asks the
+                next reading to bring it home.
               -->
               <ProposalFieldPicker
                 :rows="regeneratedRows"
                 :added-paths="regeneratedRevision.added"
+                :removed-paths="regeneratedRevision.removed"
               />
+
+              <!--
+                What is about to be lost, named, where the decision is made.
+                A count at the top of a thirty-row list does not answer "which
+                ones", and that is the only question worth asking here: every
+                field dropped takes its mapping with it.
+              -->
+              <div
+                v-if="droppedByRegeneration.length > 0"
+                class="border-warning/40 bg-warning/5 flex flex-col gap-1 rounded-lg border p-3"
+                data-testid="regenerate-removed"
+              >
+                <p class="text-warning text-sm font-medium">
+                  {{ t('documentTypes.edit.regenerate.removed', {
+                    count: droppedByRegeneration.length
+                  }) }}
+                </p>
+                <ul class="flex flex-col gap-1">
+                  <li
+                    v-for="row in droppedByRegeneration"
+                    :key="row.path"
+                    class="text-sm"
+                  >
+                    <span class="text-warning">−</span>
+                    {{ row.label }}
+                    <span class="text-dimmed break-all font-mono text-xs">{{ row.path }}</span>
+                  </li>
+                </ul>
+              </div>
 
               <p class="text-muted text-xs">
                 {{ t('documentTypes.edit.regenerate.applyHint') }}
               </p>
+
+              <UFormField
+                :label="t('documentTypes.reread.guidance')"
+                :help="t('documentTypes.reread.hint')"
+              >
+                <UTextarea
+                  v-model="regenerationGuidance"
+                  :rows="2"
+                  class="w-full"
+                  data-testid="reread-guidance"
+                  :placeholder="t('documentTypes.reread.placeholder')"
+                />
+              </UFormField>
 
               <div class="flex flex-wrap gap-2">
                 <UButton
@@ -1178,14 +1244,21 @@ watch(
             </div>
           </section>
 
+          <!--
+            Hidden while a reading is being iterated on. Two field lists on one
+            screen — what the type extracts today, and what it would extract if
+            this were applied — read as one long list of contradictions, and the
+            ticks that matter are the ones in the proposal above. What is stored
+            comes back the moment the regeneration is applied or discarded.
+          -->
           <p
-            v-if="!selections.length"
+            v-if="!regenerated && !selections.length"
             class="text-muted text-sm"
           >
             {{ t('documentTypes.edit.fields.empty') }}
           </p>
 
-          <template v-else>
+          <template v-else-if="!regenerated">
             <UInput
               v-model="fieldQuery"
               icon="i-lucide-search"
@@ -1407,7 +1480,7 @@ watch(
           </template>
 
           <p
-            v-if="missingAccountPaths.length > 0"
+            v-if="!regenerated && missingAccountPaths.length > 0"
             class="text-warning mt-3 text-sm"
             data-testid="account-path-warning"
           >
@@ -1419,7 +1492,7 @@ watch(
           </p>
 
           <p
-            v-if="removedCount > 0"
+            v-if="!regenerated && removedCount > 0"
             class="text-warning mt-3 text-sm"
             data-testid="removed-count"
           >
@@ -1428,7 +1501,7 @@ watch(
         </UCard>
 
         <UAlert
-          v-if="status === 'notMapped'"
+          v-if="!regenerated && status === 'notMapped'"
           color="neutral"
           variant="soft"
           :title="t('documentTypes.edit.status.notMapped')"
@@ -1453,7 +1526,16 @@ watch(
           />
         </section>
 
-        <div class="flex flex-col gap-3">
+        <!--
+          Out of the way while a reading is being iterated on: saving here
+          writes the *stored* trimming and mappings, which is a different
+          decision from the one on screen, and offering both at once is how
+          someone applies half of each.
+        -->
+        <div
+          v-if="!regenerated"
+          class="flex flex-col gap-3"
+        >
           <UAlert
             v-if="saveFailed"
             color="error"

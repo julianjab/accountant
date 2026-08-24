@@ -97,13 +97,17 @@ export function carryChoices(
  */
 export function rowsForRemovedPaths(
   removed: readonly string[],
-  labelFor: (path: string) => string
+  labelFor: (path: string) => string,
+  sectionFor: (path: string) => string | null = () => null
 ): ProposalFieldRow[] {
   return removed.map(path => ({
     path,
     label: labelFor(path),
     sampleValue: '',
-    section: null,
+    // The block the type recorded for it, so a field about to be lost is read
+    // among the neighbours it belongs with rather than in a bin at the end —
+    // which is where the eye goes past it.
+    section: sectionFor(path),
     role: 'context' as const,
     // Unticked on purpose: this reading did not produce the field, so leaving
     // it ticked would report as kept something no schema currently declares.

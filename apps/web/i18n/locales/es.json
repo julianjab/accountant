@@ -168,7 +168,8 @@
       "labelHint": "Dejalo vacío para usar el nombre que le da el documento.",
       "note": "Indicación para este campo",
       "noteHint": "Se envía junto a este campo en la próxima lectura.",
-      "notePlaceholder": "Ej.: es una fila de la tabla, no el total"
+      "notePlaceholder": "Ej.: es una fila de la tabla, no el total",
+      "removed": "Se dejaría de extraer"
     },
     "sections": {
       "other": "Otros campos del documento",

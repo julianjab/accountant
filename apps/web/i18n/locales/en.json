@@ -168,7 +168,8 @@
       "labelHint": "Leave it empty to use the name the document gives it.",
       "note": "A note for this field",
       "noteHint": "Sent with this field on the next reading.",
-      "notePlaceholder": "e.g. this is a row of the table, not the total"
+      "notePlaceholder": "e.g. this is a row of the table, not the total",
+      "removed": "Would stop being extracted"
     },
     "sections": {
       "other": "Other fields in the document",

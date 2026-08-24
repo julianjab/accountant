@@ -26,6 +26,10 @@ const props = defineProps<{
    * than separated, so a new field is still chosen among its neighbours on
    * the page instead of in a list of its own. */
   addedPaths?: readonly string[]
+  /** Paths the type declares today that this reading no longer proposes. Named
+   * on the row itself: a count above a list is not an answer to "which ones",
+   * which is the only question worth asking about a field about to be lost. */
+  removedPaths?: readonly string[]
 }>()
 
 const { t } = useI18n()
@@ -53,6 +57,7 @@ const sections = computed(() =>
 
 const keptCount = computed(() => props.rows.filter(row => row.kept).length)
 const added = computed(() => new Set(props.addedPaths ?? []))
+const removed = computed(() => new Set(props.removedPaths ?? []))
 
 function setSection(paths: readonly string[], kept: boolean) {
   const target = new Set(paths)
@@ -207,6 +212,15 @@ function setRenamed(row: ProposalFieldRow, value: string) {
                   data-testid="field-added"
                 >
                   {{ t('documentTypes.fields.added') }}
+                </UBadge>
+                <UBadge
+                  v-if="removed.has(row.path)"
+                  size="sm"
+                  variant="subtle"
+                  color="warning"
+                  data-testid="field-removed"
+                >
+                  {{ t('documentTypes.fields.removed') }}
                 </UBadge>
                 <UBadge
                   v-if="row.renamedLabel"
