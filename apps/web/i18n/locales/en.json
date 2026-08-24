@@ -61,6 +61,11 @@
       "export": {
         "label": "Export to spreadsheet",
         "disabledTooltip": "Available once spreadsheet export ships (issue #11)"
+      },
+      "sync": {
+        "action": "Sync with Drive",
+        "result": "{imported} new · {skipped} already there · {failed} with problems",
+        "failed": "Could not sync with Drive."
       }
     }
   },

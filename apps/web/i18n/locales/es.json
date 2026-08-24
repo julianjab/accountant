@@ -61,6 +61,11 @@
       "export": {
         "label": "Exportar a hoja de cálculo",
         "disabledTooltip": "Disponible cuando se implemente la exportación a hojas de cálculo (issue #11)"
+      },
+      "sync": {
+        "action": "Sincronizar con Drive",
+        "result": "{imported} nuevos · {skipped} ya estaban · {failed} con problemas",
+        "failed": "No se pudo sincronizar con Drive."
       }
     }
   },

@@ -7,6 +7,7 @@ import ClientHeader from '~/infrastructure/components/clients/ClientHeader.vue'
 import ClientDocumentList from '~/infrastructure/components/clients/ClientDocumentList.vue'
 import MonthlySummaryCard from '~/infrastructure/components/clients/MonthlySummaryCard.vue'
 import ConfiguredTypesCard from '~/infrastructure/components/clients/ConfiguredTypesCard.vue'
+import SyncDriveButton from '~/infrastructure/components/clients/SyncDriveButton.vue'
 import ReconciliationPanel from '~/infrastructure/components/reconciliation/ReconciliationPanel.vue'
 
 const { t } = useI18n()
@@ -138,6 +139,12 @@ const tabItems = computed(() => [
             }"
           >
             <template #documents>
+              <div class="flex justify-end px-4 pt-3">
+                <SyncDriveButton
+                  :client-id="id"
+                  @imported="refreshDocuments"
+                />
+              </div>
               <ClientDocumentList
                 :documents="documents ?? []"
                 :types="types ?? []"
