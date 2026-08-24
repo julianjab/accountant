@@ -339,8 +339,7 @@ describe('ListInbox', () => {
       extractionPrompt: '',
       extractionSchema: {},
       active: true,
-      createdAt: '2026-01-01',
-      fields: []
+      createdAt: '2026-01-01'
     }]
     const useCase = new ListInbox(
       new FakeDocumentRepository([]),

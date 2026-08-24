@@ -44,8 +44,7 @@ describe('ListDocumentTypes', () => {
         extractionPrompt: 'Extract the statement fields',
         extractionSchema: { properties: { balance: { type: 'number' } } },
         active: true,
-        createdAt: '2026-01-01',
-        fields: []
+        createdAt: '2026-01-01'
       }
     ]
     const useCase = new ListDocumentTypes(new FakeDocumentTypeRepository(documentTypes))

@@ -44,8 +44,7 @@ describe('ListActiveDocumentTypes', () => {
         extractionPrompt: 'Extract the fields',
         extractionSchema: {},
         active: true,
-        createdAt: '2026-01-01T00:00:00Z',
-        fields: []
+        createdAt: '2026-01-01T00:00:00Z'
       }
     ]
     const useCase = new ListActiveDocumentTypes(new FakeDocumentTypeRepository(documentTypes))
