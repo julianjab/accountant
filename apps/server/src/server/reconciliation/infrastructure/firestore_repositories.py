@@ -223,16 +223,7 @@ class FirestoreReconciliationReportRepository:
             # Recomputed rather than read back: a stored summary that disagrees
             # with the findings beside it is worse than no summary at all.
             summary=ReportSummary.of(ordered),
-            contributions=tuple(
-                DocumentContribution(
-                    document_id=c["document_id"],
-                    file_name=c.get("file_name", ""),
-                    status=ContributionStatus(c["status"]),
-                    fact_count=c.get("fact_count", 0),
-                    detail=c.get("detail", ""),
-                )
-                for c in data.get("contributions") or []
-            ),
+            contributions=tuple(_contribution_from_doc(c) for c in data.get("contributions") or []),
         )
 
 
@@ -286,6 +277,26 @@ class FirestoreConceptMappingRepository:
                 for e in data.get("entries", [])
             ),
         )
+
+
+def _contribution_from_doc(data: dict[str, Any]) -> DocumentContribution:
+    """Reads one contribution, surviving a status this version does not know.
+
+    Statuses are written by whichever server version ran the reconciliation.
+    Letting an unrecognised one raise would make the entire report unreadable
+    — findings and all — over a single descriptive field.
+    """
+    try:
+        status = ContributionStatus(data["status"])
+    except (KeyError, ValueError):
+        status = ContributionStatus.NOT_READY
+    return DocumentContribution(
+        document_id=data.get("document_id", ""),
+        file_name=data.get("file_name", ""),
+        status=status,
+        fact_count=data.get("fact_count", 0),
+        detail=data.get("detail", ""),
+    )
 
 
 def _mapping_id(document_type_id: str, kind_id: str) -> str:
