@@ -62,3 +62,8 @@ known-first-party = ["server"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# `tests/reconciliation/fixtures.py` rebuilds the DIAN's sheet layout, and
+# tests outside that folder need it too — approving a document runs the
+# exogena parser. Without this, importing it works or not depending on which
+# test module pytest happened to collect first.
+pythonpath = ["tests/reconciliation"]

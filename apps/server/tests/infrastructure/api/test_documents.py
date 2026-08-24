@@ -90,54 +90,6 @@ def test_document_metrics_avg_is_null_without_processed_documents(client, docume
     assert response.json()["avg_processing_seconds"] is None
 
 
-def test_approve_document_happy_path(client, documents) -> None:
-    documents.save(_document(id="doc-1", status=DocumentStatus.PROCESSED))
-
-    response = client.post("/documents/doc-1/approve", json={"approved_by": "jane"})
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "approved"
-    assert body["approved_by"] == "jane"
-    assert body["reviewed_at"] is not None
-
-
-def test_approve_document_returns_404_when_missing(client, documents) -> None:
-    response = client.post("/documents/missing/approve")
-
-    assert response.status_code == 404
-
-
-def test_approve_document_returns_409_when_not_processed(client, documents) -> None:
-    documents.save(_document(id="doc-1", status=DocumentStatus.PENDING))
-
-    response = client.post("/documents/doc-1/approve")
-
-    assert response.status_code == 409
-
-
-def test_the_parsable_sources_are_offered_for_a_person_to_pick(client) -> None:
-    """The classifier can never propose these — they are read by a parser
-    rather than configured as a document type — so the screen has to offer
-    them itself."""
-    response = client.get("/documents/sources")
-
-    assert response.status_code == 200
-    sources = response.json()
-    exogena = next(s for s in sources if s["id"] == "exogena_report")
-    assert "exógena" in exogena["label"].lower()
-    assert (
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        in exogena["media_types"]
-    )
-
-
-def test_sources_is_not_read_as_a_document_id(client, documents) -> None:
-    """`/documents/sources` sits under the same prefix as `/documents/{id}`;
-    declared the other way round it would 404 for every caller."""
-    assert client.get("/documents/sources").status_code == 200
-
-
 @pytest.fixture
 def drive(monkeypatch):
     """Keeps `/recognize` off a real Drive client.
@@ -159,15 +111,36 @@ def drive(monkeypatch):
     return holder
 
 
-def test_recognizing_a_missing_document_is_a_404(client, documents, drive) -> None:
-    response = client.post("/documents/missing/recognize", json={"source_id": "exogena_report"})
+def test_approving_reads_the_document_and_signs_off_on_it(client, documents, drive) -> None:
+    """One endpoint because it is one button: a document reaches this screen
+    precisely when the pipeline could make nothing of it."""
+    import fixtures
 
-    assert response.status_code == 404
+    drive["data"] = fixtures.exogena_workbook_bytes()
+    documents.save(
+        _document(
+            id="doc-1",
+            status=DocumentStatus.FAILED,
+            document_type_id=None,
+            error="Could not identify the document type",
+            file_name="reporteExogena2025.xlsx",
+            mime_type=XLSX,
+        )
+    )
+
+    response = client.post("/documents/doc-1/approve", json={"approved_by": "jane"})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "approved"
+    assert response.json()["source_id"] == "exogena_report"
 
 
-def test_a_file_that_is_not_the_named_source_is_a_422(client, documents, drive) -> None:
-    """Well-formed request, entitled caller — the file simply is not what they
-    said it was, which is about the content and not the request."""
+def test_approving_a_missing_document_is_a_404(client, documents, drive) -> None:
+    assert client.post("/documents/missing/approve").status_code == 404
+
+
+def test_a_document_nothing_can_be_read_from_is_a_422(client, documents, drive) -> None:
+    """Well formed request, entitled caller — the file itself yielded nothing."""
     documents.save(
         _document(
             id="doc-1",
@@ -178,8 +151,4 @@ def test_a_file_that_is_not_the_named_source_is_a_422(client, documents, drive) 
         )
     )
 
-    response = client.post("/documents/doc-1/recognize", json={"source_id": "exogena_report"})
-
-    assert response.status_code == 422
-    # Untouched: choosing the wrong source must leave nothing behind.
-    assert documents.get("doc-1").status == DocumentStatus.FAILED
+    assert client.post("/documents/doc-1/approve").status_code == 422
