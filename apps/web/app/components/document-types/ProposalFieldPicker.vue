@@ -18,7 +18,7 @@ import { groupBySection, rowLabel } from '~/domain/document-type-configuration'
 import type { SectionNotes } from '~/domain/proposal-loop'
 import { sectionKey } from '~/domain/proposal-loop'
 import { matchesFieldQuery } from '~/domain/field-search'
-import { formatSampleAmount } from '~/utils/extraction-field-display'
+import { formatSampleValue } from '~/utils/extraction-field-display'
 
 const props = defineProps<{
   /** Mutated in place: the rows are the screen's own state, and the parent
@@ -110,7 +110,7 @@ function isEditing(row: ProposalFieldRow): boolean {
  * — a bare `150464.81` beside a certificate that prints `$150.464,81` is the
  * one thing here nobody can check at a glance. */
 function sampleValueOf(row: ProposalFieldRow): string {
-  return row.role === 'amount' ? formatSampleAmount(row.sampleValue) : row.sampleValue
+  return formatSampleValue(row.sampleValue, row.role, row.path)
 }
 
 /** Which blocks have their instruction box open. A block that already carries

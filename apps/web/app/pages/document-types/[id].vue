@@ -26,6 +26,7 @@ import { changesNothing, compareSchemaPaths } from '~/domain/schema-revision'
 import type { SchemaRevision } from '~/domain/schema-revision'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
 import ProposalFieldPicker from '~/components/document-types/ProposalFieldPicker.vue'
+import { formatSampleValue } from '~/utils/extraction-field-display'
 import type { SectionNotes } from '~/domain/proposal-loop'
 import { carryChoices, rowsForRemovedPaths, toFieldSelection } from '~/domain/proposal-loop'
 import { matchesFieldQuery } from '~/domain/field-search'
@@ -706,6 +707,16 @@ const sectionByPath = computed(
   () => new Map(describedFields.value.map(field => [field.path, field.section]))
 )
 
+const roleByPath = computed(
+  () => new Map(describedFields.value.map(field => [field.path, field.role]))
+)
+
+/** The same reading the configurator offers: the figure as the paper prints
+ * it, which is what makes the value usable as an anchor at all. */
+function sampleValueFor(path: string): string {
+  return formatSampleValue(sampleValueByPath.value.get(path) ?? '', roleByPath.value.get(path), path)
+}
+
 /** What the type recorded about its fields when it was created: the document's
  * own name for each one and the block of the page it sits in. */
 const describedFields = computed(() => documentType.value?.fields ?? [])
@@ -1385,7 +1396,7 @@ watch(
                         data-testid="field-sample-value"
                       >
                         {{ t('documentTypes.sections.sampleValue', {
-                          value: sampleValueByPath.get(selections[index]!.path)
+                          value: sampleValueFor(selections[index]!.path)
                         }) }}
                       </p>
                       <p

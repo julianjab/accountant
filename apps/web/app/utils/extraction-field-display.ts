@@ -112,6 +112,26 @@ export function formatSampleAmount(value: string): string {
   return formatAccountingAmountString(trimmed)
 }
 
+/**
+ * A sample value as the field's own kind of value: money when it is money.
+ *
+ * The role alone was not enough. It is the model's guess about a field, and a
+ * type configured before roles were stored has none at all — so a certificate
+ * whose figures came back as `context` showed `9946131.00` on a screen whose
+ * whole purpose is recognising which figure a row is. The field's path is the
+ * second opinion: `costos_y_gastos.intereses_causados` says what it holds
+ * whatever the role says.
+ *
+ * An identifier is never money, and that rule comes first: a NIT reads as a
+ * long number, and formatting it would turn the one field that ties the paper
+ * to a party into a sum of pesos.
+ */
+export function formatSampleValue(value: string, role: string | undefined, path: string): string {
+  if (role === 'identifier') return value
+  if (role === 'amount' || looksLikeCurrencyKey(path)) return formatSampleAmount(value)
+  return value
+}
+
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
