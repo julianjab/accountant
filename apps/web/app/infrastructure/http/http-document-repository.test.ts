@@ -127,61 +127,7 @@ describe('HttpDocumentRepository.importForClient', () => {
     vi.unstubAllGlobals()
   })
 
-  it('maps the parsable sources a reviewer can pick from', async () => {
-    const fetchMock = vi.fn().mockResolvedValue([
-      {
-        id: 'exogena_report',
-        label: 'Reporte de información exógena (DIAN)',
-        media_types: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
-      }
-    ])
-    vi.stubGlobal('$fetch', fetchMock)
-
-    const repository = new HttpDocumentRepository('http://localhost:8000')
-
-    await expect(repository.listSources()).resolves.toEqual([
-      {
-        id: 'exogena_report',
-        label: 'Reporte de información exógena (DIAN)',
-        mediaTypes: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
-      }
-    ])
-    expect(fetchMock).toHaveBeenCalledWith('/documents/sources', {
-      baseURL: 'http://localhost:8000',
-      credentials: 'include'
-    })
-  })
-
-  it('sends the chosen source and maps the document it comes back as', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      id: 'doc-1',
-      client_id: 'client-1',
-      document_type_id: null,
-      drive_file_id: 'drive-1',
-      file_name: 'reporteExogena2025.xlsx',
-      mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      status: 'processed',
-      error: null,
-      created_at: '2026-01-01',
-      processed_at: '2026-01-02',
-      source_id: 'exogena_report'
-    })
-    vi.stubGlobal('$fetch', fetchMock)
-
-    const repository = new HttpDocumentRepository('http://localhost:8000')
-    const result = await repository.recognizeSource('doc-1', 'exogena_report')
-
-    expect(result.status).toBe('processed')
-    expect(result.sourceId).toBe('exogena_report')
-    expect(fetchMock).toHaveBeenCalledWith('/documents/doc-1/recognize', {
-      baseURL: 'http://localhost:8000',
-      credentials: 'include',
-      method: 'POST',
-      body: { source_id: 'exogena_report' }
-    })
-  })
-
-  it('approves a document', async () => {
+  it('approves a document, which is what reads it in the first place', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       id: 'doc-1',
       client_id: 'client-1',
@@ -208,36 +154,6 @@ describe('HttpDocumentRepository.importForClient', () => {
       credentials: 'include',
       method: 'POST',
       body: { approved_by: null }
-    })
-  })
-
-  it('withdraws an approval so the document can be changed again', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      id: 'doc-1',
-      client_id: 'client-1',
-      document_type_id: null,
-      drive_file_id: 'drive-1',
-      file_name: 'reporteExogena2025.xlsx',
-      mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      status: 'processed',
-      error: null,
-      created_at: '2026-01-01',
-      processed_at: '2026-01-02',
-      source_id: 'exogena_report'
-    })
-    vi.stubGlobal('$fetch', fetchMock)
-
-    const repository = new HttpDocumentRepository('http://localhost:8000')
-    const result = await repository.reopen('doc-1')
-
-    expect(result.status).toBe('processed')
-    // What it was read as survives: withdrawing a review says nothing about
-    // the contents, only that nobody stands behind them any more.
-    expect(result.sourceId).toBe('exogena_report')
-    expect(fetchMock).toHaveBeenCalledWith('/documents/doc-1/reopen', {
-      baseURL: 'http://localhost:8000',
-      credentials: 'include',
-      method: 'POST'
     })
   })
 })

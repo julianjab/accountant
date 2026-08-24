@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { DocumentSource } from '~/domain/entities/document-source'
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
 import type {
@@ -51,19 +50,7 @@ class FakeDocumentRepository implements DocumentRepository {
     return Promise.resolve(this.result)
   }
 
-  listSources(): Promise<DocumentSource[]> {
-    throw new Error('not implemented')
-  }
-
-  recognizeSource(_id: string, _sourceId: string): Promise<ClientDocument> {
-    throw new Error('not implemented')
-  }
-
   approve(_id: string, _approvedBy?: string): Promise<ClientDocument> {
-    throw new Error('not implemented')
-  }
-
-  reopen(_id: string): Promise<ClientDocument> {
     throw new Error('not implemented')
   }
 }

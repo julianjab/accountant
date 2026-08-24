@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import type { Client } from '~/domain/entities/client'
-import type { DocumentSource } from '~/domain/entities/document-source'
 import type { ClientDocument } from '~/domain/entities/document'
 import type { DocumentType, DocumentTypeCreation, DocumentTypeUpdate } from '~/domain/entities/document-type'
 import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
@@ -15,10 +14,6 @@ import type {
   UpdateDocumentTypeInput
 } from '~/application/ports/document-type-repository'
 import { ListInbox } from '~/application/use-cases/list-inbox'
-
-const SOURCES: DocumentSource[] = [
-  { id: 'exogena_report', label: 'Reporte de información exógena (DIAN)', mediaTypes: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'] }
-]
 
 class FakeClientRepository implements ClientRepository {
   constructor(private readonly clients: Client[]) {}
@@ -63,19 +58,7 @@ class FakeDocumentRepository implements DocumentRepository {
     throw new Error('not implemented')
   }
 
-  listSources(): Promise<DocumentSource[]> {
-    return Promise.resolve(SOURCES)
-  }
-
-  recognizeSource(_id: string, _sourceId: string): Promise<ClientDocument> {
-    throw new Error('not implemented')
-  }
-
   approve(_id: string, _approvedBy?: string): Promise<ClientDocument> {
-    throw new Error('not implemented')
-  }
-
-  reopen(_id: string): Promise<ClientDocument> {
     throw new Error('not implemented')
   }
 }
@@ -380,19 +363,5 @@ describe('ListInbox', () => {
     const view = await useCase.execute()
 
     expect(view.documentTypesById['t1']).toEqual(types[0])
-  })
-
-  it('reports the parsable sources, so a document read by one can be named', async () => {
-    // Such a document has no type by design; without this the inbox would call
-    // the exogena "unclassified", which is exactly what it is not.
-    const useCase = new ListInbox(
-      new FakeDocumentRepository([document({ id: 'd1', clientId: 'c1', sourceId: 'exogena_report' })]),
-      new FakeClientRepository([client({ id: 'c1' })]),
-      new FakeDocumentTypeRepository([])
-    )
-
-    const view = await useCase.execute()
-
-    expect(view.documentSourcesById.exogena_report).toEqual(SOURCES[0])
   })
 })
