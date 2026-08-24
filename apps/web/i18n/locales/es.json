@@ -149,6 +149,12 @@
       "fieldsCount": "{count} campos",
       "schemaKeys": "Campos del esquema"
     },
+    "sections": {
+      "other": "Otros campos del documento",
+      "count": "{kept} de {total} marcados",
+      "all": "Marcar todo",
+      "none": "Ninguno"
+    },
     "new": {
       "title": "Definir tipo de documento",
       "nothingSaved": "Todavía no se guarda nada. Primero se analiza el documento de muestra y después vos elegís qué se le va a pedir a cada documento de este tipo.",
@@ -166,10 +172,6 @@
         "hint": "Vienen marcados la identificación y los valores, que suele ser lo que hace falta. Lo demás —fechas, textos, encabezados— viene sin marcar: marcá lo que sí necesites y desmarcá lo que no. Lo que quede sin marcar no se extrae.",
         "empty": "El análisis no encontró campos en este documento.",
         "keep": "Extraer este campo",
-        "all": "Marcar todo",
-        "none": "Ninguno",
-        "sectionCount": "{kept} de {total} marcados",
-        "otherSection": "Otros campos del documento",
         "sampleValue": "En la muestra: {value}",
         "keptSummary": "Se van a extraer {kept} de {total} campos.",
         "role": {
@@ -257,11 +259,8 @@
         "spineQuestion": "¿Qué renglón de la exógena responde?",
         "spineHint": "El renglón que este valor debe respaldar. Si dejás varios campos en el mismo renglón, se suman.",
         "noSpine": "No se compara con la exógena",
-        "noSpineGroup": "Se extraen, pero no se comparan con nada",
-        "noSpineGroupHint": "Estos campos se siguen extrayendo y quedan guardados; simplemente no hay ningún renglón de la exógena que tengan que respaldar.",
         "sections": "Bloques del documento:",
         "summed": "Este documento aporta {count} valores a este renglón: se suman entre sí y el total es lo que se compara contra la exógena.",
-        "single": "Este valor se compara contra este renglón de la exógena.",
         "mixedComparison": "Ojo: en este renglón hay valores que van cuenta por cuenta y otros que son un total. No se pueden sumar entre sí, así que conviene que todos usen la misma forma de comparar.",
         "comparison": {
           "question": "¿Cómo lo compara el sistema?",
@@ -273,7 +272,10 @@
         "accountPath": "Campo con el número de cuenta",
         "accountPathHint": "Es el campo del que la IA lee a qué cuenta pertenece cada cifra. Sin él no hay cuenta contra la cual parear.",
         "accountPathMissing": "Dijiste que el certificado detalla cada cuenta, pero no elegiste el campo con el número de cuenta. Mientras siga así se compara el total, para no reportar como faltante una cifra que el certificado sí trae.",
-        "accountPathMissingCount": "Hay {count} campo marcado como \"detalla cada cuenta\" sin campo de número de cuenta: se va a comparar como total. | Hay {count} campos marcados como \"detalla cada cuenta\" sin campo de número de cuenta: se van a comparar como total."
+        "accountPathMissingCount": "Hay {count} campo marcado como \"detalla cada cuenta\" sin campo de número de cuenta: se va a comparar como total. | Hay {count} campos marcados como \"detalla cada cuenta\" sin campo de número de cuenta: se van a comparar como total.",
+        "searchConcept": "Buscá el concepto…",
+        "searchSpine": "Buscá el renglón…",
+        "searchField": "Buscá el campo…"
       },
       "mappingChanges": {
         "title": "Qué pasó con las asignaciones",

@@ -149,6 +149,12 @@
       "fieldsCount": "{count} fields",
       "schemaKeys": "Schema fields"
     },
+    "sections": {
+      "other": "Other fields in the document",
+      "count": "{kept} of {total} kept",
+      "all": "Keep all",
+      "none": "None"
+    },
     "new": {
       "title": "Define document type",
       "nothingSaved": "Nothing is saved yet. First the sample document is analyzed, then you choose what will be asked of every document of this type.",
@@ -166,10 +172,6 @@
         "hint": "The identification and the amounts start ticked, which is usually what is needed. Everything else — dates, wording, headings — starts unticked: tick what you do need and untick what you do not. Whatever stays unticked is not extracted.",
         "empty": "The analysis found no fields in this document.",
         "keep": "Extract this field",
-        "all": "Tick all",
-        "none": "None",
-        "sectionCount": "{kept} of {total} ticked",
-        "otherSection": "Other fields in the document",
         "sampleValue": "On the sample: {value}",
         "keptSummary": "{kept} of {total} fields will be extracted.",
         "role": {
@@ -257,11 +259,8 @@
         "spineQuestion": "Which line of the base report does it answer?",
         "spineHint": "The line this value has to back. Leave several fields on the same line and they are added together.",
         "noSpine": "Not compared against the base report",
-        "noSpineGroup": "Extracted, but compared against nothing",
-        "noSpineGroupHint": "These fields are still extracted and stored; there is simply no line of the base report they have to back.",
         "sections": "Blocks of the document:",
         "summed": "This document contributes {count} values to this line: they are added together and the total is what gets compared against the base report.",
-        "single": "This value is compared against this line of the base report.",
         "mixedComparison": "Careful: this line mixes values compared account by account with values compared as a total. They cannot be added together, so they should all use the same comparison.",
         "comparison": {
           "question": "How does the system compare it?",
@@ -273,7 +272,10 @@
         "accountPath": "Field holding the account number",
         "accountPathHint": "The field the AI reads each figure’s account from. Without it there is no account to pair against.",
         "accountPathMissing": "You said the certificate details each account, but no field holds the account number. Until one does, the total is compared instead, so a figure the certificate does state is not reported as missing.",
-        "accountPathMissingCount": "{count} field is marked as detailing each account with no account-number field: it will be compared as a total. | {count} fields are marked as detailing each account with no account-number field: they will be compared as totals."
+        "accountPathMissingCount": "{count} field is marked as detailing each account with no account-number field: it will be compared as a total. | {count} fields are marked as detailing each account with no account-number field: they will be compared as totals.",
+        "searchConcept": "Search for the concept…",
+        "searchSpine": "Search for the line…",
+        "searchField": "Search for the field…"
       },
       "mappingChanges": {
         "title": "What happened to the mappings",

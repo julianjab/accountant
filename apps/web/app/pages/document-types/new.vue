@@ -531,10 +531,10 @@ async function save() {
                 <div class="bg-elevated/50 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2">
                   <div class="min-w-0">
                     <p class="text-highlighted text-sm font-medium">
-                      {{ section.section ?? t('documentTypes.new.select.otherSection') }}
+                      {{ section.section ?? t('documentTypes.sections.other') }}
                     </p>
                     <p class="text-muted text-xs">
-                      {{ t('documentTypes.new.select.sectionCount', {
+                      {{ t('documentTypes.sections.count', {
                         kept: section.keptCount,
                         total: section.paths.length
                       }) }}
@@ -547,7 +547,7 @@ async function save() {
                       variant="ghost"
                       @click="setSection(section.paths, true)"
                     >
-                      {{ t('documentTypes.new.select.all') }}
+                      {{ t('documentTypes.sections.all') }}
                     </UButton>
                     <UButton
                       size="xs"
@@ -555,7 +555,7 @@ async function save() {
                       variant="ghost"
                       @click="setSection(section.paths, false)"
                     >
-                      {{ t('documentTypes.new.select.none') }}
+                      {{ t('documentTypes.sections.none') }}
                     </UButton>
                   </div>
                 </div>

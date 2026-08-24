@@ -22,10 +22,10 @@ import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
 import {
   descriptionsForKnownPaths,
+  groupBySection,
   labelFor,
   mergeDescriptions,
-  orderedSectionNames,
-  sectionFor
+  orderedSectionNames
 } from '~/domain/field-sections'
 
 const { t } = useI18n()
@@ -383,24 +383,62 @@ function conceptLabel(conceptId: string): string {
   return concept?.label ?? conceptId
 }
 
-function spineConcept(conceptId: string) {
-  return selectedKind.value?.spineConcepts.find(candidate => candidate.id === conceptId) ?? null
-}
-
-// Rows are rendered grouped by the line they answer, but edited in place, so
-// the group only carries paths and the index is looked up here.
-const indexByPath = computed(
-  () => new Map(selections.value.map((selection, index) => [selection.path, index]))
-)
-
-// The group is a domain answer about paths; the row indices it is rendered
-// with are a rendering detail, resolved once here instead of in the template.
-const groups = computed(() =>
-  groupBySpineConcept(selections.value).map(group => ({
-    ...group,
-    indices: group.paths.map(path => indexByPath.value.get(path) ?? -1).filter(index => index >= 0)
+/**
+ * The rows, in the blocks the paper puts them in — the same grouping the
+ * configurator uses when the type is first defined.
+ *
+ * The two screens ask the same question of the same list, and answering it
+ * means finding each field on the document: the block is what locates it.
+ * Grouping by the exogena line instead scattered one block of the page across
+ * several headings, so a certificate could not be read top to bottom against
+ * its own configuration.
+ *
+ * Rows are edited in place, so a group carries the index of each row rather
+ * than a copy of it.
+ */
+const sections = computed(() =>
+  groupBySection(
+    selections.value.map((selection, index) => ({ selection, index })),
+    entry => entry.selection.path,
+    describedFields.value
+  ).map(section => ({
+    name: section.name,
+    indices: section.items.map(entry => entry.index),
+    keptCount: section.items.filter(entry => entry.selection.kept).length
   }))
 )
+
+/**
+ * What the exogena line a field answers implies for that field, by path.
+ *
+ * The spine grouping is no longer the shape of the list, but what it knows
+ * still has to be said: that several fields are added together before the
+ * comparison, and that some of them disagree about how to compare. Dropping
+ * the heading without moving these onto the rows would have quietly deleted
+ * the only warning that a total is being built out of mismatched parts.
+ */
+const spineFactsByPath = computed(() => {
+  const facts = new Map<string, { summed: number, mixed: boolean }>()
+  for (const group of groupBySpineConcept(selections.value)) {
+    for (const path of group.paths) {
+      facts.set(path, {
+        summed: group.summed ? group.paths.length : 0,
+        mixed: group.mixedComparison
+      })
+    }
+  }
+  return facts
+})
+
+/** Whole blocks are kept or dropped together: a certificate's useless half is
+ * usually a block of it, and ticking twelve boxes to say so is the screen's
+ * work, not the reader's. */
+function setSection(indices: readonly number[], kept: boolean) {
+  for (const index of indices) {
+    const selection = selections.value[index]
+    if (selection) selection.kept = kept
+  }
+}
 
 // Named per field below too; this only decides whether the summary line is
 // worth showing, so nobody has to scan every group to find the one at fault.
@@ -413,18 +451,6 @@ const nameByPath = computed(
 /** What the type recorded about its fields when it was created: the document's
  * own name for each one and the block of the page it sits in. */
 const describedFields = computed(() => documentType.value?.fields ?? [])
-
-/**
- * The rows are grouped by the line of the exogena they answer, which is the
- * question this screen exists to settle. The section is shown on the row
- * instead of as a second level of grouping: it says *where on the paper* the
- * field is, which is what someone needs to recognise a field, and a field's
- * block and the line it answers are independent — one exogena line is
- * routinely answered by figures from two different blocks.
- */
-function fieldSection(path: string): string {
-  return sectionFor(path, describedFields.value)
-}
 
 /** The document's own words where they exist, the schema's name otherwise. */
 function fieldName(path: string): string {
@@ -810,53 +836,44 @@ watch(
             data-testid="field-rows"
           >
             <section
-              v-for="group in groups"
-              :key="group.spineConceptId ?? '__unanswered__'"
-              class="flex flex-col gap-3"
+              v-for="section in sections"
+              :key="section.name || '__unsectioned__'"
+              class="flex flex-col gap-2"
             >
-              <!--
-              The heading is the line of the exogena, not the document: every
-              field under it is added up before the comparison, and a flat list
-              of fields would never let that be discovered.
-            -->
-              <div class="bg-elevated/50 flex flex-col gap-1 rounded-lg px-3 py-2">
-                <p class="text-highlighted text-sm font-medium">
-                  {{ group.spineConceptId
-                    ? spineConcept(group.spineConceptId)?.label ?? group.spineConceptId
-                    : t('documentTypes.edit.fields.noSpineGroup') }}
-                </p>
-                <p
-                  v-if="group.spineConceptId && spineConcept(group.spineConceptId)?.description"
-                  class="text-muted text-xs"
-                >
-                  {{ spineConcept(group.spineConceptId)?.description }}
-                </p>
-                <p
-                  v-if="group.summed"
-                  class="text-primary text-xs"
-                  data-testid="summed-note"
-                >
-                  {{ t('documentTypes.edit.fields.summed', { count: group.paths.length }) }}
-                </p>
-                <p
-                  v-else
-                  class="text-muted text-xs"
-                >
-                  {{ group.spineConceptId
-                    ? t('documentTypes.edit.fields.single')
-                    : t('documentTypes.edit.fields.noSpineGroupHint') }}
-                </p>
-                <p
-                  v-if="group.mixedComparison"
-                  class="text-warning text-xs"
-                  data-testid="mixed-comparison"
-                >
-                  {{ t('documentTypes.edit.fields.mixedComparison') }}
-                </p>
+              <div class="bg-elevated/50 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2">
+                <div class="min-w-0">
+                  <p class="text-highlighted text-sm font-medium">
+                    {{ section.name || t('documentTypes.sections.other') }}
+                  </p>
+                  <p class="text-muted text-xs">
+                    {{ t('documentTypes.sections.count', {
+                      kept: section.keptCount,
+                      total: section.indices.length
+                    }) }}
+                  </p>
+                </div>
+                <div class="flex shrink-0 gap-1">
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    @click="setSection(section.indices, true)"
+                  >
+                    {{ t('documentTypes.sections.all') }}
+                  </UButton>
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    @click="setSection(section.indices, false)"
+                  >
+                    {{ t('documentTypes.sections.none') }}
+                  </UButton>
+                </div>
               </div>
 
               <div
-                v-for="index in group.indices"
+                v-for="index in section.indices"
                 :key="selections[index]!.path"
                 class="border-default flex flex-col gap-3 rounded-lg border p-3"
                 :class="selections[index]!.kept ? '' : 'opacity-60'"
@@ -869,16 +886,6 @@ watch(
                   />
 
                   <div class="min-w-0">
-                    <UBadge
-                      v-if="fieldSection(selections[index]!.path)"
-                      color="neutral"
-                      variant="subtle"
-                      size="sm"
-                      class="mb-1"
-                      data-testid="field-section"
-                    >
-                      {{ fieldSection(selections[index]!.path) }}
-                    </UBadge>
                     <p
                       class="text-sm font-medium"
                       :class="selections[index]!.kept ? 'text-highlighted' : 'text-muted line-through'"
@@ -908,10 +915,12 @@ watch(
                     :label="t('documentTypes.edit.fields.conceptQuestion')"
                     :help="t('documentTypes.edit.fields.conceptHint')"
                   >
-                    <USelect
+                    <UInputMenu
                       :model-value="selections[index]!.conceptId ?? UNMAPPED"
                       :items="conceptItems"
+                      value-key="value"
                       :disabled="!selections[index]!.kept"
+                      :placeholder="t('documentTypes.edit.fields.searchConcept')"
                       class="w-full"
                       @update:model-value="selections[index]!.conceptId = toPath($event as string)"
                     />
@@ -921,15 +930,39 @@ watch(
                     :label="t('documentTypes.edit.fields.spineQuestion')"
                     :help="t('documentTypes.edit.fields.spineHint')"
                   >
-                    <USelect
+                    <UInputMenu
                       :model-value="selections[index]!.spineConceptId ?? UNMAPPED"
                       :items="spineItems"
+                      value-key="value"
                       :disabled="!selections[index]!.kept || !selections[index]!.conceptId"
+                      :placeholder="t('documentTypes.edit.fields.searchSpine')"
                       class="w-full"
                       @update:model-value="selections[index]!.spineConceptId = toPath($event as string)"
                     />
                   </UFormField>
                 </div>
+
+                <!--
+                  Said on the row now that the exogena line is no longer a
+                  heading: that this figure is one of several added together,
+                  and that the sum is being built out of mismatched parts.
+                -->
+                <p
+                  v-if="spineFactsByPath.get(selections[index]!.path)?.summed"
+                  class="text-primary text-xs sm:pl-8"
+                  data-testid="summed-note"
+                >
+                  {{ t('documentTypes.edit.fields.summed', {
+                    count: spineFactsByPath.get(selections[index]!.path)!.summed
+                  }) }}
+                </p>
+                <p
+                  v-if="spineFactsByPath.get(selections[index]!.path)?.mixed"
+                  class="text-warning text-xs sm:pl-8"
+                  data-testid="mixed-comparison"
+                >
+                  {{ t('documentTypes.edit.fields.mixedComparison') }}
+                </p>
 
                 <div
                   v-if="selections[index]!.kept && selections[index]!.conceptId && selections[index]!.spineConceptId"
@@ -948,9 +981,11 @@ watch(
                     :label="t('documentTypes.edit.fields.accountPath')"
                     :help="t('documentTypes.edit.fields.accountPathHint')"
                   >
-                    <USelect
+                    <UInputMenu
                       :model-value="selectValue(selections[index]!.accountPath)"
                       :items="optionalFieldItems"
+                      value-key="value"
+                      :placeholder="t('documentTypes.edit.fields.searchField')"
                       class="w-full sm:w-96"
                       @update:model-value="selections[index]!.accountPath = toPath($event as string)"
                     />
