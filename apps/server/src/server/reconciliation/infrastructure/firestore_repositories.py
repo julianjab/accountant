@@ -264,6 +264,11 @@ class FirestoreConceptMappingRepository:
         query = self._collection.where("kind_id", "==", kind_id)
         return [self._to_entity(s.to_dict()) for s in query.stream()]
 
+    def delete_for_document_type(self, document_type_id: str) -> None:
+        query = self._collection.where("document_type_id", "==", document_type_id)
+        for snapshot in query.stream():
+            snapshot.reference.delete()
+
     @staticmethod
     def _to_entity(data: dict[str, Any]) -> ConceptMapping:
         return ConceptMapping(

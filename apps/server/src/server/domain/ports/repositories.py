@@ -26,6 +26,14 @@ class DocumentRepository(Protocol):
     def get_by_drive_file_id_and_client(
         self, drive_file_id: str, client_id: str
     ) -> Document | None: ...
+    def list_by_document_type(self, document_type_id: str) -> list[Document]:
+        """Every document classified as this type.
+
+        Deleting a type needs this: a document whose type is gone keeps an id
+        pointing at nothing, so the screen cannot name what it is and the
+        reconciliation loses the mapping that made its figures comparable.
+        """
+        ...
 
 
 class DocumentTypeRepository(Protocol):
@@ -33,6 +41,10 @@ class DocumentTypeRepository(Protocol):
     def get(self, document_type_id: str) -> DocumentType | None: ...
     def list_active(self) -> list[DocumentType]: ...
     def list_all(self) -> list[DocumentType]: ...
+    def delete(self, document_type_id: str) -> None:
+        """Removes the type. Deleting one that never existed is not an error:
+        the caller wanted it gone and it is."""
+        ...
 
 
 class ExtractedDataRepository(Protocol):

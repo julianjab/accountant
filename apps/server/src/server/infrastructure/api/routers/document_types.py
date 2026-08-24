@@ -5,7 +5,10 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from server.application.use_cases import (
     DefineDocumentType,
     DefineDocumentTypeInput,
+    DeleteDocumentType,
+    DeleteDocumentTypeInput,
     DocumentNotFound,
+    DocumentTypeInUse,
     DocumentTypeNotFound,
     ProposeDocumentType,
     ProposeDocumentTypeInput,
@@ -18,7 +21,9 @@ from server.domain.entities import DocumentType, DocumentTypeField, FieldRole
 from server.domain.ports import ConceptOption, DocumentContent, ProposedFieldMapping
 from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
+    get_concept_mapping_repository,
     get_define_document_type_use_case,
+    get_delete_document_type_use_case,
     get_document_type_repository,
     get_propose_document_type_use_case,
     get_prune_concept_mappings_use_case,
@@ -311,6 +316,38 @@ def update_document_type(
             for c in changes
         ],
     )
+
+
+@router.delete("/{document_type_id}", status_code=204)
+def delete_document_type(
+    document_type_id: str,
+    use_case: DeleteDocumentType = Depends(get_delete_document_type_use_case),
+    mappings=Depends(get_concept_mapping_repository),
+) -> None:
+    """Removes a type nothing was filed under, and its concept mappings.
+
+    Deleting is for undoing a mistake — a duplicate, a type configured from
+    the wrong sample. Retiring a type in use is what `active` is for, and it
+    keeps the documents already classified under it readable.
+    """
+    try:
+        use_case.execute(DeleteDocumentTypeInput(document_type_id=document_type_id))
+    except DocumentTypeNotFound as exc:
+        raise HTTPException(status_code=404, detail="Document type not found") from exc
+    except DocumentTypeInUse as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    try:
+        # After the type, not before: a mapping deleted for a type that then
+        # failed to delete would leave a type that extracts and reconciles
+        # nothing, looking configured. This way the worst case is a mapping
+        # nothing can reach, which changes no behaviour.
+        mappings.delete_for_document_type(document_type_id)
+    except Exception:
+        logger.exception(
+            "Deleted the document type but could not delete its concept mappings",
+            extra={"document_type_id": document_type_id},
+        )
 
 
 def _prune_mappings(

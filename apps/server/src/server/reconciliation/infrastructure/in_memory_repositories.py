@@ -18,6 +18,10 @@ class InMemoryConceptMappingRepository:
     def list_for_kind(self, kind_id: str) -> list[ConceptMapping]:
         return [m for (_, k), m in self._by_key.items() if k == kind_id]
 
+    def delete_for_document_type(self, document_type_id: str) -> None:
+        for key in [k for k in self._by_key if k[0] == document_type_id]:
+            del self._by_key[key]
+
 
 class InMemoryReconciliationReportRepository:
     def __init__(self) -> None:

@@ -138,6 +138,10 @@ class FirestoreDocumentRepository:
         query = self._collection.where("client_id", "==", client_id)
         return [self._to_entity(d.id, d.to_dict()) for d in query.stream()]
 
+    def list_by_document_type(self, document_type_id: str) -> list[Document]:
+        query = self._collection.where("document_type_id", "==", document_type_id)
+        return [self._to_entity(d.id, d.to_dict()) for d in query.stream()]
+
     def list_all(self, status: DocumentStatus | None = None) -> list[Document]:
         query = (
             self._collection
@@ -216,6 +220,9 @@ class FirestoreDocumentTypeRepository:
 
     def list_all(self) -> list[DocumentType]:
         return [self._to_entity(d.id, d.to_dict()) for d in self._collection.stream()]
+
+    def delete(self, document_type_id: str) -> None:
+        self._collection.document(document_type_id).delete()
 
     @staticmethod
     def _to_entity(doc_id: str, data: dict[str, Any]) -> DocumentType:

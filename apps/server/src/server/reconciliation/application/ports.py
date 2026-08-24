@@ -26,6 +26,14 @@ class ConceptMappingRepository(Protocol):
     def save(self, mapping: ConceptMapping) -> None: ...
     def get(self, document_type_id: str, kind_id: str) -> ConceptMapping | None: ...
     def list_for_kind(self, kind_id: str) -> list[ConceptMapping]: ...
+    def delete_for_document_type(self, document_type_id: str) -> None:
+        """Drops this type's mappings, across every kind.
+
+        Called when the type itself is deleted. Left behind they are
+        unreachable — nothing lists mappings for a type that does not exist —
+        and would silently attach to a type that happened to reuse the id.
+        """
+        ...
 
 
 class ReconciliationReportRepository(Protocol):

@@ -7,6 +7,7 @@ from server.application.use_cases import (
     ApproveDocument,
     CompleteGoogleSignIn,
     DefineDocumentType,
+    DeleteDocumentType,
     GetDocumentMetrics,
     GetExtractedData,
     GetGoogleSession,
@@ -390,3 +391,7 @@ def get_prune_concept_mappings_use_case() -> PruneConceptMappings:
 
 def get_read_stored_document_use_case() -> ReadStoredDocument:
     return ReadStoredDocument(get_document_repository(), get_document_storage())
+
+
+def get_delete_document_type_use_case() -> DeleteDocumentType:
+    return DeleteDocumentType(get_document_type_repository(), get_document_repository())

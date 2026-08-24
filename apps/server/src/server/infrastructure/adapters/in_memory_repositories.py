@@ -34,6 +34,9 @@ class InMemoryDocumentRepository:
     def save(self, document: Document) -> None:
         self._items[document.id] = document
 
+    def list_by_document_type(self, document_type_id: str) -> list[Document]:
+        return [d for d in self._items.values() if d.document_type_id == document_type_id]
+
     def get(self, document_id: str) -> Document | None:
         return self._items.get(document_id)
 
@@ -66,6 +69,9 @@ class InMemoryDocumentTypeRepository:
 
     def save(self, document_type: DocumentType) -> None:
         self._items[document_type.id] = document_type
+
+    def delete(self, document_type_id: str) -> None:
+        self._items.pop(document_type_id, None)
 
     def get(self, document_type_id: str) -> DocumentType | None:
         return self._items.get(document_type_id)
