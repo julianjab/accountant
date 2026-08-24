@@ -244,6 +244,7 @@
       "notFound": "not found"
     },
     "unsupportedTitle": "Certified with no counterpart in the exogena",
-    "unsupportedHint": "Figures the certificate reports and the exogena never mentions. Usually deductions nobody claimed."
+    "unsupportedHint": "Figures the certificate reports and the exogena never mentions. Usually deductions nobody claimed.",
+    "total": "Total"
   }
 }

@@ -244,6 +244,7 @@
       "notFound": "no encontrado"
     },
     "unsupportedTitle": "Certificado sin contraparte en la exógena",
-    "unsupportedHint": "Valores que el certificado reporta y la exógena no menciona. Suelen ser deducciones que nadie reclamó."
+    "unsupportedHint": "Valores que el certificado reporta y la exógena no menciona. Suelen ser deducciones que nadie reclamó.",
+    "total": "Total"
   }
 }
