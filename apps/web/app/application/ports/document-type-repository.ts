@@ -66,6 +66,9 @@ export interface UpdateDocumentTypeInput {
   /** Omitted keeps the stored descriptions; sent replaces them wholesale,
    * since an edit that trims the schema is exactly when they change. */
   fields?: DocumentTypeField[]
+  /** The document the configuration comes from. Settable after the fact so a
+   * type configured before samples were recorded stops being uncheckable. */
+  sampleDocumentId?: string
 }
 
 export interface DocumentTypeRepository {

@@ -118,3 +118,28 @@ export function orderedSectionNames(fields: readonly DocumentTypeField[]): strin
 export function hasUsefulSections(fields: readonly DocumentTypeField[]): boolean {
   return orderedSectionNames(fields).length > 1
 }
+
+/**
+ * The descriptions from a fresh proposal that a stored schema can actually use.
+ *
+ * Types configured before descriptions were stored have none, which leaves
+ * their configurator a list of dotted paths forever. Re-reading the sample
+ * recovers the labels and blocks without touching the prompt, the schema or
+ * the mappings someone curated.
+ *
+ * Only paths the stored schema already declares survive. A fresh run of the
+ * model over the same paper invents its own field names, and it does not have
+ * to agree with the run that produced the stored schema — a description for
+ * `saldo_final` when the schema says `saldo` would name a field that is never
+ * extracted, and would read on screen as a field that exists.
+ *
+ * That same disagreement is why this can legitimately recover very little:
+ * the caller is expected to say how many matched rather than report success.
+ */
+export function descriptionsForKnownPaths(
+  proposed: readonly DocumentTypeField[],
+  knownPaths: readonly string[]
+): DocumentTypeField[] {
+  const known = new Set(knownPaths)
+  return proposed.filter(field => known.has(field.path))
+}

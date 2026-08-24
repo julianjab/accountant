@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ConceptMapping, MappingChange } from '~/domain/entities/concept-mapping'
-import type { DocumentType } from '~/domain/entities/document-type'
+import type { DocumentType, DocumentTypeField } from '~/domain/entities/document-type'
 import type { ClientDocument } from '~/domain/entities/document'
 import type { ReconciliationKind } from '~/domain/entities/reconciliation-kind'
 import type { FieldSelection } from '~/domain/document-type-configuration'
@@ -16,7 +16,12 @@ import {
   toMappingDraft
 } from '~/domain/document-type-configuration'
 import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
-import { labelFor, orderedSectionNames, sectionFor } from '~/domain/field-sections'
+import {
+  descriptionsForKnownPaths,
+  labelFor,
+  orderedSectionNames,
+  sectionFor
+} from '~/domain/field-sections'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -24,6 +29,7 @@ const documentTypeId = route.params.id as string
 
 const getDocumentType = useGetDocumentTypeUseCase()
 const getDocument = useGetDocumentUseCase()
+const proposeDocumentType = useProposeDocumentTypeUseCase()
 const updateDocumentType = useUpdateDocumentTypeUseCase()
 const listReconciliationKinds = useListReconciliationKindsUseCase()
 const getConceptMapping = useGetConceptMappingUseCase()
@@ -70,6 +76,66 @@ const { data: sampleDocument } = await useAsyncData<ClientDocument | null>(
   { immediate: false, server: false, default: () => null, watch: [documentType] }
 )
 
+/**
+ * A document offered in the URL to re-read this type from.
+ *
+ * The way in is the document detail: looking at a paper of this type is the
+ * moment you can say "configure the type from this one".
+ */
+const offeredDocumentId = computed(() => {
+  const value = route.query.document
+  return typeof value === 'string' ? value : ''
+})
+
+const { data: offeredDocument, refresh: refreshOfferedDocument } = await useAsyncData<ClientDocument | null>(
+  `document-type-offered-${documentTypeId}`,
+  () =>
+    offeredDocumentId.value
+      ? getDocument.execute(offeredDocumentId.value)
+      : Promise.resolve(null),
+  { immediate: false, server: false, default: () => null }
+)
+
+const recovering = ref(false)
+const recoveryFailed = ref(false)
+/** How many of the type's fields the re-read managed to name, and out of how
+ * many. Null until a recovery has run. */
+const recovered = ref<{ named: number, total: number } | null>(null)
+
+/**
+ * Re-reads the offered document and stores what it calls this type's fields.
+ *
+ * Only the descriptions: the prompt, the schema and the concept mappings are
+ * left exactly as they are, because those are what someone curated and this
+ * is meant to add the labels they never got, not to reopen their decisions.
+ */
+async function recoverDescriptions() {
+  if (recovering.value || !documentType.value || !offeredDocumentId.value) return
+
+  recovering.value = true
+  recoveryFailed.value = false
+
+  try {
+    const proposal = await proposeDocumentType.execute({
+      name: documentType.value.name,
+      documentId: offeredDocumentId.value
+    })
+    const known = schemaFields.value.map(field => field.path)
+    const named: DocumentTypeField[] = descriptionsForKnownPaths(proposal.fields, known)
+
+    await updateDocumentType.execute(documentTypeId, {
+      fields: named,
+      sampleDocumentId: offeredDocumentId.value
+    })
+    recovered.value = { named: named.length, total: known.length }
+    await refreshDocumentType()
+  } catch {
+    recoveryFailed.value = true
+  } finally {
+    recovering.value = false
+  }
+}
+
 const selectedKindId = ref<string | null>(null)
 watch(
   kinds,
@@ -102,6 +168,7 @@ watch(
     refreshDocumentType()
     refreshKinds()
     refreshMapping()
+    refreshOfferedDocument()
   },
   { immediate: true }
 )
@@ -562,6 +629,53 @@ watch(
             </UFormField>
           </div>
         </template>
+
+        <!--
+          Types configured before descriptions were stored show dotted paths
+          and no blocks. Re-reading the paper recovers the names without
+          reopening the prompt, the schema or the mappings.
+        -->
+        <section
+          v-if="offeredDocument && !recovered"
+          class="border-default mb-6 flex flex-col gap-3 rounded-lg border p-3"
+          data-testid="recover-descriptions"
+        >
+          <div>
+            <h3 class="text-sm font-medium">
+              {{ t('documentTypes.edit.recover.title') }}
+            </h3>
+            <p class="text-muted text-xs">
+              {{ t('documentTypes.edit.recover.hint', { file: offeredDocument.fileName }) }}
+            </p>
+          </div>
+          <UAlert
+            v-if="recoveryFailed"
+            color="error"
+            variant="soft"
+            :description="t('documentTypes.edit.recover.failed')"
+          />
+          <UButton
+            :loading="recovering"
+            :disabled="recovering"
+            variant="outline"
+            size="sm"
+            class="w-fit"
+            @click="recoverDescriptions"
+          >
+            {{ t('documentTypes.edit.recover.action') }}
+          </UButton>
+        </section>
+
+        <UAlert
+          v-if="recovered"
+          class="mb-6"
+          :color="recovered.named > 0 ? 'success' : 'warning'"
+          variant="soft"
+          data-testid="recovery-result"
+          :description="recovered.named > 0
+            ? t('documentTypes.edit.recover.done', recovered)
+            : t('documentTypes.edit.recover.nothing')"
+        />
 
         <section
           v-if="sampleDocument"

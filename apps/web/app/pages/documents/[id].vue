@@ -131,6 +131,19 @@ onUnmounted(() => {
         >
           {{ t('documents.defineTypeFromThis') }}
         </UButton>
+        <!--
+          The same offer for a document that already has a type: this is the
+          paper its configuration can be read from, which is how a type
+          configured before descriptions were stored gets them.
+        -->
+        <UButton
+          v-else
+          :to="`/document-types/${document.documentTypeId}?document=${document.id}`"
+          variant="outline"
+          size="sm"
+        >
+          {{ t('documents.configureTypeFromThis') }}
+        </UButton>
       </div>
       <!-- Preview above the extracted fields on one column, side by side from `lg` up. -->
       <div class="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">

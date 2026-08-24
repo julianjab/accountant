@@ -320,6 +320,10 @@ class DocumentTypeUpdateRequest(BaseModel):
     #: Omitted keeps the stored descriptions; sent replaces them wholesale,
     #: since an edit that trims the schema is exactly when they change.
     fields: list[DocumentTypeFieldPayload] | None = None
+    #: The document the configuration is derived from. Settable after the fact
+    #: so a type configured before samples were recorded can be pointed at the
+    #: paper it came from instead of staying permanently uncheckable.
+    sample_document_id: str | None = None
 
 
 class MappingChangeResponse(BaseModel):

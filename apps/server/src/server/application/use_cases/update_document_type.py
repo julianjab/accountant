@@ -33,6 +33,10 @@ class UpdateDocumentTypeInput:
     #: carries its own emptiness, so None means untouched and `()` means the
     #: descriptions were deliberately cleared.
     fields: tuple[DocumentTypeField, ...] | None = None
+    #: None leaves the stored sample alone. There is deliberately no way to
+    #: clear it: forgetting which paper a configuration came from is not an
+    #: edit anyone needs to make.
+    sample_document_id: str | None = None
 
 
 class UpdateDocumentType:
@@ -62,6 +66,7 @@ class UpdateDocumentType:
                 ("extraction_schema", data.extraction_schema),
                 ("tax_years", data.tax_years),
                 ("fields", data.fields),
+                ("sample_document_id", data.sample_document_id),
             )
             if value is not None
         }

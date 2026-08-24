@@ -284,6 +284,7 @@ def update_document_type(
                 # an empty list can mean "applies to any year".
                 tax_years=(tuple(payload.tax_years) if payload.tax_years is not None else None),
                 fields=_edited_fields(payload, stored),
+                sample_document_id=payload.sample_document_id,
             )
         )
     except DocumentTypeNotFound as exc:

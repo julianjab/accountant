@@ -273,6 +273,7 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
     if (changes.extractionPrompt !== undefined) body.extraction_prompt = changes.extractionPrompt
     if (changes.extractionSchema !== undefined) body.extraction_schema = changes.extractionSchema
     if (changes.fields !== undefined) body.fields = changes.fields.map(toFieldDto)
+    if (changes.sampleDocumentId !== undefined) body.sample_document_id = changes.sampleDocumentId
 
     const dto = await $fetch<UpdatedDocumentTypeDto>(`/document-types/${id}`, {
       baseURL: this.baseUrl,

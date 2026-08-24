@@ -125,7 +125,8 @@
       "openInDrive": "Abrir en Drive",
       "unsupportedMime": "No hay vista previa disponible para este tipo de archivo"
     },
-    "defineTypeFromThis": "Definir un tipo con este documento"
+    "defineTypeFromThis": "Definir un tipo con este documento",
+    "configureTypeFromThis": "Configurar el tipo con este documento"
   },
   "documentTypes": {
     "title": "Tipos de documento",
@@ -274,6 +275,14 @@
       "sample": {
         "title": "Documento con el que se configuró este tipo",
         "hint": "Los campos de abajo se sacaron de este papel. Comparalos contra él para confirmar que se está leyendo lo correcto."
+      },
+      "recover": {
+        "title": "Recuperar los nombres y bloques de los campos",
+        "hint": "Este tipo se configuró antes de que se guardaran, por eso abajo se ven rutas y no los nombres del papel. Se puede volver a leer «{file}» para recuperarlos. No cambia el prompt, el esquema ni las asignaciones.",
+        "action": "Volver a leer el documento",
+        "failed": "No se pudo leer el documento. Intentá de nuevo.",
+        "done": "Se nombraron {named} de {total} campos. El documento quedó guardado con el tipo.",
+        "nothing": "No se pudo nombrar ningún campo: al releer el documento el modelo usó otros nombres de campo que los que tiene guardados este tipo. El documento igual quedó guardado con el tipo."
       }
     }
   },

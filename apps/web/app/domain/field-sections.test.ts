@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DocumentTypeField } from '~/domain/entities/document-type'
 import {
+  descriptionsForKnownPaths,
   groupBySection,
   hasUsefulSections,
   labelFor,
@@ -116,5 +117,26 @@ describe('orderedSectionNames', () => {
       'Cuentas de ahorro',
       'Gravamen a los movimientos financieros'
     ])
+  })
+})
+
+describe('descriptionsForKnownPaths', () => {
+  it('keeps the descriptions the stored schema can use', () => {
+    const kept = descriptionsForKnownPaths(FIELDS, ['nit', 'gmf'])
+
+    expect(kept.map(f => f.path)).toEqual(['nit', 'gmf'])
+  })
+
+  it('drops a description for a path the schema never declared', () => {
+    // A fresh run of the model invents its own field names and need not agree
+    // with the run that produced the stored schema. Kept, the label would name
+    // a field that is never extracted and read on screen as one that exists.
+    const kept = descriptionsForKnownPaths([field('saldo_final', 'Saldos')], ['saldo'])
+
+    expect(kept).toEqual([])
+  })
+
+  it('can legitimately recover nothing, which the caller has to be able to see', () => {
+    expect(descriptionsForKnownPaths(FIELDS, [])).toEqual([])
   })
 })
