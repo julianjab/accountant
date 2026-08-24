@@ -100,13 +100,16 @@ def test_a_failed_exogena_becomes_processed_and_carries_its_source() -> None:
         RecognizeDocumentSourceInput(document_id="doc-1", source_id=EXOGENA_SOURCE)
     )
 
-    assert recognized.status == DocumentStatus.PROCESSED
-    assert recognized.source_id == EXOGENA_SOURCE
-    assert recognized.error is None
-    assert recognized.processed_at is not None
+    assert recognized.document.status == DocumentStatus.PROCESSED
+    assert recognized.document.source_id == EXOGENA_SOURCE
+    assert recognized.document.error is None
+    assert recognized.document.processed_at is not None
     # No document type, deliberately: this file is not extracted against one.
-    assert recognized.document_type_id is None
-    assert documents.get("doc-1") == recognized
+    assert recognized.document.document_type_id is None
+    assert documents.get("doc-1") == recognized.document
+    # The file states the year it covers, and it travels with the document so a
+    # caller knows which reports just went stale.
+    assert recognized.periods == ("2025",)
 
 
 def test_what_was_read_is_stored_as_a_summary_not_as_rows() -> None:
