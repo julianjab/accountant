@@ -159,6 +159,60 @@
       "confirmEdit": "Confirmar edición",
       "cancelEdit": "Cancelar edición",
       "localEditsNotice": "Los cambios de esta edición sólo se guardaron en esta pantalla, no en el servidor (aún no existe una forma de actualizar un tipo ya guardado)."
+    },
+    "configure": "Configurar",
+    "edit": {
+      "title": "Configurar tipo de documento",
+      "notFound": "No encontramos este tipo de documento.",
+      "details": "Datos del tipo",
+      "active": "Activo",
+      "activeHint": "Sólo los tipos activos se usan para clasificar los documentos que llegan.",
+      "kind": "Modelo de conciliación",
+      "back": "Volver",
+      "save": "Guardar cambios",
+      "saved": "Cambios guardados.",
+      "saveError": "No pudimos guardar los cambios. Intentá de nuevo.",
+      "status": {
+        "configured": "Listo para conciliar",
+        "notMapped": "Este tipo no aporta datos a la conciliación",
+        "notMappedHint": "Se sigue extrayendo igual: ningún campo tiene un concepto asignado, así que no hay nada que cruzar. No está roto.",
+        "unusable": "Falta el NIT del reportante"
+      },
+      "reporter": {
+        "title": "Identificación de quien reporta",
+        "hint": "Es el control más importante de esta pantalla: dice de quién son las cifras del documento.",
+        "path": "Campo con el NIT de quien reporta",
+        "pathHint": "Elegí el campo que trae el NÚMERO de identificación tributaria (NIT), no el nombre de la entidad.",
+        "missingTitle": "Sin este campo el tipo no concilia nada",
+        "missing": "El servidor descarta TODAS las asignaciones de este tipo cuando no sabe a qué NIT atribuir las cifras, y cada dato que este documento debería respaldar aparece como faltante.",
+        "namePath": "Campo con el nombre de quien reporta",
+        "nameHint": "Opcional. Sólo se usa para mostrar de quién es el documento; no reemplaza al NIT.",
+        "blocksSave": "Elegí el campo con el NIT de quien reporta para poder guardar las asignaciones."
+      },
+      "period": {
+        "path": "Campo con el período",
+        "hint": "Elegí el campo con el año o el mes que certifica el documento.",
+        "missing": "Sin período, un certificado de un año puede cruzarse contra otro."
+      },
+      "fields": {
+        "title": "Campos que extrae la IA",
+        "hint": "Destildá los que no necesites: dejan de pedirse en la extracción. A cada campo que quede podés asignarle un concepto para conciliarlo; un campo sin concepto se extrae igual, sólo que no participa de la conciliación.",
+        "keep": "Extraer este campo",
+        "concept": "Concepto",
+        "unmapped": "Sin concepto",
+        "removed": "Se quita del esquema al guardar",
+        "removedCount": "Se va a quitar {count} campo del esquema al guardar. | Se van a quitar {count} campos del esquema al guardar.",
+        "empty": "Este tipo todavía no declara campos.",
+        "unsetField": "Sin campo asignado"
+      },
+      "mappingChanges": {
+        "title": "Qué pasó con las asignaciones",
+        "entry_dropped": "Se eliminó la asignación de {field} al concepto {concept}.",
+        "path_cleared": "Se limpió el campo {path} de la configuración de conciliación.",
+        "mapping_cleared": "Se borró toda la asignación de este tipo: hasta volver a configurarla, no concilia nada.",
+        "prune_failed": "El servidor no pudo ajustar la asignación a este esquema; revisala antes de seguir.",
+        "unknown": "El servidor ajustó la asignación ({change}) en {path}."
+      }
     }
   },
   "auth": {
