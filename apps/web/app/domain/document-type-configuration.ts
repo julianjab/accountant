@@ -255,11 +255,17 @@ export function groupBySpineConcept(selections: readonly FieldSelectionInput[]):
 export function fieldsMissingAccountPath(
   selections: readonly FieldSelectionInput[]
 ): string[] {
+  // Mirrors the screen's own v-if for the comparison controls: without a spine concept the
+  // "total vs. per-account" question isn't even shown, so a selection that lands here with
+  // perAccount still true (e.g. the user answered it, then cleared the spine concept) can't
+  // be fixed from the UI — it must not count as "missing", or the warning it prints below
+  // would stay stuck on forever with no control on screen to clear it.
   return selections
     .filter(
       selection =>
         selection.kept
         && selection.conceptId
+        && selection.spineConceptId
         && selection.perAccount === true
         && !selection.accountPath
     )

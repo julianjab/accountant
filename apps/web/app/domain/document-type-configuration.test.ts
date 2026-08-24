@@ -346,9 +346,21 @@ describe('fieldsMissingAccountPath', () => {
   it('names the field that claims a per-account comparison with no account', () => {
     expect(
       fieldsMissingAccountPath([
-        { path: 'saldo', kept: true, conceptId: 'c', perAccount: true, accountPath: null },
-        { path: 'gmf', kept: true, conceptId: 'c', perAccount: false, accountPath: null }
+        { path: 'saldo', kept: true, conceptId: 'c', spineConceptId: 's', perAccount: true, accountPath: null },
+        { path: 'gmf', kept: true, conceptId: 'c', spineConceptId: 's', perAccount: false, accountPath: null }
       ])
     ).toEqual(['saldo'])
+  })
+
+  // Regression: the screen only shows the total/per-account question (and the account-path
+  // control) once a spine concept is chosen, so a selection stuck with perAccount: true and no
+  // spineConceptId — e.g. the user answered it, then cleared the spine concept — has no control
+  // left to fix it. It must not be flagged, or the warning it drives would be stuck forever.
+  it('does not flag a field with no spine concept, even if perAccount was left true', () => {
+    expect(
+      fieldsMissingAccountPath([
+        { path: 'saldo', kept: true, conceptId: 'c', spineConceptId: null, perAccount: true, accountPath: null }
+      ])
+    ).toEqual([])
   })
 })
