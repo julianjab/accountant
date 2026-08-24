@@ -245,6 +245,8 @@ class FirestoreConceptMappingRepository:
                         "concept_id": e.concept_id,
                         "account_path": e.account_path,
                         "sign": e.sign,
+                        "spine_concept_id": e.spine_concept_id,
+                        "per_account": e.per_account,
                     }
                     for e in mapping.entries
                 ],
@@ -273,6 +275,8 @@ class FirestoreConceptMappingRepository:
                     concept_id=e["concept_id"],
                     account_path=e.get("account_path"),
                     sign=e.get("sign", 1),
+                    spine_concept_id=e.get("spine_concept_id"),
+                    per_account=e.get("per_account", False),
                 )
                 for e in data.get("entries", [])
             ),

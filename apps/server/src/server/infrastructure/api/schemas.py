@@ -213,6 +213,11 @@ class ConceptMappingEntryPayload(BaseModel):
     concept_id: str
     account_path: str | None = None
     sign: int = 1
+    #: Which claim of the exogena this field answers. Null means the field is
+    #: extracted but never compared against anything.
+    spine_concept_id: str | None = None
+    #: Compare account by account instead of totalling per reporting party.
+    per_account: bool = False
 
     @field_validator("sign")
     @classmethod

@@ -360,6 +360,7 @@ def get_reconcile_client_period_use_case() -> ReconcileClientPeriod:
         registry=get_reconciliation_registry(),
         facts=get_reconciliation_fact_provider(),
         reports=get_reconciliation_report_repository(),
+        mappings=get_concept_mapping_repository(),
     )
 
 
