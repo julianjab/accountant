@@ -39,6 +39,10 @@ from server.application.use_cases.process_uploaded_document import (
     ProcessUploadedDocument,
     ProcessUploadedDocumentInput,
 )
+from server.application.use_cases.propose_document_type import (
+    ProposeDocumentType,
+    ProposeDocumentTypeInput,
+)
 from server.application.use_cases.register_client import (
     RegisterClient,
     RegisterClientInput,
@@ -56,6 +60,8 @@ from server.application.use_cases.update_document_type import (
 )
 
 __all__ = [
+    "ProposeDocumentTypeInput",
+    "ProposeDocumentType",
     "DefinedDocumentType",
     "ImportClientDocumentsResult",
     "ImportClientDocumentsInput",

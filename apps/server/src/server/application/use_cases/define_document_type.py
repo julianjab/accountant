@@ -21,6 +21,11 @@ class DefineDocumentTypeInput:
     #: The vocabulary extracted fields may be mapped onto. Empty means the
     #: caller wants extraction only, with no reconciliation behind it.
     concepts: Sequence[ConceptOption] = ()
+    #: Tax years this type applies to. Empty means any year.
+    tax_years: tuple[int, ...] = ()
+    #: The document the configuration was derived from, kept so whoever
+    #: revisits it can read the paper behind the choices.
+    sample_document_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +73,8 @@ class DefineDocumentType:
             extraction_schema=proposal.extraction_schema,
             active=True,
             created_at=datetime.now(UTC),
+            tax_years=data.tax_years,
+            sample_document_id=data.sample_document_id,
         )
         self._document_types.save(document_type)
         return DefinedDocumentType(
