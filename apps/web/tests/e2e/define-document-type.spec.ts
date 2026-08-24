@@ -73,7 +73,11 @@ const CREATED = {
   active: true,
   created_at: '2026-08-24T00:00:00Z',
   fields: [],
-  mapping_changes: []
+  kind_id: 'exogena_dian',
+  field_mappings: [],
+  // Creation reports this, not `mapping_changes`; stubbing the latter is what
+  // let the adapter read a key the server never sends.
+  unmapped_fields: []
 }
 
 /**

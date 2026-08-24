@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { DocumentType, DocumentTypeUpdate } from '~/domain/entities/document-type'
+import type { DocumentType, DocumentTypeCreation, DocumentTypeUpdate } from '~/domain/entities/document-type'
 import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
 import type {
   CreateDocumentTypeInput,
@@ -9,7 +9,7 @@ import type {
 } from '~/application/ports/document-type-repository'
 import { CreateDocumentType } from '~/application/use-cases/create-document-type'
 
-const CREATED: DocumentTypeUpdate = {
+const CREATED: DocumentTypeCreation = {
   documentType: {
     id: 'dt-1',
     name: 'Certificado GMF',
@@ -20,7 +20,7 @@ const CREATED: DocumentTypeUpdate = {
     createdAt: '2026-08-24',
     fields: [{ path: 'gmf', label: 'Valor GMF', role: 'amount', section: 'GMF' }]
   },
-  mappingChanges: []
+  unmappedFields: []
 }
 
 class FakeDocumentTypeRepository implements DocumentTypeRepository {
@@ -38,7 +38,7 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
     throw new Error('not implemented')
   }
 
-  create(input: CreateDocumentTypeInput): Promise<DocumentTypeUpdate> {
+  create(input: CreateDocumentTypeInput): Promise<DocumentTypeCreation> {
     this.receivedInput = input
     return Promise.resolve(CREATED)
   }

@@ -1,5 +1,6 @@
 import type {
   DocumentType,
+  DocumentTypeCreation,
   DocumentTypeField,
   DocumentTypeUpdate
 } from '~/domain/entities/document-type'
@@ -63,6 +64,6 @@ export interface DocumentTypeRepository {
   listActive: () => Promise<DocumentType[]>
   list: () => Promise<DocumentType[]>
   propose: (input: ProposeDocumentTypeInput) => Promise<DocumentTypeProposal>
-  create: (input: CreateDocumentTypeInput) => Promise<DocumentTypeUpdate>
+  create: (input: CreateDocumentTypeInput) => Promise<DocumentTypeCreation>
   update: (id: string, changes: UpdateDocumentTypeInput) => Promise<DocumentTypeUpdate>
 }

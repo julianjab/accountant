@@ -188,7 +188,8 @@
         "title": "Se creó «{name}»",
         "hint": "Ya se usa para reconocer y extraer los documentos que lleguen como éste.",
         "configure": "Ajustar la conciliación",
-        "list": "Ver todos los tipos"
+        "list": "Ver todos los tipos",
+        "unmappedTitle": "Estos campos se van a extraer pero no se van a cruzar"
       }
     },
     "configure": "Configurar",

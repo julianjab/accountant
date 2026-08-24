@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { MappingChange } from '~/domain/entities/concept-mapping'
 import type { DocumentType } from '~/domain/entities/document-type'
-import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
+import type { DocumentTypeProposal, UnmappedField } from '~/domain/entities/document-type-proposal'
 import type { ProposalFieldRow } from '~/domain/document-type-configuration'
 import {
   buildProposalRows,
@@ -9,7 +8,6 @@ import {
   groupBySection,
   invalidTaxYears,
   keptPaths,
-  mappingChangeSeverity,
   parseTaxYears,
   proposalMappingBaseline,
   toDocumentTypeFields,
@@ -67,7 +65,9 @@ const taxYearsText = ref('')
 const saving = ref(false)
 const saveFailed = ref(false)
 const createdType = ref<DocumentType | null>(null)
-const mappingChanges = ref<MappingChange[]>([])
+/** Fields this type will extract but never reconcile, as the server
+ * reported them when it saved the type. */
+const unmappedFields = ref<UnmappedField[]>([])
 
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
@@ -164,18 +164,6 @@ function toPath(value: string): string | null {
   return value === UNSET ? null : value
 }
 
-const KNOWN_CHANGES = ['entry_dropped', 'path_cleared', 'mapping_cleared', 'prune_failed']
-
-function mappingChangeText(change: MappingChange): string {
-  const key = KNOWN_CHANGES.includes(change.change) ? change.change : 'unknown'
-  return t(`documentTypes.edit.mappingChanges.${key}`, {
-    change: change.change,
-    path: change.path ?? change.fieldPath ?? '—',
-    field: change.fieldPath ?? change.path ?? '—',
-    concept: change.conceptId ?? '—'
-  })
-}
-
 async function save() {
   if (!canSave.value || !proposal.value) return
 
@@ -203,7 +191,7 @@ async function save() {
       sampleDocumentId: sampleDocumentId.value || null
     })
     createdType.value = created.documentType
-    mappingChanges.value = created.mappingChanges
+    unmappedFields.value = created.unmappedFields
     step.value = 'created'
   } catch {
     saveFailed.value = true
@@ -588,21 +576,27 @@ async function save() {
         :description="t('documentTypes.new.created.hint')"
       />
 
+      <!--
+        The type is saved by the time this shows, so these are not errors to
+        retry: they are the fields it will read off every document of this
+        kind and then have nothing to compare against. Said here because the
+        alternative is discovering it as a missing certificate months later.
+      -->
       <section
-        v-if="mappingChanges.length > 0"
+        v-if="unmappedFields.length > 0"
         class="flex flex-col gap-2"
-        data-testid="mapping-changes"
+        data-testid="unmapped-fields"
       >
         <h2 class="font-medium">
-          {{ t('documentTypes.edit.mappingChanges.title') }}
+          {{ t('documentTypes.new.created.unmappedTitle') }}
         </h2>
         <UAlert
-          v-for="(change, index) in mappingChanges"
-          :key="`${change.change}-${index}`"
-          :color="mappingChangeSeverity(change) === 'critical' ? 'error' : 'warning'"
+          v-for="field in unmappedFields"
+          :key="field.fieldPath"
+          color="warning"
           variant="soft"
-          :title="mappingChangeText(change)"
-          :description="change.reason"
+          :title="field.fieldPath"
+          :description="field.reason"
         />
       </section>
 

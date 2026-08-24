@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { DocumentType, DocumentTypeUpdate } from '~/domain/entities/document-type'
+import type { DocumentType, DocumentTypeCreation, DocumentTypeUpdate } from '~/domain/entities/document-type'
 import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
 import type {
   CreateDocumentTypeInput,
@@ -39,7 +39,7 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
     return Promise.resolve(PROPOSAL)
   }
 
-  create(_input: CreateDocumentTypeInput): Promise<DocumentTypeUpdate> {
+  create(_input: CreateDocumentTypeInput): Promise<DocumentTypeCreation> {
     throw new Error('not implemented')
   }
 

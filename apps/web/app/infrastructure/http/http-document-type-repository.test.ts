@@ -30,6 +30,32 @@ const DOCUMENT_TYPE_DTO = {
   ]
 }
 
+/**
+ * What POST /document-types actually answers.
+ *
+ * Deliberately separate from DOCUMENT_TYPE_DTO: creation reports
+ * `unmapped_fields` and carries no `mapping_changes`, and a fixture that
+ * invented the latter is what let the adapter read the wrong key.
+ */
+const CREATED_DTO = {
+  id: 'dt-1',
+  name: 'Certificado GMF',
+  description: '',
+  extraction_prompt: '',
+  extraction_schema: {},
+  active: true,
+  created_at: '2026-01-01T00:00:00Z',
+  fields: [],
+  kind_id: 'exogena_dian',
+  field_mappings: [],
+  unmapped_fields: [
+    {
+      field_path: 'gmf',
+      reason: 'the document does not say who reports these amounts'
+    }
+  ]
+}
+
 const PROPOSAL_DTO = {
   extraction_prompt: 'Extrae los campos del certificado',
   extraction_schema: { type: 'object', properties: { gmf: { type: 'array' } } },
@@ -176,8 +202,10 @@ describe('HttpDocumentTypeRepository.create', () => {
     })
   })
 
-  it('reads back what the server had to change about the mappings', async () => {
-    stubFetch(() => DOCUMENT_TYPE_DTO)
+  it('reads back the fields that will be extracted but never reconciled', async () => {
+    // The failure this guards: the server saves the type and discards every
+    // mapping for want of a reporting party, and the screen calls it success.
+    stubFetch(() => CREATED_DTO)
 
     const created = await new HttpDocumentTypeRepository('http://api').create({
       name: 'Certificado GMF',
@@ -195,7 +223,9 @@ describe('HttpDocumentTypeRepository.create', () => {
     })
 
     expect(created.documentType.id).toBe('dt-1')
-    expect(created.mappingChanges[0]).toMatchObject({ change: 'entry_dropped', fieldPath: 'gmf' })
+    expect(created.unmappedFields).toEqual([
+      { fieldPath: 'gmf', reason: 'the document does not say who reports these amounts' }
+    ])
   })
 })
 

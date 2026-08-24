@@ -1,4 +1,5 @@
 import type { MappingChange } from '~/domain/entities/concept-mapping'
+import type { UnmappedField } from '~/domain/entities/document-type-proposal'
 
 /**
  * What a field is for.
@@ -39,6 +40,22 @@ export interface DocumentType {
    * this must still render with only paths to work from.
    */
   fields: DocumentTypeField[]
+}
+
+/**
+ * The outcome of creating a type.
+ *
+ * Not `DocumentTypeUpdate`: creation and editing report different things.
+ * An edit says how the stored mapping had to change to survive the new
+ * schema; creation has no stored mapping to change, and instead says which
+ * of the fields it was sent will be extracted but never reconciled — because
+ * the AI declined to map them, or because the whole mapping was discarded for
+ * want of a reporting party. Reading one as the other is how "the type saved
+ * but its mapping did not" reaches the screen as clean success.
+ */
+export interface DocumentTypeCreation {
+  documentType: DocumentType
+  unmappedFields: UnmappedField[]
 }
 
 /**

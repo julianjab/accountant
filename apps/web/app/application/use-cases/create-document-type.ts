@@ -1,4 +1,4 @@
-import type { DocumentTypeUpdate } from '~/domain/entities/document-type'
+import type { DocumentTypeCreation } from '~/domain/entities/document-type'
 import type {
   CreateDocumentTypeInput,
   DocumentTypeRepository
@@ -7,7 +7,7 @@ import type {
 export class CreateDocumentType {
   constructor(private readonly documentTypes: DocumentTypeRepository) {}
 
-  execute(input: CreateDocumentTypeInput): Promise<DocumentTypeUpdate> {
+  execute(input: CreateDocumentTypeInput): Promise<DocumentTypeCreation> {
     return this.documentTypes.create(input)
   }
 }

@@ -1,5 +1,6 @@
 import type {
   DocumentType,
+  DocumentTypeCreation,
   DocumentTypeField,
   DocumentTypeUpdate,
   FieldRole
@@ -43,6 +44,13 @@ interface MappingChangeDto {
   field_path: string | null
   concept_id: string | null
   reason: string
+}
+
+/** What POST /document-types answers: the type, plus the fields it will
+ * extract but cannot reconcile. It carries no `mapping_changes`. */
+interface CreatedDocumentTypeDto extends DocumentTypeDto {
+  kind_id?: string | null
+  unmapped_fields?: UnmappedFieldDto[]
 }
 
 interface UpdatedDocumentTypeDto extends DocumentTypeDto {
@@ -211,8 +219,8 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
     return toProposal(dto)
   }
 
-  async create(input: CreateDocumentTypeInput): Promise<DocumentTypeUpdate> {
-    const dto = await $fetch<UpdatedDocumentTypeDto>('/document-types', {
+  async create(input: CreateDocumentTypeInput): Promise<DocumentTypeCreation> {
+    const dto = await $fetch<CreatedDocumentTypeDto>('/document-types', {
       baseURL: this.baseUrl,
       method: 'POST',
       credentials: 'include',
@@ -238,9 +246,12 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
     })
     return {
       documentType: toDocumentType(dto),
-      // The server reports here what it had to change about the mappings it was
-      // sent, the same way the edit screen's PATCH does.
-      mappingChanges: (dto.mapping_changes ?? []).map(toMappingChange)
+      // Creation reports `unmapped_fields`, not `mapping_changes` — there is no
+      // stored mapping yet to have changed. This is where the server says a
+      // field it was sent will be extracted but never reconciled, including
+      // the case where it discarded every mapping for want of a reporting
+      // party, so reading the wrong key here shows that as a clean success.
+      unmappedFields: (dto.unmapped_fields ?? []).map(toUnmappedField)
     }
   }
 

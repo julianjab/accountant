@@ -188,7 +188,8 @@
         "title": "“{name}” was created",
         "hint": "It is already used to recognize and extract documents like this one.",
         "configure": "Adjust the reconciliation",
-        "list": "See all types"
+        "list": "See all types",
+        "unmappedTitle": "These fields will be extracted but never reconciled"
       }
     },
     "configure": "Configure",
