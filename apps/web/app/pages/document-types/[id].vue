@@ -2,6 +2,7 @@
 import type { ConceptMapping, MappingChange } from '~/domain/entities/concept-mapping'
 import type { DocumentType, DocumentTypeField } from '~/domain/entities/document-type'
 import type { ClientDocument } from '~/domain/entities/document'
+import { DocumentTypeInUseError } from '~/domain/errors/document-type-in-use-error'
 import type { ReconciliationKind } from '~/domain/entities/reconciliation-kind'
 import type { FieldSelection } from '~/domain/document-type-configuration'
 import {
@@ -32,6 +33,7 @@ const documentTypeId = route.params.id as string
 
 const getDocumentType = useGetDocumentTypeUseCase()
 const getDocument = useGetDocumentUseCase()
+const deleteDocumentType = useDeleteDocumentTypeUseCase()
 const proposeDocumentType = useProposeDocumentTypeUseCase()
 const updateDocumentType = useUpdateDocumentTypeUseCase()
 const listReconciliationKinds = useListReconciliationKindsUseCase()
@@ -105,6 +107,32 @@ const missingDescriptions = computed(() => {
   const described = new Set((documentType.value?.fields ?? []).map(field => field.path))
   return schemaFields.value.filter(field => !described.has(field.path)).length
 })
+
+const confirmingDelete = ref(false)
+const deleting = ref(false)
+/** Why the delete was refused, when it was. Null covers both "not tried" and
+ * "succeeded", which are the same as far as this screen has to render. */
+const deleteRefusal = ref<string | null>(null)
+const deleteFailed = ref(false)
+
+async function remove() {
+  if (deleting.value) return
+  deleting.value = true
+  deleteRefusal.value = null
+  deleteFailed.value = false
+
+  try {
+    await deleteDocumentType.execute(documentTypeId)
+    // Replaced, not pushed: going back would land on a type that is gone.
+    await navigateTo('/document-types', { replace: true })
+  } catch (error) {
+    if (error instanceof DocumentTypeInUseError) deleteRefusal.value = error.detail
+    else deleteFailed.value = true
+    confirmingDelete.value = false
+  } finally {
+    deleting.value = false
+  }
+}
 
 const recovering = ref(false)
 const recoveryFailed = ref(false)
@@ -529,6 +557,22 @@ watch(
           {{ t(`documentTypes.edit.status.${status}`) }}
         </UBadge>
       </div>
+
+      <UAlert
+        v-if="deleteRefusal"
+        color="warning"
+        variant="soft"
+        data-testid="delete-refused"
+        :title="t('documentTypes.edit.remove.refusedTitle')"
+        :description="t('documentTypes.edit.remove.refused')"
+      />
+
+      <UAlert
+        v-else-if="deleteFailed"
+        color="error"
+        variant="soft"
+        :description="t('documentTypes.edit.remove.failed')"
+      />
 
       <UCard>
         <template #header>
@@ -1035,6 +1079,58 @@ watch(
           </p>
         </div>
       </div>
+      <!--
+        Last on the page and behind a confirmation: it is the one irreversible
+        thing this screen does, and the schema, the prompt and the mappings
+        that make a type worth having go with it.
+      -->
+      <UCard v-if="documentType">
+        <template #header>
+          <h2 class="font-medium">
+            {{ t('documentTypes.edit.remove.title') }}
+          </h2>
+        </template>
+
+        <p class="text-muted mb-3 text-sm">
+          {{ t('documentTypes.edit.remove.hint') }}
+        </p>
+
+        <div
+          v-if="confirmingDelete"
+          class="flex flex-wrap items-center gap-3"
+        >
+          <p class="text-sm">
+            {{ t('documentTypes.edit.remove.confirm', { name: documentType.name }) }}
+          </p>
+          <UButton
+            color="error"
+            :loading="deleting"
+            :disabled="deleting"
+            data-testid="confirm-delete"
+            @click="remove"
+          >
+            {{ t('documentTypes.edit.remove.confirmAction') }}
+          </UButton>
+          <UButton
+            variant="ghost"
+            :disabled="deleting"
+            @click="confirmingDelete = false"
+          >
+            {{ t('documentTypes.edit.remove.cancel') }}
+          </UButton>
+        </div>
+
+        <UButton
+          v-else
+          color="error"
+          variant="outline"
+          class="w-fit"
+          data-testid="delete-document-type"
+          @click="confirmingDelete = true"
+        >
+          {{ t('documentTypes.edit.remove.action') }}
+        </UButton>
+      </UCard>
     </div>
   </UContainer>
 </template>

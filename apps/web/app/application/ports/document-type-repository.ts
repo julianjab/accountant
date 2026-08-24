@@ -83,4 +83,6 @@ export interface DocumentTypeRepository {
   propose: (input: ProposeDocumentTypeInput) => Promise<DocumentTypeProposal>
   create: (input: CreateDocumentTypeInput) => Promise<DocumentTypeCreation>
   update: (id: string, changes: UpdateDocumentTypeInput) => Promise<DocumentTypeUpdate>
+  /** Throws DocumentTypeInUseError when documents were classified as it. */
+  remove: (id: string) => Promise<void>
 }

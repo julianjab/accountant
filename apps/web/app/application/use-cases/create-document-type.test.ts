@@ -45,6 +45,10 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
     return Promise.resolve(CREATED)
   }
 
+  remove(_id: string): Promise<void> {
+    return Promise.resolve()
+  }
+
   update(_id: string, _changes: UpdateDocumentTypeInput): Promise<DocumentTypeUpdate> {
     throw new Error('not implemented')
   }

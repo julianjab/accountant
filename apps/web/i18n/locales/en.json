@@ -290,6 +290,17 @@
         "failed": "The document could not be read. Try again.",
         "done": "Named {named} new fields, out of {total}. The document was saved with the type.",
         "nothing": "No new field could be named: re-reading the document, the model used different field names than the ones this type has stored. Nothing was deleted; the document was saved with the type."
+      },
+      "remove": {
+        "title": "Delete this type",
+        "hint": "This removes the type with its schema, its prompt and its mappings to the exogena. It cannot be undone. If documents are already classified as it, deactivate it above instead: it stops classifying new documents and the existing ones stay readable.",
+        "action": "Delete type",
+        "confirm": "Delete \\u00ab{name}\\u00bb?",
+        "confirmAction": "Yes, delete",
+        "cancel": "Cancel",
+        "refusedTitle": "Cannot delete: documents of this type already exist",
+        "refused": "Deleting it would leave those documents unable to say what they are or which exogena line they answer. Deactivate it above: it stops classifying new documents and the existing ones stay readable.",
+        "failed": "The type could not be deleted. Try again."
       }
     }
   },

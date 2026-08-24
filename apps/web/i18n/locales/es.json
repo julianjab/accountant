@@ -290,6 +290,17 @@
         "failed": "No se pudo leer el documento. Intentá de nuevo.",
         "done": "Se nombraron {named} campos nuevos, de {total}. El documento quedó guardado con el tipo.",
         "nothing": "No se pudo nombrar ningún campo nuevo: al releer el documento el modelo usó otros nombres de campo que los que tiene guardados este tipo. No se borró nada; el documento quedó guardado con el tipo."
+      },
+      "remove": {
+        "title": "Eliminar este tipo",
+        "hint": "Se borra el tipo con su esquema, su prompt y sus asignaciones a la exógena. No se puede deshacer. Si ya hay documentos clasificados con él, desactivalo arriba en vez de borrarlo: deja de clasificar documentos nuevos y los que ya existen se siguen entendiendo.",
+        "action": "Eliminar tipo",
+        "confirm": "¿Eliminar «{name}»?",
+        "confirmAction": "Sí, eliminar",
+        "cancel": "Cancelar",
+        "refusedTitle": "No se puede eliminar: ya hay documentos de este tipo",
+        "refused": "Borrarlo dejaría esos documentos sin poder decir qué son ni con qué línea de la exógena se cruzan. Desactivalo arriba: deja de clasificar documentos nuevos y los que ya existen se siguen entendiendo.",
+        "failed": "No se pudo eliminar el tipo. Intentá de nuevo."
       }
     }
   },

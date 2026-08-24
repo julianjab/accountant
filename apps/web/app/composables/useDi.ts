@@ -21,6 +21,7 @@ import { ListDocumentTypes } from '~/application/use-cases/list-document-types'
 import { ProposeDocumentType } from '~/application/use-cases/propose-document-type'
 import { CreateDocumentType } from '~/application/use-cases/create-document-type'
 import { GetDocumentType } from '~/application/use-cases/get-document-type'
+import { DeleteDocumentType } from '~/application/use-cases/delete-document-type'
 import { UpdateDocumentType } from '~/application/use-cases/update-document-type'
 import { ListReconciliationKinds } from '~/application/use-cases/list-reconciliation-kinds'
 import { GetConceptMapping } from '~/application/use-cases/get-concept-mapping'
@@ -107,6 +108,10 @@ export function useGetDocumentTypeUseCase() {
 
 export function useUpdateDocumentTypeUseCase() {
   return new UpdateDocumentType(useDocumentTypeRepository())
+}
+
+export function useDeleteDocumentTypeUseCase() {
+  return new DeleteDocumentType(useDocumentTypeRepository())
 }
 
 export function useListReconciliationKindsUseCase() {

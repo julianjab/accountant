@@ -6,6 +6,7 @@ import type {
   FieldRole
 } from '~/domain/entities/document-type'
 import type { ConceptMappingSign, MappingChange } from '~/domain/entities/concept-mapping'
+import { DocumentTypeInUseError } from '~/domain/errors/document-type-in-use-error'
 import type {
   DocumentTypeProposal,
   ProposedField,
@@ -287,6 +288,26 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
     return {
       documentType: toDocumentType(dto),
       mappingChanges: (dto.mapping_changes ?? []).map(toMappingChange)
+    }
+  }
+
+  async remove(id: string): Promise<void> {
+    try {
+      await $fetch(`/document-types/${id}`, {
+        baseURL: this.baseUrl,
+        method: 'DELETE',
+        credentials: 'include'
+      })
+    } catch (error) {
+      // 409 is the server refusing because documents are filed under the type,
+      // which is not a failure to retry but a different thing to offer.
+      const status = (error as { statusCode?: number, status?: number })?.statusCode
+        ?? (error as { status?: number })?.status
+      if (status === 409) {
+        const detail = (error as { data?: { detail?: string } })?.data?.detail ?? ''
+        throw new DocumentTypeInUseError(detail)
+      }
+      throw error
     }
   }
 }
