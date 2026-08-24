@@ -2,22 +2,40 @@ import logging
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
-from server.application.use_cases import DefineDocumentType, DefineDocumentTypeInput
+from server.application.use_cases import (
+    DefineDocumentType,
+    DefineDocumentTypeInput,
+    DocumentTypeNotFound,
+    UpdateDocumentType,
+    UpdateDocumentTypeInput,
+)
 from server.domain.ports import ConceptOption, DocumentContent
 from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
     get_define_document_type_use_case,
     get_document_type_repository,
+    get_prune_concept_mappings_use_case,
     get_reconciliation_registry,
     get_save_concept_mapping_use_case,
+    get_update_document_type_use_case,
 )
 from server.infrastructure.api.schemas import (
     DocumentTypeCreatedResponse,
     DocumentTypeResponse,
+    DocumentTypeUpdatedResponse,
+    DocumentTypeUpdateRequest,
+    MappingChangeResponse,
     ProposedFieldMappingResponse,
     UnmappedFieldResponse,
 )
-from server.reconciliation.application import SaveConceptMapping, SaveConceptMappingInput
+from server.reconciliation.application import (
+    MappingChange,
+    MappingChangeKind,
+    PruneConceptMappings,
+    PruneConceptMappingsInput,
+    SaveConceptMapping,
+    SaveConceptMappingInput,
+)
 from server.reconciliation.core.projection import ConceptMapping, ConceptMappingEntry
 from server.reconciliation.core.registry import KindRegistry, UnknownReconciliationKind
 
@@ -144,6 +162,78 @@ def create_document_type(
             UnmappedFieldResponse(field_path=path, reason=reason) for path, reason in unmapped
         ],
     )
+
+
+@router.patch("/{document_type_id}", response_model=DocumentTypeUpdatedResponse)
+def update_document_type(
+    document_type_id: str,
+    payload: DocumentTypeUpdateRequest,
+    use_case: UpdateDocumentType = Depends(get_update_document_type_use_case),
+    prune: PruneConceptMappings = Depends(get_prune_concept_mappings_use_case),
+) -> DocumentTypeUpdatedResponse:
+    try:
+        updated = use_case.execute(
+            UpdateDocumentTypeInput(
+                document_type_id=document_type_id,
+                name=payload.name,
+                description=payload.description,
+                active=payload.active,
+                extraction_prompt=payload.extraction_prompt,
+                extraction_schema=payload.extraction_schema,
+            )
+        )
+    except DocumentTypeNotFound as exc:
+        raise HTTPException(status_code=404, detail="Document type not found") from exc
+
+    changes: tuple[MappingChange, ...] = ()
+    if payload.extraction_schema is not None:
+        changes = _prune_mappings(prune, document_type_id, updated.extraction_schema)
+
+    return DocumentTypeUpdatedResponse(
+        **DocumentTypeResponse.model_validate(updated, from_attributes=True).model_dump(),
+        mapping_changes=[
+            MappingChangeResponse(
+                kind_id=c.kind_id,
+                change=str(c.change),
+                path=c.path,
+                field_path=c.field_path,
+                concept_id=c.concept_id,
+                reason=c.reason,
+            )
+            for c in changes
+        ],
+    )
+
+
+def _prune_mappings(
+    prune: PruneConceptMappings, document_type_id: str, schema: dict
+) -> tuple[MappingChange, ...]:
+    """Realign the stored concept mappings with the schema just saved.
+
+    Reported rather than raised, for the same reason creation reports a mapping
+    it could not store: the type is already saved, there is no transaction
+    across the two contexts, and a 500 here would leave the caller believing
+    the edit failed while its mappings still point at fields that are gone.
+    """
+    try:
+        return prune.execute(
+            PruneConceptMappingsInput(document_type_id=document_type_id, extraction_schema=schema)
+        )
+    except Exception:
+        logger.exception(
+            "Saved the document type but could not realign its concept mappings",
+            extra={"document_type_id": document_type_id},
+        )
+        return (
+            MappingChange(
+                kind_id="",
+                change=MappingChangeKind.PRUNE_FAILED,
+                reason=(
+                    "the concept mappings could not be checked against the new schema; they may "
+                    "still point at fields it no longer declares"
+                ),
+            ),
+        )
 
 
 def _resolve_kind(registry: KindRegistry, kind_id: str | None):

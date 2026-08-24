@@ -179,3 +179,149 @@ def test_a_mapping_with_no_reporting_party_is_not_stored() -> None:
     finally:
         app.dependency_overrides.clear()
         deps.get_concept_mapping_repository.cache_clear()
+
+
+@pytest.fixture
+def concept_mappings():
+    from server.infrastructure.api import deps
+
+    deps.get_concept_mapping_repository.cache_clear()
+    yield deps.get_concept_mapping_repository()
+    deps.get_concept_mapping_repository.cache_clear()
+
+
+_TRIMMABLE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "nit": {"type": "string"},
+        "saldo": {"type": "string"},
+        "gmf": {"type": "string"},
+    },
+}
+
+
+def _mapping_for(document_type_id: str):
+    from server.reconciliation.core.projection import ConceptMapping, ConceptMappingEntry
+
+    return ConceptMapping(
+        document_type_id=document_type_id,
+        kind_id="exogena_dian",
+        reporter_path="nit",
+        entries=(
+            ConceptMappingEntry("saldo", "bank:cert_saldo_cuentas_ahorro"),
+            ConceptMappingEntry("gmf", "bank:cert_gmf_valor"),
+        ),
+    )
+
+
+def test_editing_a_type_that_does_not_exist_is_a_404(client, document_types) -> None:
+    response = client.patch("/document-types/ghost", json={"name": "Whatever"})
+
+    assert response.status_code == 404
+
+
+def test_an_edit_changes_only_the_fields_it_names(client, document_types) -> None:
+    document_types.save(_document_type(id="type-1"))
+
+    response = client.patch("/document-types/type-1", json={"name": "Certificado 2025"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "Certificado 2025"
+    assert body["description"] == "Bank statement"
+    assert body["extraction_prompt"] == "Extract fields"
+    assert body["mapping_changes"] == []
+
+
+def test_trimming_the_schema_drops_the_mappings_it_orphaned(
+    client, document_types, concept_mappings
+) -> None:
+    """The accountant only wants a few of the fields the AI proposed. Every
+    mapping left pointing at a removed one would produce no fact and no error,
+    so the claim behind it would read as missing evidence for no visible
+    reason."""
+    document_types.save(_document_type(id="type-1", extraction_schema=_TRIMMABLE_SCHEMA))
+    concept_mappings.save(_mapping_for("type-1"))
+
+    response = client.patch(
+        "/document-types/type-1",
+        json={
+            "extraction_schema": {
+                "type": "object",
+                "properties": {"nit": {"type": "string"}, "saldo": {"type": "string"}},
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["mapping_changes"] == [
+        {
+            "kind_id": "exogena_dian",
+            "change": "entry_dropped",
+            "path": "gmf",
+            "field_path": "gmf",
+            "concept_id": "bank:cert_gmf_valor",
+            "reason": "the schema no longer declares this field, so it can no longer be reconciled",
+        }
+    ]
+    stored = concept_mappings.get("type-1", "exogena_dian")
+    assert [e.field_path for e in stored.entries] == ["saldo"]
+
+
+def test_dropping_the_reporting_party_field_clears_the_whole_mapping(
+    client, document_types, concept_mappings
+) -> None:
+    """Without a reporting party no fact can be attributed to anyone, so what
+    is left of the mapping is dead weight that still reads as configuration."""
+    document_types.save(_document_type(id="type-1", extraction_schema=_TRIMMABLE_SCHEMA))
+    concept_mappings.save(_mapping_for("type-1"))
+
+    response = client.patch(
+        "/document-types/type-1",
+        json={"extraction_schema": {"type": "object", "properties": {"saldo": {"type": "string"}}}},
+    )
+
+    assert response.status_code == 200
+    changes = response.json()["mapping_changes"]
+    assert [c["change"] for c in changes] == ["mapping_cleared"]
+    assert changes[0]["path"] == "nit"
+    assert concept_mappings.get("type-1", "exogena_dian").entries == ()
+
+
+def test_an_edit_that_leaves_the_schema_alone_never_touches_the_mappings(
+    client, document_types, concept_mappings
+) -> None:
+    """Renaming a type must not cost it its mapping, so pruning only runs when
+    the schema is the thing being edited."""
+    document_types.save(_document_type(id="type-1", extraction_schema=_TRIMMABLE_SCHEMA))
+    concept_mappings.save(_mapping_for("type-1"))
+
+    response = client.patch("/document-types/type-1", json={"active": False})
+
+    assert response.status_code == 200
+    assert response.json()["mapping_changes"] == []
+    assert len(concept_mappings.get("type-1", "exogena_dian").entries) == 2
+
+
+def test_mappings_that_cannot_be_realigned_are_reported_not_raised(client, document_types) -> None:
+    """The type is already saved, so a 500 would tell the caller the edit
+    failed while leaving mappings pointing at fields that no longer exist."""
+    from server.infrastructure.api import deps
+    from server.reconciliation.application import PruneConceptMappings
+
+    class _UnreadableMappingRepository(_FailingMappingRepository):
+        def get(self, document_type_id, kind_id):
+            raise RuntimeError("Firestore is unavailable")
+
+    document_types.save(_document_type(id="type-1", extraction_schema=_TRIMMABLE_SCHEMA))
+    app.dependency_overrides[deps.get_prune_concept_mappings_use_case] = lambda: (
+        PruneConceptMappings(deps.get_reconciliation_registry(), _UnreadableMappingRepository())
+    )
+
+    response = client.patch(
+        "/document-types/type-1",
+        json={"extraction_schema": {"type": "object", "properties": {"nit": {"type": "string"}}}},
+    )
+
+    assert response.status_code == 200
+    assert [c["change"] for c in response.json()["mapping_changes"]] == ["prune_failed"]
