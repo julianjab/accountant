@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 
 import pytest
@@ -647,3 +648,93 @@ def test_a_proposal_can_be_asked_to_revise_an_existing_type() -> None:
         assert propose.received.guidance == "La tabla tiene una fila por obligación."
     finally:
         app.dependency_overrides.clear()
+
+
+def _propose_with(**form) -> tuple[int, object]:
+    """Posts a proposal with the use case stubbed, and hands back what it got."""
+    from server.application.use_cases import ProposeDocumentType, ReadStoredDocument
+    from server.domain.ports import DocumentContent, ProposedOcrConfig
+    from server.infrastructure.api import deps
+
+    class _Propose(ProposeDocumentType):
+        def __init__(self):
+            self.received = None
+
+        def execute(self, data):
+            self.received = data
+            return ProposedOcrConfig(extraction_prompt="p", extraction_schema={"type": "object"})
+
+    class _Read(ReadStoredDocument):
+        def __init__(self):
+            pass
+
+        def execute(self, data):
+            return DocumentContent(data=b"%PDF-", mime_type="application/pdf", file_name="c.pdf")
+
+    propose = _Propose()
+    app.dependency_overrides[require_session] = lambda: None
+    app.dependency_overrides[deps.get_propose_document_type_use_case] = lambda: propose
+    app.dependency_overrides[deps.get_read_stored_document_use_case] = lambda: _Read()
+    try:
+        response = TestClient(app).post(
+            "/document-types/proposals",
+            data={"name": "Certificado", "document_id": "doc-1", **form},
+        )
+        return response.status_code, propose.received
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_the_selection_from_the_last_round_reaches_the_use_case() -> None:
+    """The answer to a proposal is the next proposal's instruction — it has to
+    survive the multipart boundary, where it travels as JSON because a kept
+    field is three values and multipart cannot nest."""
+    status, received = _propose_with(
+        selection=json.dumps(
+            {
+                "kept": [
+                    {"path": "gmf[].valor_gmf", "label": " GMF retenido ", "note": " es la fila "}
+                ],
+                "dropped": ["agente_retenedor.direccion"],
+            }
+        )
+    )
+
+    assert status == 200
+    assert received.selection is not None
+    kept = received.selection.kept[0]
+    assert kept.path == "gmf[].valor_gmf"
+    # Trimmed at the edge: trailing blanks in a label reach the prompt as the
+    # person's own words for the field, and read as sloppiness by the model.
+    assert kept.label == "GMF retenido"
+    assert kept.note == "es la fila"
+    assert received.selection.dropped == ("agente_retenedor.direccion",)
+
+
+@pytest.mark.parametrize("raw", ["", "   "])
+def test_an_absent_selection_is_a_first_reading(raw) -> None:
+    status, received = _propose_with(selection=raw)
+
+    assert status == 200
+    assert received.selection is None
+
+
+def test_a_selection_that_keeps_and_drops_nothing_is_a_first_reading() -> None:
+    """Well formed, and says nothing. Passing it on would put an empty
+    instruction block in the prompt for every first round."""
+    status, received = _propose_with(selection=json.dumps({"kept": [], "dropped": []}))
+
+    assert status == 200
+    assert received.selection is None
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ['{"kept": "not a list"}', "not json at all", '{"kept": [{"label": "no path"}]}'],
+)
+def test_a_malformed_selection_is_refused_rather_than_guessed_at(raw) -> None:
+    """Left to Pydantic's default it would reach the prompt as a Python repr
+    and steer the reading with something nobody wrote."""
+    status, _ = _propose_with(selection=raw)
+
+    assert status == 422

@@ -21,10 +21,13 @@ class _Configurator:
         self.guidance = ""
         self.base = None
 
-    def propose_config(self, content, type_name, concepts=(), guidance="", base=None):
+    def propose_config(
+        self, content, type_name, concepts=(), guidance="", base=None, selection=None
+    ):
         self.calls += 1
         self.guidance = guidance
         self.base = base
+        self.selection = selection
         return self._proposal
 
 

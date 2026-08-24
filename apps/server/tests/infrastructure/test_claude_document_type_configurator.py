@@ -2,7 +2,13 @@
 
 import pytest
 
-from server.domain.ports import ConceptOption, DocumentContent, ExistingConfig
+from server.domain.ports import (
+    ConceptOption,
+    DocumentContent,
+    ExistingConfig,
+    FieldSelection,
+    KeptField,
+)
 from server.infrastructure.adapters.claude_document_type_configurator import (
     ClaudeDocumentTypeConfigurator,
 )
@@ -12,7 +18,9 @@ SAMPLE = DocumentContent(data=b"%PDF-", mime_type="application/pdf", file_name="
 
 PROMPT = TemplatedPrompt(
     system="You design extraction configs.",
-    instructions_template='Sample "{type_name}".{revision_instructions}{mapping_instructions}',
+    instructions_template=(
+        'Sample "{type_name}".{revision_instructions}{selection_instructions}{mapping_instructions}'
+    ),
 )
 
 DESCRIPTION_PROMPT = TemplatedPrompt(
@@ -517,3 +525,67 @@ def test_the_complaint_reaches_the_model_verbatim():
     )
     text = provider.request["messages"][0]["content"][-1]["text"]
     assert "falta la de tarjeta de crédito" in text
+
+
+def test_a_first_reading_says_nothing_about_a_selection():
+    """Nothing has been offered yet, so there is no answer to honour."""
+    _, provider = _configure({"extraction_prompt": "p", "extraction_schema": {}})
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert "already read a proposal" not in text
+
+
+def test_the_fields_a_person_kept_are_named_with_their_own_words():
+    """The point of the loop: a renamed label is what this field is called on
+    their desk, and it should steer the next reading rather than be corrected
+    back to whatever heading the paper prints."""
+    _, provider = _configure(
+        {"extraction_prompt": "p", "extraction_schema": {}},
+        selection=FieldSelection(
+            kept=(
+                KeptField(path="gmf[].valor_gmf", label="GMF retenido"),
+                KeptField(
+                    path="obligaciones_a_cargo[].concepto",
+                    note="es una fila de la tabla, no el total",
+                ),
+            )
+        ),
+    )
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert "gmf[].valor_gmf — GMF retenido" in text
+    assert "es una fila de la tabla, no el total" in text
+
+
+def test_a_field_that_was_refused_is_named_as_refused():
+    """Merely leaving it out invites the model to offer it again as a helpful
+    addition, which is how a round trip never converges."""
+    _, provider = _configure(
+        {"extraction_prompt": "p", "extraction_schema": {}},
+        selection=FieldSelection(dropped=("agente_retenedor.direccion",)),
+    )
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert "Do not propose them again" in text
+    assert "agente_retenedor.direccion" in text
+
+
+def test_a_removal_outranks_the_rule_that_keeps_every_stored_path():
+    """Both instructions are in the same prompt. Without the exemption the
+    model resolves the contradiction by proposing the removed field again."""
+    _, provider = _configure(
+        {"extraction_prompt": "p", "extraction_schema": {}},
+        base=ExistingConfig(
+            extraction_prompt="Read it.",
+            extraction_schema={"properties": {"gmf": {"type": "object"}}},
+        ),
+        selection=FieldSelection(dropped=("gmf.base_gravable_cuentas_ahorro",)),
+    )
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert "except the ones the person removed" in text
+
+
+def test_an_empty_selection_is_the_same_as_none():
+    _, provider = _configure(
+        {"extraction_prompt": "p", "extraction_schema": {}},
+        selection=FieldSelection(),
+    )
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert "already read a proposal" not in text
