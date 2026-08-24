@@ -235,3 +235,29 @@ class ClientDocumentsImportResponse(BaseModel):
     skipped: int
     #: Files with no readable bytes, so no document exists for them at all.
     unreadable: list[str]
+
+
+class ProposedFieldMappingResponse(BaseModel):
+    field_path: str
+    concept_id: str
+    account_path: str | None
+    sign: int
+
+
+class UnmappedFieldResponse(BaseModel):
+    field_path: str
+    reason: str
+
+
+class DocumentTypeCreatedResponse(DocumentTypeResponse):
+    """What defining a type produced, including how its fields were mapped.
+
+    A subclass so the list endpoints and any existing client keep the shape
+    they already read; the mapping is additive.
+    """
+
+    kind_id: str | None
+    field_mappings: list[ProposedFieldMappingResponse]
+    #: Extracted but not reconcilable, with the AI's reason for leaving them
+    #: out. Returned so the gap is a visible decision, not a silent omission.
+    unmapped_fields: list[UnmappedFieldResponse]
