@@ -18,6 +18,7 @@ import {
   writeSource
 } from '~/domain/document-type-configuration'
 import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
+import DocumentViewer from '~/components/documents/DocumentViewer.vue'
 
 type Step = 'form' | 'analyzing' | 'select' | 'created'
 
