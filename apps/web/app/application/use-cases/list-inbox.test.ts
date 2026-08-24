@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Client } from '~/domain/entities/client'
+import type { DocumentSource } from '~/domain/entities/document-source'
 import type { ClientDocument } from '~/domain/entities/document'
 import type { DocumentType, DocumentTypeCreation, DocumentTypeUpdate } from '~/domain/entities/document-type'
 import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
@@ -55,6 +56,18 @@ class FakeDocumentRepository implements DocumentRepository {
   }
 
   importForClient(_clientId: string): Promise<ClientDocumentsImport> {
+    throw new Error('not implemented')
+  }
+
+  listSources(): Promise<DocumentSource[]> {
+    throw new Error('not implemented')
+  }
+
+  recognizeSource(_id: string, _sourceId: string): Promise<ClientDocument> {
+    throw new Error('not implemented')
+  }
+
+  approve(_id: string, _approvedBy?: string): Promise<ClientDocument> {
     throw new Error('not implemented')
   }
 }
@@ -113,6 +126,7 @@ function document(overrides: Partial<ClientDocument>): ClientDocument {
     error: null,
     createdAt: '2026-08-22T10:00:00.000Z',
     processedAt: null,
+    sourceId: null,
     ...overrides
   }
 }
@@ -300,13 +314,15 @@ describe('ListInbox', () => {
         id: 'd1',
         status: 'processed',
         createdAt: '2026-08-22T10:00:00.000Z',
-        processedAt: '2026-08-22T10:01:00.000Z'
+        processedAt: '2026-08-22T10:01:00.000Z',
+        sourceId: null
       }),
       document({
         id: 'd2',
         status: 'processed',
         createdAt: '2026-08-22T10:00:00.000Z',
-        processedAt: '2026-08-22T10:03:00.000Z'
+        processedAt: '2026-08-22T10:03:00.000Z',
+        sourceId: null
       })
     ]
     const useCase = new ListInbox(

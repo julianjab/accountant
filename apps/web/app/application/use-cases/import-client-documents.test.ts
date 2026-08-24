@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { DocumentSource } from '~/domain/entities/document-source'
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
 import type {
@@ -19,7 +20,8 @@ function documentOf(id: string, status: DocumentStatus = 'processed'): ClientDoc
     status,
     error: null,
     createdAt: '2026-08-24T00:00:00Z',
-    processedAt: null
+    processedAt: null,
+    sourceId: null
   }
 }
 
@@ -47,6 +49,18 @@ class FakeDocumentRepository implements DocumentRepository {
   importForClient(clientId: string): Promise<ClientDocumentsImport> {
     this.imported.push(clientId)
     return Promise.resolve(this.result)
+  }
+
+  listSources(): Promise<DocumentSource[]> {
+    throw new Error('not implemented')
+  }
+
+  recognizeSource(_id: string, _sourceId: string): Promise<ClientDocument> {
+    throw new Error('not implemented')
+  }
+
+  approve(_id: string, _approvedBy?: string): Promise<ClientDocument> {
+    throw new Error('not implemented')
   }
 }
 

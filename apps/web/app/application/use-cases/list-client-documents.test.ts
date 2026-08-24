@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { DocumentSource } from '~/domain/entities/document-source'
 import type { ClientDocument } from '~/domain/entities/document'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
 import type { DocumentListFilter, DocumentRepository,
@@ -28,6 +29,18 @@ class FakeDocumentRepository implements DocumentRepository {
   importForClient(_clientId: string): Promise<ClientDocumentsImport> {
     throw new Error('not implemented')
   }
+
+  listSources(): Promise<DocumentSource[]> {
+    throw new Error('not implemented')
+  }
+
+  recognizeSource(_id: string, _sourceId: string): Promise<ClientDocument> {
+    throw new Error('not implemented')
+  }
+
+  approve(_id: string, _approvedBy?: string): Promise<ClientDocument> {
+    throw new Error('not implemented')
+  }
 }
 
 describe('ListClientDocuments', () => {
@@ -43,7 +56,8 @@ describe('ListClientDocuments', () => {
         status: 'pending',
         error: null,
         createdAt: '2026-01-01T10:00:00Z',
-        processedAt: null
+        processedAt: null,
+        sourceId: null
       }
     ]
     const useCase = new ListClientDocuments(new FakeDocumentRepository(documents))
