@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import StrEnum
+
+_KEY = re.compile(r"^(\d{4})(?:-(\d{2}))?$")
 
 
 class PeriodGranularity(StrEnum):
@@ -37,6 +40,21 @@ class Period:
     @classmethod
     def of_month(cls, year: int, month: int) -> Period:
         return cls(PeriodGranularity.MONTH, year, month)
+
+    @classmethod
+    def parse(cls, key: str) -> Period:
+        """The inverse of `key`: `2025` or `2025-03`.
+
+        Here rather than at each caller because a period that round-trips
+        through a string is the normal case — it is what a URL carries, what a
+        report is stored under, and what a parsed document reports about
+        itself — and two hand-rolled parsers would eventually disagree.
+        """
+        match = _KEY.match(key)
+        if match is None:
+            raise ValueError(f"A period key must be `YYYY` or `YYYY-MM`, not {key!r}")
+        year, month = int(match.group(1)), match.group(2)
+        return cls.of_year(year) if month is None else cls.of_month(year, int(month))
 
     @property
     def key(self) -> str:

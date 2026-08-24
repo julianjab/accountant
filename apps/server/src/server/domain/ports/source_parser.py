@@ -31,6 +31,10 @@ class ParsedSource:
     #: the rows already reach reconciliation straight from the file. What a
     #: reviewer needs here is enough to tell that the right file was read.
     summary: dict[str, Any]
+    #: The periods the file covers, as `YYYY`/`YYYY-MM` keys. Plain strings
+    #: because the document context has no period type of its own — what it
+    #: does with them is hand them to whoever does.
+    periods: tuple[str, ...] = ()
 
 
 class SourceNotParsable(Exception):

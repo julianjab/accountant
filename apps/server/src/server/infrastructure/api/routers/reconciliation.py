@@ -9,8 +9,6 @@ import-linter contracts still hold: this is infrastructure, and nothing in
 
 from __future__ import annotations
 
-import re
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from server.infrastructure.api.auth_dependency import require_session
@@ -53,16 +51,10 @@ router = APIRouter(
     prefix="/reconciliation", tags=["reconciliation"], dependencies=[Depends(require_session)]
 )
 
-_PERIOD = re.compile(r"^(\d{4})(?:-(\d{2}))?$")
-
 
 def _parse_period(raw: str) -> Period:
-    match = _PERIOD.match(raw)
-    if match is None:
-        raise HTTPException(status_code=422, detail="Period must be `YYYY` or `YYYY-MM`")
-    year, month = int(match.group(1)), match.group(2)
     try:
-        return Period.of_year(year) if month is None else Period.of_month(year, int(month))
+        return Period.parse(raw)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

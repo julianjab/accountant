@@ -9,7 +9,6 @@ from server.application.use_cases import (
     DocumentNotRecognized,
     GetDocumentMetrics,
     GetExtractedData,
-    RecognizeDocumentSource,
     RecognizeDocumentSourceInput,
 )
 from server.domain.entities import DocumentStatus
@@ -112,10 +111,10 @@ def approve_document(
 def recognize_document_source(
     document_id: str,
     payload: DocumentRecognizeRequest,
-    use_case: RecognizeDocumentSource = Depends(get_recognize_document_source_use_case),
+    use_case=Depends(get_recognize_document_source_use_case),
 ) -> DocumentResponse:
     try:
-        document = use_case.execute(
+        recognized = use_case.execute(
             RecognizeDocumentSourceInput(document_id=document_id, source_id=payload.source_id)
         )
     except DocumentNotFound as exc:
@@ -126,4 +125,4 @@ def recognize_document_source(
         # 422, not 400: the request is well formed and the caller is entitled
         # to make it — the file simply turned out not to be what they said.
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return DocumentResponse.model_validate(document, from_attributes=True)
+    return DocumentResponse.model_validate(recognized.document, from_attributes=True)

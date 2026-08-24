@@ -29,6 +29,20 @@ class DocumentNotRecognized(Exception):
 
 
 @dataclass(frozen=True, slots=True)
+class RecognizedDocument:
+    """The document as it now stands, and what the file turned out to cover.
+
+    The periods travel with it because recognising a document is exactly the
+    moment anything downstream of it goes stale, and the file itself is the
+    only authority on which periods those are. A caller that had only the
+    document would have to guess, or re-read the file to find out.
+    """
+
+    document: Document
+    periods: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class RecognizeDocumentSourceInput:
     document_id: str
     source_id: str
@@ -58,7 +72,7 @@ class RecognizeDocumentSource:
         self._parsers = parsers
         self._extracted_data = extracted_data
 
-    def execute(self, data: RecognizeDocumentSourceInput) -> Document:
+    def execute(self, data: RecognizeDocumentSourceInput) -> RecognizedDocument:
         document = self._documents.get(data.document_id)
         if document is None:
             raise DocumentNotFound(f"Document {data.document_id} not found")
@@ -113,4 +127,4 @@ class RecognizeDocumentSource:
             source_id=parsed.source_id,
         )
         self._documents.save(recognized)
-        return recognized
+        return RecognizedDocument(document=recognized, periods=parsed.periods)

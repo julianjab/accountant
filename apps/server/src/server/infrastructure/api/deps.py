@@ -89,6 +89,7 @@ from server.reconciliation.infrastructure import (
     InMemoryConceptMappingRepository,
     InMemoryReconciliationReportRepository,
     KindSourceParsers,
+    RecognizeDocumentSourceAndReconcile,
 )
 from server.reconciliation.infrastructure.firestore_repositories import (
     FirestoreConceptMappingRepository,
@@ -403,12 +404,23 @@ def get_source_parsers() -> KindSourceParsers:
     return KindSourceParsers(get_reconciliation_registry())
 
 
-def get_recognize_document_source_use_case() -> RecognizeDocumentSource:
-    return RecognizeDocumentSource(
-        documents=get_document_repository(),
-        storage=get_document_storage(),
-        parsers=get_source_parsers(),
-        extracted_data=get_extracted_data_repository(),
+def get_recognize_document_source_use_case() -> RecognizeDocumentSourceAndReconcile:
+    """Recognising a document also rebuilds the reports it just changed.
+
+    Wired here rather than left to the caller: naming the exogena is the one
+    act that makes a client's whole reconciliation computable, and every screen
+    that would show what the client still owes reads a report that would
+    otherwise not exist yet.
+    """
+    return RecognizeDocumentSourceAndReconcile(
+        recognize=RecognizeDocumentSource(
+            documents=get_document_repository(),
+            storage=get_document_storage(),
+            parsers=get_source_parsers(),
+            extracted_data=get_extracted_data_repository(),
+        ),
+        reconcile=get_reconcile_client_period_use_case(),
+        registry=get_reconciliation_registry(),
     )
 
 

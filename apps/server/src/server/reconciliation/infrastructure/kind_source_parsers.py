@@ -87,7 +87,11 @@ class KindSourceParsers:
             "Recognised a document as a parsed source",
             extra={"source_id": source_id, "facts": len(facts)},
         )
-        return ParsedSource(source_id=source_id, summary=_summarise(facts))
+        return ParsedSource(
+            source_id=source_id,
+            summary=_summarise(facts),
+            periods=tuple(sorted({fact.period.key for fact in facts})),
+        )
 
     def _sources(self) -> tuple[FactSourceSpec, ...]:
         return tuple(

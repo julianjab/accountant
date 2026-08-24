@@ -55,6 +55,7 @@ from server.application.use_cases.read_stored_document import (
 from server.application.use_cases.recognize_document_source import (
     DocumentAlreadyApproved,
     DocumentNotRecognized,
+    RecognizedDocument,
     RecognizeDocumentSource,
     RecognizeDocumentSourceInput,
 )
@@ -110,6 +111,7 @@ __all__ = [
     "ProcessUploadedDocumentInput",
     "DocumentAlreadyApproved",
     "DocumentNotRecognized",
+    "RecognizedDocument",
     "RecognizeDocumentSource",
     "RecognizeDocumentSourceInput",
     "RegisterClient",
