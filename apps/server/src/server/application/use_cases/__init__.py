@@ -1,7 +1,8 @@
 from server.application.use_cases.approve_document import (
+    ApprovedDocument,
     ApproveDocument,
     ApproveDocumentInput,
-    DocumentNotApprovable,
+    DocumentNotExtractable,
     DocumentNotFound,
 )
 from server.application.use_cases.complete_google_sign_in import (
@@ -52,21 +53,9 @@ from server.application.use_cases.read_stored_document import (
     ReadStoredDocument,
     ReadStoredDocumentInput,
 )
-from server.application.use_cases.recognize_document_source import (
-    DocumentAlreadyApproved,
-    DocumentNotRecognized,
-    RecognizedDocument,
-    RecognizeDocumentSource,
-    RecognizeDocumentSourceInput,
-)
 from server.application.use_cases.register_client import (
     RegisterClient,
     RegisterClientInput,
-)
-from server.application.use_cases.reopen_document import (
-    DocumentNotApproved,
-    ReopenDocument,
-    ReopenDocumentInput,
 )
 from server.application.use_cases.sign_out_google import SignOutGoogle
 from server.application.use_cases.start_google_sign_in import (
@@ -94,6 +83,7 @@ __all__ = [
     "ImportClientDocumentsInput",
     "ImportClientDocuments",
     "ClientHasNoFolder",
+    "ApprovedDocument",
     "ApproveDocument",
     "ApproveDocumentInput",
     "ClientNotFound",
@@ -101,7 +91,7 @@ __all__ = [
     "DefineDocumentType",
     "DefineDocumentTypeInput",
     "DocumentMetrics",
-    "DocumentNotApprovable",
+    "DocumentNotExtractable",
     "DocumentNotFound",
     "GetDocumentMetrics",
     "GetExtractedData",
@@ -114,14 +104,6 @@ __all__ = [
     "ProcessDriveChangeNotification",
     "ProcessUploadedDocument",
     "ProcessUploadedDocumentInput",
-    "DocumentAlreadyApproved",
-    "DocumentNotRecognized",
-    "RecognizedDocument",
-    "RecognizeDocumentSource",
-    "RecognizeDocumentSourceInput",
-    "DocumentNotApproved",
-    "ReopenDocument",
-    "ReopenDocumentInput",
     "RegisterClient",
     "RegisterClientInput",
     "SignInNotAllowed",

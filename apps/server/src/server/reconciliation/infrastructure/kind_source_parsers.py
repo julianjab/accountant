@@ -18,7 +18,7 @@ import logging
 from collections import Counter
 from decimal import Decimal
 
-from server.domain.ports import DocumentContent, ParsableSource, ParsedSource, SourceNotParsable
+from server.domain.ports import DocumentContent, ParsedSource
 from server.reconciliation.core.kind import (
     FactSourceSpec,
     SourceContent,
@@ -36,62 +36,56 @@ class KindSourceParsers:
     def __init__(self, registry: KindRegistry) -> None:
         self._registry = registry
 
-    def available(self) -> tuple[ParsableSource, ...]:
-        return tuple(
-            ParsableSource(id=source.id, label=source.label, media_types=source.media_types)
-            for source in self._sources()
-        )
+    def handles(self, mime_type: str) -> bool:
+        return any(mime_type in source.media_types for source in self._sources())
 
-    def parse(self, content: DocumentContent, source_id: str) -> ParsedSource:
-        source = next((s for s in self._sources() if s.id == source_id), None)
-        if source is None:
-            raise SourceNotParsable(f"No parser is registered for source {source_id!r}")
-        if content.mime_type not in source.media_types:
-            raise SourceNotParsable(f"A {source.label} is not a {content.mime_type} file")
-
-        try:
-            # The file states its own period and reporting parties; nothing here
-            # supplies them, so a wrong guess by the caller cannot end up
-            # stamped on the facts.
-            facts = source.extractor.extract(
-                SourceContent(
-                    data=content.data,
-                    media_type=content.mime_type,
-                    file_name=content.file_name,
-                    source_id=source_id,
+    def recognize(self, content: DocumentContent) -> ParsedSource | None:
+        for source in self._sources():
+            if content.mime_type not in source.media_types:
+                continue
+            try:
+                # The file states its own period and reporting parties; nothing
+                # here supplies them, so nothing this side can stamp a wrong
+                # year or a wrong taxpayer onto the facts.
+                facts = source.extractor.extract(
+                    SourceContent(
+                        data=content.data,
+                        media_type=content.mime_type,
+                        file_name=content.file_name,
+                        source_id=source.id,
+                    )
                 )
-            )
-        except SourceNotRecognized as exc:
-            # An ordinary outcome: a client's folder holds all sorts of
-            # spreadsheets, and this one is not the report it was said to be.
-            raise SourceNotParsable(str(exc)) from exc
-        except Exception as exc:
-            # Everything else a parser can do with bytes a person chose: a
-            # malformed report, or a file that is not a workbook at all. The
-            # failures come out of whichever library reads the format
-            # (`BadZipFile`, `InvalidFileException`, an IndexError deep in a
-            # sheet), and enumerating those here would mean this adapter has to
-            # be edited every time a parser changes its dependencies — while a
-            # missed one reaches the caller as a 500 for a file they simply
-            # named wrong. Logged with the traceback so a genuine defect is
-            # still visible rather than swallowed.
-            logger.exception(
-                "Could not read a document as the source it was declared to be",
-                extra={"source_id": source_id, "file_name": content.file_name},
-            )
-            raise SourceNotParsable(
-                f"This file could not be read as a {source.label}: {exc}"
-            ) from exc
+            except SourceNotRecognized:
+                # Ordinary: a client's folder holds all sorts of spreadsheets
+                # and this one is not that report. Try the next parser.
+                logger.debug(
+                    "Document is not a %s source", source.id, extra={"file": content.file_name}
+                )
+                continue
+            except Exception:
+                # A parser handed bytes it half-understands fails in whichever
+                # way its library fails (`BadZipFile`, an IndexError deep in a
+                # sheet). Enumerating those would mean editing this adapter
+                # every time a parser changes its dependencies, while a missed
+                # one would abort an approval over a file that simply was not
+                # this format. Logged with the traceback so a real defect stays
+                # visible rather than swallowed.
+                logger.exception(
+                    "A parser failed reading a document that matched its media type",
+                    extra={"source_id": source.id, "file_name": content.file_name},
+                )
+                continue
 
-        logger.info(
-            "Recognised a document as a parsed source",
-            extra={"source_id": source_id, "facts": len(facts)},
-        )
-        return ParsedSource(
-            source_id=source_id,
-            summary=_summarise(facts),
-            periods=tuple(sorted({fact.period.key for fact in facts})),
-        )
+            logger.info(
+                "Recognised a document as a parsed source",
+                extra={"source_id": source.id, "facts": len(facts)},
+            )
+            return ParsedSource(
+                source_id=source.id,
+                summary=_summarise(facts),
+                periods=tuple(sorted({fact.period.key for fact in facts})),
+            )
+        return None
 
     def _sources(self) -> tuple[FactSourceSpec, ...]:
         return tuple(

@@ -133,22 +133,6 @@ class DocumentResponse(BaseModel):
     source_id: str | None = None
 
 
-class DocumentSourceResponse(BaseModel):
-    """A format the server can read on its own, offered for a person to pick.
-
-    Not a document type: these have a parser behind them rather than a prompt
-    and a schema, which is why the classifier never proposes one.
-    """
-
-    id: str
-    label: str
-    media_types: list[str]
-
-
-class DocumentRecognizeRequest(BaseModel):
-    source_id: str
-
-
 class DocumentApproveRequest(BaseModel):
     approved_by: str | None = None
 

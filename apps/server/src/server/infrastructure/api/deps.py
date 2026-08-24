@@ -18,9 +18,7 @@ from server.application.use_cases import (
     ProcessUploadedDocument,
     ProposeDocumentType,
     ReadStoredDocument,
-    RecognizeDocumentSource,
     RegisterClient,
-    ReopenDocument,
     SignOutGoogle,
     StartGoogleSignIn,
     SubscribeDriveWebhook,
@@ -85,12 +83,12 @@ from server.reconciliation.application import (
 )
 from server.reconciliation.core.registry import KindRegistry
 from server.reconciliation.infrastructure import (
+    ApproveDocumentAndReconcile,
     DeleteDocumentTypeAndMappings,
     DocumentFactProvider,
     InMemoryConceptMappingRepository,
     InMemoryReconciliationReportRepository,
     KindSourceParsers,
-    RecognizeDocumentSourceAndReconcile,
 )
 from server.reconciliation.infrastructure.firestore_repositories import (
     FirestoreConceptMappingRepository,
@@ -231,12 +229,25 @@ def get_extracted_data_use_case() -> GetExtractedData:
     return GetExtractedData(get_extracted_data_repository())
 
 
-def get_approve_document_use_case() -> ApproveDocument:
-    return ApproveDocument(get_document_repository())
+def get_approve_document_use_case() -> ApproveDocumentAndReconcile:
+    """Approving reads the document and rebuilds what that changed.
 
-
-def get_reopen_document_use_case() -> ReopenDocument:
-    return ReopenDocument(get_document_repository())
+    One composed step because it is one button. A document only reaches the
+    review screen when the pipeline could make nothing of it, so an approval
+    with no extraction behind it would sign off on an empty result — and the
+    figures it produces are what the client's cross-check is made of.
+    """
+    return ApproveDocumentAndReconcile(
+        approve=ApproveDocument(
+            documents=get_document_repository(),
+            storage=get_document_storage(),
+            parsers=get_source_parsers(),
+            extracted_data=get_extracted_data_repository(),
+            process_document=get_process_uploaded_document_use_case(),
+        ),
+        reconcile=get_reconcile_client_period_use_case(),
+        registry=get_reconciliation_registry(),
+    )
 
 
 def get_document_metrics_use_case() -> GetDocumentMetrics:
@@ -407,26 +418,6 @@ def get_source_parsers() -> KindSourceParsers:
     know that some file formats can be read exactly.
     """
     return KindSourceParsers(get_reconciliation_registry())
-
-
-def get_recognize_document_source_use_case() -> RecognizeDocumentSourceAndReconcile:
-    """Recognising a document also rebuilds the reports it just changed.
-
-    Wired here rather than left to the caller: naming the exogena is the one
-    act that makes a client's whole reconciliation computable, and every screen
-    that would show what the client still owes reads a report that would
-    otherwise not exist yet.
-    """
-    return RecognizeDocumentSourceAndReconcile(
-        recognize=RecognizeDocumentSource(
-            documents=get_document_repository(),
-            storage=get_document_storage(),
-            parsers=get_source_parsers(),
-            extracted_data=get_extracted_data_repository(),
-        ),
-        reconcile=get_reconcile_client_period_use_case(),
-        registry=get_reconciliation_registry(),
-    )
 
 
 def get_read_stored_document_use_case() -> ReadStoredDocument:
