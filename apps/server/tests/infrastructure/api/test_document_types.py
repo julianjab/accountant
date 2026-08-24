@@ -325,3 +325,65 @@ def test_mappings_that_cannot_be_realigned_are_reported_not_raised(client, docum
 
     assert response.status_code == 200
     assert [c["change"] for c in response.json()["mapping_changes"]] == ["prune_failed"]
+
+
+def test_the_tax_years_of_a_type_can_be_corrected(document_types, client) -> None:
+    """A mistagged type would otherwise be uncorrectable, and every document it
+    classifies would stay reported as covering another period."""
+    document_types.save(
+        DocumentType(
+            id="t-years",
+            name="Certificado",
+            description="d",
+            extraction_prompt="p",
+            extraction_schema={"type": "object"},
+            active=True,
+            created_at=datetime.now(UTC),
+            tax_years=(2023,),
+        )
+    )
+
+    response = client.patch("/document-types/t-years", json={"tax_years": [2025]})
+
+    assert response.status_code == 200
+    assert response.json()["tax_years"] == [2025]
+    assert document_types.get("t-years").tax_years == (2025,)
+
+
+def test_clearing_the_tax_years_makes_a_type_apply_to_any_year(document_types, client) -> None:
+    document_types.save(
+        DocumentType(
+            id="t-any",
+            name="Certificado",
+            description="d",
+            extraction_prompt="p",
+            extraction_schema={"type": "object"},
+            active=True,
+            created_at=datetime.now(UTC),
+            tax_years=(2023, 2024),
+        )
+    )
+
+    response = client.patch("/document-types/t-any", json={"tax_years": []})
+
+    assert response.status_code == 200
+    assert document_types.get("t-any").tax_years == ()
+
+
+def test_omitting_the_tax_years_leaves_them_alone(document_types, client) -> None:
+    document_types.save(
+        DocumentType(
+            id="t-keep",
+            name="Certificado",
+            description="d",
+            extraction_prompt="p",
+            extraction_schema={"type": "object"},
+            active=True,
+            created_at=datetime.now(UTC),
+            tax_years=(2024,),
+        )
+    )
+
+    client.patch("/document-types/t-keep", json={"name": "Otro nombre"})
+
+    assert document_types.get("t-keep").tax_years == (2024,)

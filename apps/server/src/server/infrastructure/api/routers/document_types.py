@@ -95,7 +95,11 @@ def propose_document_type(
         extraction_schema=proposal.extraction_schema,
         fields=[
             ProposedFieldResponse(
-                path=f.path, label=f.label, role=f.role.value, sample_value=f.sample_value
+                path=f.path,
+                label=f.label,
+                role=f.role.value,
+                sample_value=f.sample_value,
+                section=f.section,
             )
             for f in proposal.fields
         ],
@@ -248,6 +252,10 @@ def update_document_type(
                 active=payload.active,
                 extraction_prompt=payload.extraction_prompt,
                 extraction_schema=payload.extraction_schema,
+                # Tuple because the entity and the Firestore adapter both
+                # assume one, and None must keep meaning "untouched" so that
+                # an empty list can mean "applies to any year".
+                tax_years=(tuple(payload.tax_years) if payload.tax_years is not None else None),
             )
         )
     except DocumentTypeNotFound as exc:
