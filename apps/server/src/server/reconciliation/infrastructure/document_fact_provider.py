@@ -88,9 +88,6 @@ class DocumentFactProvider:
                     _contribution(document, ContributionStatus.SPINE_PARSED, len(parsed))
                 )
                 continue
-            if parse_status is not None:
-                contributions.append(_contribution(document, parse_status))
-                continue
 
             if document.status not in _USABLE:
                 contributions.append(
@@ -104,6 +101,12 @@ class DocumentFactProvider:
 
             projected, status, detail = self._from_extraction(document, kind_id, subject, period)
             facts.extend(projected)
+            # A parser that could not read the bytes is only the answer when
+            # nothing else explains the silence. The same document may well
+            # have usable extracted data already stored, and reporting it as
+            # unreadable would hide facts that are right there.
+            if not projected and parse_status is not None:
+                status, detail = parse_status, ""
             contributions.append(_contribution(document, status, len(projected), detail))
 
         return GatheredFacts(facts=tuple(facts), contributions=tuple(contributions))
@@ -114,7 +117,13 @@ class DocumentFactProvider:
         sources: tuple[FactSourceSpec, ...],
         subject: TaxId | None,
     ) -> tuple[tuple[FinancialFact, ...] | None, ContributionStatus | None]:
-        """Run a kind's own parser when the document's format is one it owns."""
+        """Run a kind's own parser when the document's format is one it owns.
+
+        A failed read is remembered rather than returned outright: another
+        source may still recognise the file, and the caller may have stored
+        extraction for it already.
+        """
+        unreadable = False
         for source in sources:
             if document.mime_type not in source.media_types:
                 continue
@@ -129,7 +138,8 @@ class DocumentFactProvider:
                     "Could not read a document the kind parses itself",
                     extra={"document_id": document.id, "source_id": source.id},
                 )
-                return None, ContributionStatus.UNREADABLE
+                unreadable = True
+                continue
             try:
                 return source.extractor.extract(
                     SourceContent(
@@ -152,7 +162,7 @@ class DocumentFactProvider:
                     "Document is not a %s source", source.id, extra={"document_id": document.id}
                 )
                 continue
-        return None, None
+        return None, ContributionStatus.UNREADABLE if unreadable else None
 
     def _from_extraction(
         self, document, kind_id: str, subject: TaxId | None, period: Period
@@ -208,7 +218,10 @@ class DocumentFactProvider:
         # leaving the claim unexplained.
         in_period = tuple(fact for fact in projected if fact.period == period)
         if not in_period:
-            return (), ContributionStatus.OTHER_PERIOD, projected[0].period.key
+            # A document can state more than one period; naming only the first
+            # would misreport which years it actually covers.
+            years = sorted({fact.period.key for fact in projected})
+            return (), ContributionStatus.OTHER_PERIOD, ", ".join(years)
 
         return in_period, ContributionStatus.CONTRIBUTED, ""
 

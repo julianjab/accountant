@@ -393,3 +393,32 @@ def test_a_certificate_for_another_year_says_which_year(wiring):
     contribution = next(c for c in report.contributions if c.file_name == "cert-banco.bin")
     assert contribution.status is ContributionStatus.OTHER_PERIOD
     assert contribution.detail == "2024"
+
+
+def test_an_unreadable_spine_still_lets_its_extraction_be_used(wiring):
+    """A transient Drive failure on a file the kind would parse must not throw
+    away extraction already stored for that same document."""
+    use_case, _, documents, _, _, _ = wiring
+    documents.save(
+        _document(
+            "cert-banco",
+            XLSX,
+            type_id=fixtures.BANCOLOMBIA_MAPPING.document_type_id,
+        )
+    )
+    provider = use_case._facts
+
+    class _Unreadable:
+        def list_files(self, folder_reference):
+            return []
+
+        def download(self, file_reference):
+            raise RuntimeError("Drive is briefly unavailable")
+
+    provider._storage = _Unreadable()
+
+    report = use_case.execute(ReconcileClientPeriodInput("client-1", KIND_ID, Period.of_year(2025)))
+
+    contribution = next(c for c in report.contributions if c.document_id == "cert-banco")
+    assert contribution.status is ContributionStatus.CONTRIBUTED
+    assert contribution.fact_count > 0
