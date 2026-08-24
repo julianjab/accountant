@@ -1,15 +1,10 @@
 <script setup lang="ts">
 import type { FindingStatus, ReconciliationReport } from '~/domain/entities/reconciliation'
-import { formatAccountingNumber } from '~/utils/extraction-field-display'
+import { formatAccountingAmountString } from '~/utils/extraction-field-display'
 
 const props = defineProps<{ clientId: string }>()
 
-// Every amount here is genuinely a currency figure (unlike extraction-field-display's
-// heuristic-by-key-name detection) — the domain carries them as decimal strings (server-side
-// precision), so this just parses and reuses the same accounting format.
-function amount(value: string): string {
-  return formatAccountingNumber(Number(value))
-}
+const amount = formatAccountingAmountString
 
 const { t } = useI18n()
 const getReport = useGetReconciliationReportUseCase()

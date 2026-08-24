@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatAccountingAmountString,
   formatAccountingNumber,
   formatScalarValue,
   humanizeFieldKey,
@@ -40,6 +41,26 @@ describe('formatAccountingNumber', () => {
 
   it('wraps a negative value in parentheses instead of a leading minus', () => {
     expect(formatAccountingNumber(-1234.5)).toBe('($ 1.234,50)')
+  })
+})
+
+describe('formatAccountingAmountString', () => {
+  it('formats a plain decimal string like formatAccountingNumber', () => {
+    expect(formatAccountingAmountString('146231584.00')).toBe('$ 146.231.584,00')
+    expect(formatAccountingAmountString('-145220676.00')).toBe('($ 145.220.676,00)')
+  })
+
+  // Regression: reconciliation.ts keeps amounts as exact decimal strings specifically because
+  // parsing them risks showing a discrepancy the engine never found. Rounding "0.004" to two
+  // decimals gives "$ 0,00" — on a row flagged as a mismatch, that reads as reconciled, which
+  // is exactly the failure the string-typed field exists to prevent.
+  it('falls back to full precision instead of rounding a non-zero delta down to zero', () => {
+    expect(formatAccountingAmountString('0.004')).toBe('$ 0,004')
+    expect(formatAccountingAmountString('-0.004')).toBe('($ 0,004)')
+  })
+
+  it('still renders an exact zero as zero', () => {
+    expect(formatAccountingAmountString('0.00')).toBe('$ 0,00')
   })
 })
 

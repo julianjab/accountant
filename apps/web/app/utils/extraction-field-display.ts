@@ -65,6 +65,33 @@ export function formatAccountingNumber(value: number, locale = 'es-CO'): string 
   return value < 0 ? `(${formatted})` : formatted
 }
 
+/** Groups an exact decimal *string* (never parsed to `number`) the same way as
+ * `formatAccountingNumber`, but preserving every digit it was given instead of rounding to 2
+ * decimal places. Used by `formatAccountingAmountString` as the fallback for a non-zero amount
+ * the 2-decimal format would otherwise collapse to "$ 0,00". */
+function formatFullPrecisionAmount(value: string): string {
+  const negative = value.trim().startsWith('-')
+  const [integerPart, fractionPart = ''] = value.replace('-', '').split('.')
+  const grouped = (integerPart || '0').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  const withSymbol = `$ ${fractionPart ? `${grouped},${fractionPart}` : grouped}`
+  return negative ? `(${withSymbol})` : withSymbol
+}
+
+/** Same accounting format as `formatAccountingNumber`, for a value that arrives as an exact
+ * decimal *string* (e.g. `reconciliation.ts`'s `amount`/`delta` fields, kept as strings on
+ * purpose because the server computes them as `Decimal` and parsing to a JS `number` risks
+ * showing a discrepancy the reconciliation engine never found).
+ *
+ * The 2-decimal rounding `formatAccountingNumber` applies is safe on its own, but not when it
+ * would round a genuinely non-zero amount down to "$ 0,00" — a `delta` of `"0.004"` on a row
+ * flagged as a mismatch would then read as reconciled, which is exactly the failure the
+ * string-typed field exists to avoid. Falls back to the string's full precision in that case. */
+export function formatAccountingAmountString(value: string, locale = 'es-CO'): string {
+  const formatted = formatAccountingNumber(Number(value), locale)
+  const collapsedToZero = Number(value) !== 0 && /^\(?\$\s*0,00\)?$/.test(formatted)
+  return collapsedToZero ? formatFullPrecisionAmount(value) : formatted
+}
+
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
