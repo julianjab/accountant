@@ -194,7 +194,7 @@ def _read_mappings(
     mappings: list[ProposedFieldMapping] = []
     rejected: list[tuple[str, str]] = []
 
-    for entry in payload.get("field_mappings", []):
+    for entry in _entries(payload, "field_mappings"):
         if not isinstance(entry, dict):
             rejected.append(("?", f"proposed a mapping that is not an object ({entry!r})"))
             continue
@@ -253,7 +253,25 @@ def _resolves_in(path: str, schema: object) -> bool:
 
 
 def _read_unmapped(payload: dict) -> tuple[tuple[str, str], ...]:
+    """Reads what the model said it could not map, guarding it the same way.
+
+    The premise `_read_mappings` is built on — the tool schema steers the model
+    without binding it — applies here too. An entry arriving as a bare string,
+    or without a field path, would raise after the AI call had already been
+    paid for and before the document type was ever saved.
+    """
     return tuple(
-        (entry["field_path"], entry.get("reason", ""))
-        for entry in payload.get("unmapped_fields", [])
+        (entry["field_path"], str(entry.get("reason", "")))
+        for entry in _entries(payload, "unmapped_fields")
+        if isinstance(entry, dict) and isinstance(entry.get("field_path"), str)
     )
+
+
+def _entries(payload: dict, key: str) -> list:
+    """The list at `key`, or nothing when the model sent something else.
+
+    A default on .get does not cover a key present with a null value, and a
+    bare string would otherwise be iterated one character at a time.
+    """
+    value = payload.get(key)
+    return value if isinstance(value, list) else []

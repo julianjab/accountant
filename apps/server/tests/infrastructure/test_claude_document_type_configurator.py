@@ -223,3 +223,37 @@ def test_a_malformed_entry_does_not_crash_the_request(entry):
     )
     assert proposal.field_mappings == ()
     assert len(proposal.unmapped_fields) == 1
+
+
+@pytest.mark.parametrize("value", [None, [], "nope"])
+def test_a_null_or_odd_mappings_field_is_treated_as_none_proposed(value):
+    """`.get(key, [])` returns None when the key is present and null, so the
+    default never fires."""
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "p",
+            "extraction_schema": {},
+            "field_mappings": value,
+            "unmapped_fields": value,
+        }
+    )
+    assert proposal.field_mappings == ()
+    assert proposal.unmapped_fields == ()
+
+
+def test_malformed_unmapped_entries_are_skipped_rather_than_raising():
+    """This runs after the AI call is paid for and before the type is saved."""
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "p",
+            "extraction_schema": {},
+            "unmapped_fields": [
+                "just a string",
+                {"reason": "no field path"},
+                {"field_path": 7, "reason": "not a string"},
+                {"field_path": "fecha"},
+                {"field_path": "sello", "reason": "not monetary"},
+            ],
+        }
+    )
+    assert proposal.unmapped_fields == (("fecha", ""), ("sello", "not monetary"))
