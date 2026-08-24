@@ -215,3 +215,14 @@ def test_a_mapping_entry_refuses_a_sign_that_is_neither_plus_nor_minus_one(sign)
     HTTP payload, so the entity itself refuses them."""
     with pytest.raises(ValueError, match="must be \\+1 or -1"):
         ConceptMappingEntry("saldo", "ev:x", sign=sign)
+
+
+def test_comparing_per_account_requires_a_field_holding_the_account():
+    """Otherwise the entry asks for a pairing that cannot happen, and a figure
+    the certificate does state comes back reported as missing."""
+    with pytest.raises(ValueError, match="requires an account_path"):
+        ConceptMappingEntry("saldo", "ev:x", per_account=True)
+
+    # With one, the same entry is fine.
+    entry = ConceptMappingEntry("saldo", "ev:x", account_path="cuenta", per_account=True)
+    assert entry.per_account

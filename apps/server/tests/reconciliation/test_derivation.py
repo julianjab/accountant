@@ -33,7 +33,14 @@ def _mapping(*entries: ConceptMappingEntry, document_type_id: str = "t1") -> Con
 
 def _entry(field: str, concept: str, claim: str | None, per_account: bool = False):
     return ConceptMappingEntry(
-        field_path=field, concept_id=concept, spine_concept_id=claim, per_account=per_account
+        field_path=field,
+        concept_id=concept,
+        spine_concept_id=claim,
+        per_account=per_account,
+        # An entity refuses per-account without one, so the account field
+        # travels with the choice rather than being a separate thing to
+        # remember here.
+        account_path="cuenta" if per_account else None,
     )
 
 

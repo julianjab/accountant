@@ -43,6 +43,12 @@ class ConceptMappingEntry:
     per_account: bool = False
 
     def __post_init__(self) -> None:
+        # Comparing account by account needs an account to compare on. Without
+        # one this entry asks for a pairing that can never happen, and the
+        # figure it carries — which the certificate does state — comes back
+        # reported as a missing certificate.
+        if self.per_account and not self.account_path:
+            raise ValueError(f"{self.field_path}: comparing per account requires an account_path")
         # A sign of 0 would silently zero every amount this field contributes
         # and a 2 would double it, with nothing downstream to notice. These
         # values arrive from an AI proposal and from an HTTP payload, so the
