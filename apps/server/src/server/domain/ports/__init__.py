@@ -13,9 +13,11 @@ from server.domain.ports.oauth import (
     OAuthTransportError,
 )
 from server.domain.ports.ocr import (
+    ConceptOption,
     DocumentClassifier,
     DocumentTypeConfigurator,
     OcrEngine,
+    ProposedFieldMapping,
     ProposedOcrConfig,
 )
 from server.domain.ports.repositories import (
@@ -29,6 +31,8 @@ from server.domain.ports.repositories import (
 )
 
 __all__ = [
+    "ProposedFieldMapping",
+    "ConceptOption",
     "ClientDirectory",
     "ClientFolder",
     "ClientRepository",

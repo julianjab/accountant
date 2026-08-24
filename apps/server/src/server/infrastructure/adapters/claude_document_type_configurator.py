@@ -1,6 +1,12 @@
 import base64
+from collections.abc import Sequence
 
-from server.domain.ports import DocumentContent, ProposedOcrConfig
+from server.domain.ports import (
+    ConceptOption,
+    DocumentContent,
+    ProposedFieldMapping,
+    ProposedOcrConfig,
+)
 from server.infrastructure.config.prompts import TemplatedPrompt
 from server.infrastructure.providers.ai_provider import AIProvider
 
@@ -16,7 +22,12 @@ class ClaudeDocumentTypeConfigurator:
         self._model = model
         self._prompt = prompt
 
-    def propose_config(self, content: DocumentContent, type_name: str) -> ProposedOcrConfig:
+    def propose_config(
+        self,
+        content: DocumentContent,
+        type_name: str,
+        concepts: Sequence[ConceptOption] = (),
+    ) -> ProposedOcrConfig:
         response = self._provider.create_message(
             model=self._model,
             system=self._prompt.system,
@@ -39,6 +50,7 @@ class ClaudeDocumentTypeConfigurator:
                                 "description": "JSON Schema (as an object) describing "
                                 "the fields to extract.",
                             },
+                            **_mapping_properties(concepts),
                         },
                         "required": ["extraction_prompt", "extraction_schema"],
                     },
@@ -63,7 +75,7 @@ class ClaudeDocumentTypeConfigurator:
                             "type": "text",
                             "text": self._prompt.instructions_template.replace(
                                 "{type_name}", type_name
-                            ),
+                            ).replace("{mapping_instructions}", _mapping_instructions(concepts)),
                         },
                     ],
                 }
@@ -75,6 +87,102 @@ class ClaudeDocumentTypeConfigurator:
                 return ProposedOcrConfig(
                     extraction_prompt=block["input"]["extraction_prompt"],
                     extraction_schema=block["input"]["extraction_schema"],
+                    field_mappings=_read_mappings(block["input"]),
+                    unmapped_fields=_read_unmapped(block["input"]),
                 )
         msg = "Claude did not return the expected config proposal tool call"
         raise RuntimeError(msg)
+
+
+def _mapping_properties(concepts: Sequence[ConceptOption]) -> dict:
+    """The mapping half of the tool schema, added only when a vocabulary exists.
+
+    concept_id is an enum of the ids on offer, so the model cannot invent one.
+    Validation downstream then becomes a backstop rather than the only defence:
+    a hallucinated id would be stored, produce facts no rule ever selects, and
+    leave the claim it was meant to satisfy reported as missing with nothing
+    pointing back at the mapping.
+    """
+    if not concepts:
+        return {}
+    return {
+        "field_mappings": {
+            "type": "array",
+            "description": "One entry per extracted field that corresponds to a concept.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "field_path": {
+                        "type": "string",
+                        "description": "Dotted path into the extraction schema, e.g. "
+                        "`balance` or `accounts[].balance` to walk a list.",
+                    },
+                    "concept_id": {
+                        "type": "string",
+                        "enum": [c.id for c in concepts],
+                    },
+                    "account_path": {
+                        "type": "string",
+                        "description": "Path to the account identifier this amount belongs "
+                        "to, when the document states one.",
+                    },
+                    "sign": {
+                        "type": "integer",
+                        "enum": [1, -1],
+                        "description": "-1 when the document states the figure with the "
+                        "opposite sign to the concept.",
+                    },
+                },
+                "required": ["field_path", "concept_id"],
+            },
+        },
+        "unmapped_fields": {
+            "type": "array",
+            "description": "Fields worth extracting that no concept covers, with the "
+            "reason. Report them rather than forcing an approximate match.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "field_path": {"type": "string"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["field_path", "reason"],
+            },
+        },
+    }
+
+
+def _mapping_instructions(concepts: Sequence[ConceptOption]) -> str:
+    if not concepts:
+        return ""
+    catalog = "\n".join(
+        f"- {c.id}: {c.label}" + (f" — {c.description}" if c.description else "") for c in concepts
+    )
+    return (
+        "\n\nThen map the fields you just defined onto these concepts, so the "
+        "amounts can be reconciled against what other documents report:\n"
+        f"{catalog}\n"
+        "Map a field only when it means the same thing as the concept. A wrong "
+        "mapping is worse than none: it makes two unrelated figures reconcile "
+        "against each other. List anything you leave out under unmapped_fields "
+        "with the reason."
+    )
+
+
+def _read_mappings(payload: dict) -> tuple[ProposedFieldMapping, ...]:
+    return tuple(
+        ProposedFieldMapping(
+            field_path=entry["field_path"],
+            concept_id=entry["concept_id"],
+            account_path=entry.get("account_path") or None,
+            sign=entry.get("sign", 1),
+        )
+        for entry in payload.get("field_mappings", [])
+    )
+
+
+def _read_unmapped(payload: dict) -> tuple[tuple[str, str], ...]:
+    return tuple(
+        (entry["field_path"], entry.get("reason", ""))
+        for entry in payload.get("unmapped_fields", [])
+    )

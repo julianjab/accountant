@@ -10,6 +10,7 @@ from server.application.use_cases.complete_google_sign_in import (
     SignInNotAllowed,
 )
 from server.application.use_cases.define_document_type import (
+    DefinedDocumentType,
     DefineDocumentType,
     DefineDocumentTypeInput,
 )
@@ -50,6 +51,7 @@ from server.application.use_cases.start_google_sign_in import (
 from server.application.use_cases.subscribe_drive_webhook import SubscribeDriveWebhook
 
 __all__ = [
+    "DefinedDocumentType",
     "ImportClientDocumentsResult",
     "ImportClientDocumentsInput",
     "ImportClientDocuments",

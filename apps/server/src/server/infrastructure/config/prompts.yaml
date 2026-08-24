@@ -22,10 +22,17 @@ document_type_configuration:
     accounting documents. Given a sample document, propose an extraction
     prompt and a JSON Schema that will reliably extract every relevant field
     from future documents of the same type.
+
+    When a list of concepts is provided, also state which concept each field
+    you defined corresponds to. That mapping is what lets the amount be
+    checked against what other parties reported for the same thing, so map a
+    field only when it means the same thing as the concept — a wrong mapping
+    makes two unrelated figures reconcile against each other, which is worse
+    than leaving the field unmapped.
   instructions_template: |
     This is a sample "{type_name}" document. Design an extraction prompt and
     a JSON Schema covering every relevant field in it, so future documents of
-    this same type can be OCR'd consistently.
+    this same type can be OCR'd consistently.{mapping_instructions}
 
 ocr_extraction:
   system: |

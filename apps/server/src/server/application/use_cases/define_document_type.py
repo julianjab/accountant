@@ -1,12 +1,15 @@
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from server.domain.entities import DocumentType
 from server.domain.ports import (
+    ConceptOption,
     DocumentContent,
     DocumentTypeConfigurator,
     DocumentTypeRepository,
+    ProposedFieldMapping,
 )
 
 
@@ -15,6 +18,26 @@ class DefineDocumentTypeInput:
     name: str
     description: str
     sample_document: DocumentContent
+    #: The vocabulary extracted fields may be mapped onto. Empty means the
+    #: caller wants extraction only, with no reconciliation behind it.
+    concepts: Sequence[ConceptOption] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class DefinedDocumentType:
+    """The saved type, plus what the AI said about mapping its fields.
+
+    The mapping travels beside the type rather than on it: which concepts a
+    field means is a reconciliation concern, and DocumentType belongs to
+    intake, which must not know reconciliation exists. The caller stores it
+    wherever that context keeps it.
+    """
+
+    document_type: DocumentType
+    field_mappings: tuple[ProposedFieldMapping, ...]
+    #: Fields that will be extracted but cannot be reconciled, with the AI's
+    #: reason. Returned so the gap is visible rather than silently absent.
+    unmapped_fields: tuple[tuple[str, str], ...]
 
 
 class DefineDocumentType:
@@ -29,8 +52,8 @@ class DefineDocumentType:
         self._configurator = configurator
         self._document_types = document_types
 
-    def execute(self, data: DefineDocumentTypeInput) -> DocumentType:
-        proposal = self._configurator.propose_config(data.sample_document, data.name)
+    def execute(self, data: DefineDocumentTypeInput) -> DefinedDocumentType:
+        proposal = self._configurator.propose_config(data.sample_document, data.name, data.concepts)
         document_type = DocumentType(
             id=str(uuid.uuid4()),
             name=data.name,
@@ -41,4 +64,8 @@ class DefineDocumentType:
             created_at=datetime.now(UTC),
         )
         self._document_types.save(document_type)
-        return document_type
+        return DefinedDocumentType(
+            document_type=document_type,
+            field_mappings=proposal.field_mappings,
+            unmapped_fields=proposal.unmapped_fields,
+        )
