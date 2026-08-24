@@ -257,3 +257,62 @@ def test_malformed_unmapped_entries_are_skipped_rather_than_raising():
         }
     )
     assert proposal.unmapped_fields == (("fecha", ""), ("sello", "not monetary"))
+
+
+def test_the_reporting_party_is_required_whenever_a_vocabulary_is_offered():
+    """The mappings are worthless without it, so an omitted path would throw
+    away every mapping the model just produced."""
+    _, provider = _configure({"extraction_prompt": "p", "extraction_schema": {}})
+    assert provider.request["tools"][0]["input_schema"]["required"] == [
+        "extraction_prompt",
+        "extraction_schema",
+        "reporter_path",
+    ]
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert "reporter_path" in text
+
+
+def test_no_vocabulary_means_the_reporting_party_is_not_demanded():
+    _, provider = _configure({"extraction_prompt": "p", "extraction_schema": {}}, concepts=())
+    assert provider.request["tools"][0]["input_schema"]["required"] == [
+        "extraction_prompt",
+        "extraction_schema",
+    ]
+
+
+def test_the_document_level_paths_are_read_back():
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "p",
+            "extraction_schema": {
+                "type": "object",
+                "properties": {
+                    "nit": {"type": "string"},
+                    "emisor": {"type": "string"},
+                    "anio": {"type": "string"},
+                },
+            },
+            "reporter_path": "nit",
+            "reporter_name_path": "emisor",
+            "period_path": "anio",
+        }
+    )
+    assert proposal.reporter_path == "nit"
+    assert proposal.reporter_name_path == "emisor"
+    assert proposal.period_path == "anio"
+
+
+def test_a_document_level_path_the_schema_lacks_says_what_actually_went_wrong():
+    """Nulling it silently surfaces later as "the document does not say who
+    reports these amounts", which sends the reader looking in the wrong place."""
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "p",
+            "extraction_schema": {"type": "object", "properties": {"nit": {"type": "string"}}},
+            "reporter_path": "emisor.nit",
+        }
+    )
+    assert proposal.reporter_path is None
+    assert proposal.unmapped_fields == (
+        ("emisor.nit", "proposed as reporter_path but the schema does not declare it"),
+    )

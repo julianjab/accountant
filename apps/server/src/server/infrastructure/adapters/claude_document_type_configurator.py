@@ -52,7 +52,7 @@ class ClaudeDocumentTypeConfigurator:
                             },
                             **_mapping_properties(concepts),
                         },
-                        "required": ["extraction_prompt", "extraction_schema"],
+                        "required": _required_fields(concepts),
                     },
                 }
             ],
@@ -87,14 +87,16 @@ class ClaudeDocumentTypeConfigurator:
                 payload = block["input"]
                 schema = payload.get("extraction_schema")
                 mappings, rejected = _read_mappings(payload, concepts, schema)
+                paths, path_problems = _read_paths(payload, schema)
+                rejected = (*rejected, *path_problems)
                 return ProposedOcrConfig(
                     extraction_prompt=payload["extraction_prompt"],
                     extraction_schema=payload["extraction_schema"],
                     field_mappings=mappings,
                     unmapped_fields=(*_read_unmapped(payload), *rejected),
-                    reporter_path=_read_path(payload, "reporter_path", schema),
-                    reporter_name_path=_read_path(payload, "reporter_name_path", schema),
-                    period_path=_read_path(payload, "period_path", schema),
+                    reporter_path=paths["reporter_path"],
+                    reporter_name_path=paths["reporter_name_path"],
+                    period_path=paths["period_path"],
                 )
         msg = "Claude did not return the expected config proposal tool call"
         raise RuntimeError(msg)
@@ -181,6 +183,10 @@ def _mapping_instructions(concepts: Sequence[ConceptOption]) -> str:
         f"- {c.id}: {c.label}" + (f" — {c.description}" if c.description else "") for c in concepts
     )
     return (
+        "\n\nAlso give reporter_path: where the document identifies the party "
+        "issuing it. Without it none of the mappings below can be used, because "
+        "an amount that cannot be attributed to a party cannot be checked "
+        "against what that party declared elsewhere."
         "\n\nThen map the fields you just defined onto these concepts, so the "
         "amounts can be reconciled against what other documents report:\n"
         f"{catalog}\n"
@@ -295,9 +301,40 @@ def _entries(payload: dict, key: str) -> list:
     return value if isinstance(value, list) else []
 
 
-def _read_path(payload: dict, key: str, schema: object) -> str | None:
-    """A single path from the proposal, dropped unless the schema declares it."""
-    value = payload.get(key)
-    if not isinstance(value, str) or not value:
-        return None
-    return value if _resolves_in(value, schema) else None
+def _required_fields(concepts: Sequence[ConceptOption]) -> list[str]:
+    """What the model must return.
+
+    reporter_path joins the list whenever a vocabulary is offered, because the
+    mappings are worthless without it: a fact that cannot be attributed to a
+    reporting party is discarded, so an omitted path throws away every mapping
+    the model just produced.
+    """
+    required = ["extraction_prompt", "extraction_schema"]
+    if concepts:
+        required.append("reporter_path")
+    return required
+
+
+def _read_paths(
+    payload: dict, schema: object
+) -> tuple[dict[str, str | None], tuple[tuple[str, str], ...]]:
+    """The document-level paths, with a reason for any that had to be dropped.
+
+    A path the model's own schema does not declare is reported rather than
+    quietly nulled: dropping it silently would surface later as "the document
+    does not say who reports these amounts", which is not what went wrong and
+    sends whoever reads it looking in the wrong place.
+    """
+    paths: dict[str, str | None] = {}
+    problems: list[tuple[str, str]] = []
+    for key in ("reporter_path", "reporter_name_path", "period_path"):
+        value = payload.get(key)
+        if not isinstance(value, str) or not value:
+            paths[key] = None
+            continue
+        if not _resolves_in(value, schema):
+            problems.append((value, f"proposed as {key} but the schema does not declare it"))
+            paths[key] = None
+            continue
+        paths[key] = value
+    return paths, tuple(problems)
