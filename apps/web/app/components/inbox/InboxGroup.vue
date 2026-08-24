@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Client } from '~/domain/entities/client'
-import { colorForClient } from '~/utils/client-color'
+import { colorForClient, initialsForClientName } from '~/utils/client-color'
 
 const props = defineProps<{
   client: Client
@@ -8,11 +8,7 @@ const props = defineProps<{
 }>()
 
 const color = computed(() => colorForClient(props.client.id))
-
-const initials = computed(() => {
-  const parts = props.client.name.trim().split(/\s+/)
-  return parts.slice(0, 2).map(part => part[0]?.toUpperCase() ?? '').join('')
-})
+const initials = computed(() => initialsForClientName(props.client.name))
 </script>
 
 <template>

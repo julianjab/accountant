@@ -20,3 +20,12 @@ export function colorForClient(clientId: string): ClientColor {
   const sum = [...clientId].reduce((total, char) => total + char.charCodeAt(0), 0)
   return PALETTE[sum % PALETTE.length]!
 }
+
+/** The small (22×22) avatar treatment used by every list row that leads with a client —
+ * inbox groups, the clients list. `ClientHeader`'s large profile avatar filters short
+ * words instead and stays separate; that's a different visual context, not a divergence
+ * worth forcing into one function. */
+export function initialsForClientName(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  return parts.slice(0, 2).map(part => part[0]?.toUpperCase() ?? '').join('')
+}
