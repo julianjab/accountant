@@ -13,9 +13,10 @@ class DocumentTypeNotFound(Exception):
 class UpdateDocumentTypeInput:
     """A partial edit: every field left as None keeps its stored value.
 
-    None is unambiguous here because none of the target fields is nullable on
-    the entity, so "clear this" is not a request that can be made — the only
-    reading of an absent field is "do not touch it".
+    None is unambiguous for the text fields because none of them is nullable
+    on the entity, so "clear this" is not a request that can be made — the only
+    reading of an absent field is "do not touch it". Tax years carry their own
+    emptiness, so there None still means untouched and `()` means any year.
     """
 
     document_type_id: str
@@ -24,6 +25,10 @@ class UpdateDocumentTypeInput:
     active: bool | None = None
     extraction_prompt: str | None = None
     extraction_schema: dict[str, Any] | None = None
+    #: Tuple, not None, is the "set it" signal here — an empty tuple means
+    #: "applies to any year", which is a real choice a caller must be able to
+    #: make, so None cannot double as it.
+    tax_years: tuple[int, ...] | None = None
 
 
 class UpdateDocumentType:
@@ -51,6 +56,7 @@ class UpdateDocumentType:
                 ("active", data.active),
                 ("extraction_prompt", data.extraction_prompt),
                 ("extraction_schema", data.extraction_schema),
+                ("tax_years", data.tax_years),
             )
             if value is not None
         }

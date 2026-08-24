@@ -17,3 +17,10 @@ class DocumentType:
     extraction_schema: dict[str, Any]
     active: bool
     created_at: datetime
+    #: Tax years this type applies to. Empty means any year — the common case.
+    #: Set it when an issuer changes its certificate between years and the same
+    #: paperwork needs two configurations that must not be mixed.
+    tax_years: tuple[int, ...] = ()
+    #: The document this type was configured from, so whoever revisits the
+    #: configuration can read the paper it was derived from.
+    sample_document_id: str | None = None

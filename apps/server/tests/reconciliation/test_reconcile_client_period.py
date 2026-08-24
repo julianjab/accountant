@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import fixtures
@@ -447,3 +448,17 @@ def test_what_the_user_configured_outranks_the_built_in_pack(wiring):
 
     matched = [f for f in report.findings if f.status.is_reconciled]
     assert any(f.rule_id == "configured.dian:saldo-cuentas-bancarias" for f in matched)
+
+
+def test_a_type_tagged_for_other_years_does_not_read_this_year_documents(wiring):
+    """Issuers change their certificate between years, so two configurations
+    of the same paperwork must not read each other's documents."""
+    use_case, _, _, _, document_types, _ = wiring
+    stored = document_types.get(fixtures.BANCOLOMBIA_MAPPING.document_type_id)
+    document_types.save(replace(stored, tax_years=(2023, 2024)))
+
+    report = use_case.execute(ReconcileClientPeriodInput("client-1", KIND_ID, Period.of_year(2025)))
+
+    contribution = next(c for c in report.contributions if c.document_id == "cert-banco")
+    assert contribution.status is ContributionStatus.OTHER_PERIOD
+    assert contribution.detail == "2023, 2024"

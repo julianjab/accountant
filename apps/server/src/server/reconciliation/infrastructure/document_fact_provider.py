@@ -186,6 +186,19 @@ class DocumentFactProvider:
             return (), ContributionStatus.NO_EXTRACTION, ""
 
         document_type = self._document_types.get(document.document_type_id)
+        if (
+            document_type is not None
+            and document_type.tax_years
+            and period.year not in document_type.tax_years
+        ):
+            # A type tagged for other years is not a match for this one. Issuers
+            # change their certificate between years, and two configurations of
+            # the same paperwork must not read each other's documents.
+            return (
+                (),
+                ContributionStatus.OTHER_PERIOD,
+                ", ".join(str(year) for year in sorted(document_type.tax_years)),
+            )
         try:
             projected = project_facts(
                 mapping,

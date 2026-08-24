@@ -190,6 +190,8 @@ class FirestoreDocumentTypeRepository:
                 "extraction_schema": document_type.extraction_schema,
                 "active": document_type.active,
                 "created_at": document_type.created_at,
+                "tax_years": list(document_type.tax_years),
+                "sample_document_id": document_type.sample_document_id,
             }
         )
 
@@ -214,6 +216,8 @@ class FirestoreDocumentTypeRepository:
             extraction_schema=data["extraction_schema"],
             active=data["active"],
             created_at=_as_utc(data["created_at"]),
+            tax_years=tuple(data.get("tax_years") or ()),
+            sample_document_id=data.get("sample_document_id"),
         )
 
 
