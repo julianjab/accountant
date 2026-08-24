@@ -14,6 +14,7 @@ import { ListInbox } from '~/application/use-cases/list-inbox'
 import { RegisterClient } from '~/application/use-cases/register-client'
 import { GetDocument } from '~/application/use-cases/get-document'
 import { GetDocumentExtractedData } from '~/application/use-cases/get-document-extracted-data'
+import { ImportClientDocuments } from '~/application/use-cases/import-client-documents'
 import { ImportClientsFromDrive } from '~/application/use-cases/import-clients-from-drive'
 import { GetCurrentUser } from '~/application/use-cases/get-current-user'
 import { ListDocumentTypes } from '~/application/use-cases/list-document-types'
@@ -73,6 +74,10 @@ export function useListClientsUseCase() {
 
 export function useGetClientUseCase() {
   return new GetClient(useClientRepository())
+}
+
+export function useImportClientDocumentsUseCase() {
+  return new ImportClientDocuments(useDocumentRepository())
 }
 
 export function useListClientDocumentsUseCase() {

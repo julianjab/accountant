@@ -86,3 +86,41 @@ describe('HttpDocumentRepository', () => {
     await expect(repository.getExtractedData('doc-1')).rejects.toBeTruthy()
   })
 })
+
+describe('HttpDocumentRepository.importForClient', () => {
+  const IMPORT_DTO = {
+    imported: [
+      {
+        id: 'd1',
+        client_id: 'c1',
+        document_type_id: 't1',
+        drive_file_id: 'drive-1',
+        file_name: 'cert.pdf',
+        mime_type: 'application/pdf',
+        status: 'processed',
+        error: null,
+        created_at: '2026-08-24T00:00:00Z',
+        processed_at: '2026-08-24T00:01:00Z'
+      }
+    ],
+    failed: [],
+    unreadable: ['drive-2'],
+    skipped: 3
+  }
+
+  it('posts to the client import endpoint with the session cookie', async () => {
+    const fetcher = vi.fn(() => IMPORT_DTO)
+    vi.stubGlobal('$fetch', fetcher)
+
+    const result = await new HttpDocumentRepository('http://api').importForClient('c1')
+
+    expect(fetcher).toHaveBeenCalledWith(
+      '/clients/c1/documents/import',
+      expect.objectContaining({ method: 'POST', credentials: 'include' })
+    )
+    expect(result.imported[0]!.fileName).toBe('cert.pdf')
+    expect(result.unreadable).toEqual(['drive-2'])
+    expect(result.skipped).toBe(3)
+    vi.unstubAllGlobals()
+  })
+})

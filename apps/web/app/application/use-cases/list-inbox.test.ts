@@ -3,7 +3,9 @@ import type { Client } from '~/domain/entities/client'
 import type { ClientDocument } from '~/domain/entities/document'
 import type { DocumentType, DocumentTypeUpdate } from '~/domain/entities/document-type'
 import type { ClientRepository, ImportSummary, RegisterClientInput } from '~/application/ports/client-repository'
-import type { DocumentListFilter, DocumentRepository } from '~/application/ports/document-repository'
+import type { DocumentListFilter, DocumentRepository,
+  ClientDocumentsImport
+} from '~/application/ports/document-repository'
 import type {
   DefineDocumentTypeInput,
   DocumentTypeRepository,
@@ -48,6 +50,10 @@ class FakeDocumentRepository implements DocumentRepository {
 
   list(_filter?: DocumentListFilter): Promise<ClientDocument[]> {
     return Promise.resolve(this.documents)
+  }
+
+  importForClient(_clientId: string): Promise<ClientDocumentsImport> {
+    throw new Error('not implemented')
   }
 }
 

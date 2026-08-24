@@ -1,6 +1,10 @@
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
-import type { DocumentListFilter, DocumentRepository } from '~/application/ports/document-repository'
+import type {
+  ClientDocumentsImport,
+  DocumentListFilter,
+  DocumentRepository
+} from '~/application/ports/document-repository'
 
 interface DocumentDto {
   id: string
@@ -86,6 +90,25 @@ export class HttpDocumentRepository implements DocumentRepository {
       credentials: 'include'
     })
     return dtos.map(toClientDocument)
+  }
+
+  async importForClient(clientId: string): Promise<ClientDocumentsImport> {
+    const dto = await $fetch<{
+      imported: DocumentDto[]
+      failed: DocumentDto[]
+      unreadable: string[]
+      skipped: number
+    }>(`/clients/${clientId}/documents/import`, {
+      baseURL: this.baseUrl,
+      credentials: 'include',
+      method: 'POST'
+    })
+    return {
+      imported: dto.imported.map(toClientDocument),
+      failed: dto.failed.map(toClientDocument),
+      unreadable: dto.unreadable,
+      skipped: dto.skipped
+    }
   }
 
   async list(filter?: DocumentListFilter): Promise<ClientDocument[]> {
