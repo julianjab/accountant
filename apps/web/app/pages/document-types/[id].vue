@@ -541,597 +541,612 @@ watch(
       {{ t('documentTypes.edit.notFound') }}
     </p>
 
+    <!--
+      Same shell as /document-types/new, for the same reason: every row here
+      is decided by reading it against the paper, so the paper stays beside
+      the rows instead of scrolling away above them. The work takes the wider
+      share — its rows carry two selects each and go unreadable if squeezed.
+    -->
     <div
       v-else
-      class="flex flex-col gap-6"
+      class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start"
     >
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 class="min-w-0 break-words text-xl font-semibold">
-          {{ documentType.name }}
-        </h1>
-        <UBadge
-          :color="status === 'configured' ? 'success' : status === 'unusable' ? 'error' : 'neutral'"
-          variant="subtle"
-          class="w-fit shrink-0"
-          data-testid="configuration-status"
-        >
-          {{ t(`documentTypes.edit.status.${status}`) }}
-        </UBadge>
-      </div>
-
-      <UAlert
-        v-if="deleteRefusal"
-        color="warning"
-        variant="soft"
-        data-testid="delete-refused"
-        :title="t('documentTypes.edit.remove.refusedTitle')"
-        :description="t('documentTypes.edit.remove.refused')"
-      />
-
-      <UAlert
-        v-else-if="deleteFailed"
-        color="error"
-        variant="soft"
-        :description="t('documentTypes.edit.remove.failed')"
-      />
-
-      <UCard>
-        <template #header>
-          <h2 class="font-medium">
-            {{ t('documentTypes.edit.details') }}
-          </h2>
-        </template>
-
-        <div class="flex flex-col gap-4">
-          <UFormField :label="t('documentTypes.fields.name')">
-            <UInput
-              v-model="name"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField :label="t('documentTypes.fields.description')">
-            <UTextarea
-              v-model="description"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField
-            :label="t('documentTypes.edit.active')"
-            :help="t('documentTypes.edit.activeHint')"
+      <div
+        class="flex min-w-0 flex-col gap-6"
+        :class="sampleDocument ? '' : 'lg:col-span-2'"
+      >
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 class="min-w-0 break-words text-xl font-semibold">
+            {{ documentType.name }}
+          </h1>
+          <UBadge
+            :color="status === 'configured' ? 'success' : status === 'unusable' ? 'error' : 'neutral'"
+            variant="subtle"
+            class="w-fit shrink-0"
+            data-testid="configuration-status"
           >
-            <USwitch v-model="active" />
-          </UFormField>
+            {{ t(`documentTypes.edit.status.${status}`) }}
+          </UBadge>
         </div>
-      </UCard>
 
-      <!--
+        <UAlert
+          v-if="deleteRefusal"
+          color="warning"
+          variant="soft"
+          data-testid="delete-refused"
+          :title="t('documentTypes.edit.remove.refusedTitle')"
+          :description="t('documentTypes.edit.remove.refused')"
+        />
+
+        <UAlert
+          v-else-if="deleteFailed"
+          color="error"
+          variant="soft"
+          :description="t('documentTypes.edit.remove.failed')"
+        />
+
+        <UCard>
+          <template #header>
+            <h2 class="font-medium">
+              {{ t('documentTypes.edit.details') }}
+            </h2>
+          </template>
+
+          <div class="flex flex-col gap-4">
+            <UFormField :label="t('documentTypes.fields.name')">
+              <UInput
+                v-model="name"
+                class="w-full"
+              />
+            </UFormField>
+
+            <UFormField :label="t('documentTypes.fields.description')">
+              <UTextarea
+                v-model="description"
+                class="w-full"
+              />
+            </UFormField>
+
+            <UFormField
+              :label="t('documentTypes.edit.active')"
+              :help="t('documentTypes.edit.activeHint')"
+            >
+              <USwitch v-model="active" />
+            </UFormField>
+          </div>
+        </UCard>
+
+        <!--
         Loudest control on the screen on purpose: without it the server drops
         every mapping below, and the type then reports each figure it should
         back as missing.
       -->
-      <UCard :ui="{ root: status === 'unusable' ? 'ring-2 ring-error' : '' }">
-        <template #header>
-          <div class="flex flex-col gap-1">
-            <h2 class="font-medium">
-              {{ t('documentTypes.edit.reporter.title') }}
-            </h2>
-            <p class="text-muted text-sm">
-              {{ t('documentTypes.edit.reporter.hint') }}
-            </p>
-          </div>
-        </template>
-
-        <div class="flex flex-col gap-4">
-          <UAlert
-            v-if="!draft.reporterPath"
-            color="error"
-            variant="soft"
-            icon="i-lucide-triangle-alert"
-            :title="t('documentTypes.edit.reporter.missingTitle')"
-            :description="t('documentTypes.edit.reporter.missing')"
-            data-testid="reporter-missing"
-          />
-
-          <UFormField
-            :label="t('documentTypes.edit.reporter.path')"
-            :help="t('documentTypes.edit.reporter.sourceHint')"
-            required
-          >
-            <UInputMenu
-              :model-value="writeSource(reporterPath, reporterTaxId)"
-              :items="pathSuggestions"
-              create-item
-              class="w-full sm:w-96"
-              data-testid="reporter-path"
-              :placeholder="t('documentTypes.edit.reporter.sourcePlaceholder')"
-              @update:model-value="setReporter($event as string)"
-              @create="setReporter($event as string)"
-            />
-          </UFormField>
-
-          <UFormField
-            :label="t('documentTypes.edit.reporter.namePath')"
-            :help="t('documentTypes.edit.reporter.nameSourceHint')"
-          >
-            <UInputMenu
-              :model-value="writeSource(reporterNamePath, reporterName)"
-              :items="pathSuggestions"
-              create-item
-              class="w-full sm:w-96"
-              data-testid="reporter-name-path"
-              :placeholder="t('documentTypes.edit.reporter.nameSourcePlaceholder')"
-              @update:model-value="setReporterName($event as string)"
-              @create="setReporterName($event as string)"
-            />
-          </UFormField>
-
-          <UFormField
-            :label="t('documentTypes.edit.period.path')"
-            :help="t('documentTypes.edit.period.sourceHint')"
-          >
-            <UInputMenu
-              :model-value="writeSource(periodPath, declaredPeriod)"
-              :items="pathSuggestions"
-              create-item
-              class="w-full sm:w-96"
-              data-testid="period-path"
-              :placeholder="t('documentTypes.edit.period.sourcePlaceholder')"
-              @update:model-value="setPeriod($event as string)"
-              @create="setPeriod($event as string)"
-            />
-          </UFormField>
-
-          <UAlert
-            v-if="!draft.periodPath && !draft.period"
-            color="warning"
-            variant="soft"
-            :title="t('documentTypes.edit.period.missing')"
-            data-testid="period-missing"
-          />
-        </div>
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <UCard :ui="{ root: status === 'unusable' ? 'ring-2 ring-error' : '' }">
+          <template #header>
             <div class="flex flex-col gap-1">
               <h2 class="font-medium">
-                {{ t('documentTypes.edit.fields.title') }}
+                {{ t('documentTypes.edit.reporter.title') }}
               </h2>
               <p class="text-muted text-sm">
-                {{ t('documentTypes.edit.fields.hint') }}
+                {{ t('documentTypes.edit.reporter.hint') }}
               </p>
-              <!--
+            </div>
+          </template>
+
+          <div class="flex flex-col gap-4">
+            <UAlert
+              v-if="!draft.reporterPath"
+              color="error"
+              variant="soft"
+              icon="i-lucide-triangle-alert"
+              :title="t('documentTypes.edit.reporter.missingTitle')"
+              :description="t('documentTypes.edit.reporter.missing')"
+              data-testid="reporter-missing"
+            />
+
+            <UFormField
+              :label="t('documentTypes.edit.reporter.path')"
+              :help="t('documentTypes.edit.reporter.sourceHint')"
+              required
+            >
+              <UInputMenu
+                :model-value="writeSource(reporterPath, reporterTaxId)"
+                :items="pathSuggestions"
+                create-item
+                class="w-full sm:w-96"
+                data-testid="reporter-path"
+                :placeholder="t('documentTypes.edit.reporter.sourcePlaceholder')"
+                @update:model-value="setReporter($event as string)"
+                @create="setReporter($event as string)"
+              />
+            </UFormField>
+
+            <UFormField
+              :label="t('documentTypes.edit.reporter.namePath')"
+              :help="t('documentTypes.edit.reporter.nameSourceHint')"
+            >
+              <UInputMenu
+                :model-value="writeSource(reporterNamePath, reporterName)"
+                :items="pathSuggestions"
+                create-item
+                class="w-full sm:w-96"
+                data-testid="reporter-name-path"
+                :placeholder="t('documentTypes.edit.reporter.nameSourcePlaceholder')"
+                @update:model-value="setReporterName($event as string)"
+                @create="setReporterName($event as string)"
+              />
+            </UFormField>
+
+            <UFormField
+              :label="t('documentTypes.edit.period.path')"
+              :help="t('documentTypes.edit.period.sourceHint')"
+            >
+              <UInputMenu
+                :model-value="writeSource(periodPath, declaredPeriod)"
+                :items="pathSuggestions"
+                create-item
+                class="w-full sm:w-96"
+                data-testid="period-path"
+                :placeholder="t('documentTypes.edit.period.sourcePlaceholder')"
+                @update:model-value="setPeriod($event as string)"
+                @create="setPeriod($event as string)"
+              />
+            </UFormField>
+
+            <UAlert
+              v-if="!draft.periodPath && !draft.period"
+              color="warning"
+              variant="soft"
+              :title="t('documentTypes.edit.period.missing')"
+              data-testid="period-missing"
+            />
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="flex flex-col gap-1">
+                <h2 class="font-medium">
+                  {{ t('documentTypes.edit.fields.title') }}
+                </h2>
+                <p class="text-muted text-sm">
+                  {{ t('documentTypes.edit.fields.hint') }}
+                </p>
+                <!--
                 The blocks the document is divided into, before any field is
                 listed: the rows below are ordered by the exogena line they
                 answer, so this is the only place the shape of the paper
                 itself is visible.
               -->
-              <div
-                v-if="sectionNames.length"
-                class="mt-1 flex flex-wrap items-center gap-1.5"
-                data-testid="document-sections"
-              >
-                <span class="text-dimmed text-xs">{{ t('documentTypes.edit.fields.sections') }}</span>
-                <UBadge
-                  v-for="section in sectionNames"
-                  :key="section"
-                  color="neutral"
-                  variant="subtle"
-                  size="sm"
+                <div
+                  v-if="sectionNames.length"
+                  class="mt-1 flex flex-wrap items-center gap-1.5"
+                  data-testid="document-sections"
                 >
-                  {{ section }}
-                </UBadge>
+                  <span class="text-dimmed text-xs">{{ t('documentTypes.edit.fields.sections') }}</span>
+                  <UBadge
+                    v-for="section in sectionNames"
+                    :key="section"
+                    color="neutral"
+                    variant="subtle"
+                    size="sm"
+                  >
+                    {{ section }}
+                  </UBadge>
+                </div>
               </div>
+              <UFormField
+                v-if="kindItems.length > 1"
+                :label="t('documentTypes.edit.kind')"
+              >
+                <USelect
+                  :model-value="selectedKindId ?? undefined"
+                  :items="kindItems"
+                  class="w-full sm:w-64"
+                  @update:model-value="selectedKindId = $event as string"
+                />
+              </UFormField>
             </div>
-            <UFormField
-              v-if="kindItems.length > 1"
-              :label="t('documentTypes.edit.kind')"
-            >
-              <USelect
-                :model-value="selectedKindId ?? undefined"
-                :items="kindItems"
-                class="w-full sm:w-64"
-                @update:model-value="selectedKindId = $event as string"
-              />
-            </UFormField>
-          </div>
-        </template>
+          </template>
 
-        <!--
+          <!--
           Types configured before descriptions were stored show dotted paths
           and no blocks. Re-reading the paper recovers the names without
           reopening the prompt, the schema or the mappings.
         -->
-        <section
-          v-if="offeredDocument && !recovered && missingDescriptions > 0"
-          class="border-default mb-6 flex flex-col gap-3 rounded-lg border p-3"
-          data-testid="recover-descriptions"
-        >
-          <div>
-            <h3 class="text-sm font-medium">
-              {{ t('documentTypes.edit.recover.title') }}
-            </h3>
-            <p class="text-muted text-xs">
-              {{ t('documentTypes.edit.recover.hint', { file: offeredDocument.fileName }) }}
-            </p>
-          </div>
-          <UAlert
-            v-if="recoveryFailed"
-            color="error"
-            variant="soft"
-            :description="t('documentTypes.edit.recover.failed')"
-          />
-          <UButton
-            :loading="recovering"
-            :disabled="recovering"
-            variant="outline"
-            size="sm"
-            class="w-fit"
-            @click="recoverDescriptions"
-          >
-            {{ t('documentTypes.edit.recover.action') }}
-          </UButton>
-        </section>
-
-        <UAlert
-          v-if="recovered"
-          class="mb-6"
-          :color="recovered.named > 0 ? 'success' : 'warning'"
-          variant="soft"
-          data-testid="recovery-result"
-          :description="recovered.named > 0
-            ? t('documentTypes.edit.recover.done', recovered)
-            : t('documentTypes.edit.recover.nothing')"
-        />
-
-        <section
-          v-if="sampleDocument"
-          class="mb-6 flex flex-col gap-2"
-          data-testid="sample-document"
-        >
-          <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 class="text-sm font-medium">
-              {{ t('documentTypes.edit.sample.title') }}
-            </h3>
-            <UButton
-              :to="`/documents/${sampleDocument.id}`"
-              variant="link"
-              size="xs"
-              class="p-0"
-            >
-              {{ sampleDocument.fileName }}
-            </UButton>
-          </div>
-          <p class="text-muted text-xs">
-            {{ t('documentTypes.edit.sample.hint') }}
-          </p>
-          <DocumentViewer
-            :drive-file-id="sampleDocument.driveFileId"
-            :mime-type="sampleDocument.mimeType"
-            :file-name="sampleDocument.fileName"
-          />
-        </section>
-
-        <p
-          v-if="!selections.length"
-          class="text-muted text-sm"
-        >
-          {{ t('documentTypes.edit.fields.empty') }}
-        </p>
-
-        <div
-          v-else
-          class="flex flex-col gap-6"
-          data-testid="field-rows"
-        >
           <section
-            v-for="group in groups"
-            :key="group.spineConceptId ?? '__unanswered__'"
-            class="flex flex-col gap-3"
+            v-if="offeredDocument && !recovered && missingDescriptions > 0"
+            class="border-default mb-6 flex flex-col gap-3 rounded-lg border p-3"
+            data-testid="recover-descriptions"
           >
-            <!--
+            <div>
+              <h3 class="text-sm font-medium">
+                {{ t('documentTypes.edit.recover.title') }}
+              </h3>
+              <p class="text-muted text-xs">
+                {{ t('documentTypes.edit.recover.hint', { file: offeredDocument.fileName }) }}
+              </p>
+            </div>
+            <UAlert
+              v-if="recoveryFailed"
+              color="error"
+              variant="soft"
+              :description="t('documentTypes.edit.recover.failed')"
+            />
+            <UButton
+              :loading="recovering"
+              :disabled="recovering"
+              variant="outline"
+              size="sm"
+              class="w-fit"
+              @click="recoverDescriptions"
+            >
+              {{ t('documentTypes.edit.recover.action') }}
+            </UButton>
+          </section>
+
+          <UAlert
+            v-if="recovered"
+            class="mb-6"
+            :color="recovered.named > 0 ? 'success' : 'warning'"
+            variant="soft"
+            data-testid="recovery-result"
+            :description="recovered.named > 0
+              ? t('documentTypes.edit.recover.done', recovered)
+              : t('documentTypes.edit.recover.nothing')"
+          />
+
+          <p
+            v-if="!selections.length"
+            class="text-muted text-sm"
+          >
+            {{ t('documentTypes.edit.fields.empty') }}
+          </p>
+
+          <div
+            v-else
+            class="flex flex-col gap-6"
+            data-testid="field-rows"
+          >
+            <section
+              v-for="group in groups"
+              :key="group.spineConceptId ?? '__unanswered__'"
+              class="flex flex-col gap-3"
+            >
+              <!--
               The heading is the line of the exogena, not the document: every
               field under it is added up before the comparison, and a flat list
               of fields would never let that be discovered.
             -->
-            <div class="bg-elevated/50 flex flex-col gap-1 rounded-lg px-3 py-2">
-              <p class="text-highlighted text-sm font-medium">
-                {{ group.spineConceptId
-                  ? spineConcept(group.spineConceptId)?.label ?? group.spineConceptId
-                  : t('documentTypes.edit.fields.noSpineGroup') }}
-              </p>
-              <p
-                v-if="group.spineConceptId && spineConcept(group.spineConceptId)?.description"
-                class="text-muted text-xs"
-              >
-                {{ spineConcept(group.spineConceptId)?.description }}
-              </p>
-              <p
-                v-if="group.summed"
-                class="text-primary text-xs"
-                data-testid="summed-note"
-              >
-                {{ t('documentTypes.edit.fields.summed', { count: group.paths.length }) }}
-              </p>
-              <p
-                v-else
-                class="text-muted text-xs"
-              >
-                {{ group.spineConceptId
-                  ? t('documentTypes.edit.fields.single')
-                  : t('documentTypes.edit.fields.noSpineGroupHint') }}
-              </p>
-              <p
-                v-if="group.mixedComparison"
-                class="text-warning text-xs"
-                data-testid="mixed-comparison"
-              >
-                {{ t('documentTypes.edit.fields.mixedComparison') }}
-              </p>
-            </div>
-
-            <div
-              v-for="index in group.indices"
-              :key="selections[index]!.path"
-              class="border-default flex flex-col gap-3 rounded-lg border p-3"
-              :class="selections[index]!.kept ? '' : 'opacity-60'"
-            >
-              <div class="flex items-start gap-3">
-                <UCheckbox
-                  v-model="selections[index]!.kept"
-                  :aria-label="t('documentTypes.edit.fields.keep')"
-                  class="mt-1"
-                />
-
-                <div class="min-w-0">
-                  <UBadge
-                    v-if="fieldSection(selections[index]!.path)"
-                    color="neutral"
-                    variant="subtle"
-                    size="sm"
-                    class="mb-1"
-                    data-testid="field-section"
-                  >
-                    {{ fieldSection(selections[index]!.path) }}
-                  </UBadge>
-                  <p
-                    class="text-sm font-medium"
-                    :class="selections[index]!.kept ? 'text-highlighted' : 'text-muted line-through'"
-                  >
-                    {{ fieldName(selections[index]!.path) }}
-                  </p>
-                  <p
-                    v-if="descriptionByPath.get(selections[index]!.path)"
-                    class="text-muted text-xs"
-                  >
-                    {{ descriptionByPath.get(selections[index]!.path) }}
-                  </p>
-                  <p class="text-dimmed break-all font-mono text-xs">
-                    {{ selections[index]!.path }}
-                  </p>
-                  <p
-                    v-if="!selections[index]!.kept"
-                    class="text-warning text-xs"
-                  >
-                    {{ t('documentTypes.edit.fields.removed') }}
-                  </p>
-                </div>
-              </div>
-
-              <div class="grid gap-3 sm:grid-cols-2 sm:pl-8">
-                <UFormField
-                  :label="t('documentTypes.edit.fields.conceptQuestion')"
-                  :help="t('documentTypes.edit.fields.conceptHint')"
+              <div class="bg-elevated/50 flex flex-col gap-1 rounded-lg px-3 py-2">
+                <p class="text-highlighted text-sm font-medium">
+                  {{ group.spineConceptId
+                    ? spineConcept(group.spineConceptId)?.label ?? group.spineConceptId
+                    : t('documentTypes.edit.fields.noSpineGroup') }}
+                </p>
+                <p
+                  v-if="group.spineConceptId && spineConcept(group.spineConceptId)?.description"
+                  class="text-muted text-xs"
                 >
-                  <USelect
-                    :model-value="selections[index]!.conceptId ?? UNMAPPED"
-                    :items="conceptItems"
-                    :disabled="!selections[index]!.kept"
-                    class="w-full"
-                    @update:model-value="selections[index]!.conceptId = toPath($event as string)"
-                  />
-                </UFormField>
-
-                <UFormField
-                  :label="t('documentTypes.edit.fields.spineQuestion')"
-                  :help="t('documentTypes.edit.fields.spineHint')"
+                  {{ spineConcept(group.spineConceptId)?.description }}
+                </p>
+                <p
+                  v-if="group.summed"
+                  class="text-primary text-xs"
+                  data-testid="summed-note"
                 >
-                  <USelect
-                    :model-value="selections[index]!.spineConceptId ?? UNMAPPED"
-                    :items="spineItems"
-                    :disabled="!selections[index]!.kept || !selections[index]!.conceptId"
-                    class="w-full"
-                    @update:model-value="selections[index]!.spineConceptId = toPath($event as string)"
-                  />
-                </UFormField>
+                  {{ t('documentTypes.edit.fields.summed', { count: group.paths.length }) }}
+                </p>
+                <p
+                  v-else
+                  class="text-muted text-xs"
+                >
+                  {{ group.spineConceptId
+                    ? t('documentTypes.edit.fields.single')
+                    : t('documentTypes.edit.fields.noSpineGroupHint') }}
+                </p>
+                <p
+                  v-if="group.mixedComparison"
+                  class="text-warning text-xs"
+                  data-testid="mixed-comparison"
+                >
+                  {{ t('documentTypes.edit.fields.mixedComparison') }}
+                </p>
               </div>
 
               <div
-                v-if="selections[index]!.kept && selections[index]!.conceptId && selections[index]!.spineConceptId"
-                class="flex flex-col gap-3 sm:pl-8"
+                v-for="index in group.indices"
+                :key="selections[index]!.path"
+                class="border-default flex flex-col gap-3 rounded-lg border p-3"
+                :class="selections[index]!.kept ? '' : 'opacity-60'"
               >
-                <UFormField :label="t('documentTypes.edit.fields.comparison.question')">
-                  <URadioGroup
-                    :model-value="selections[index]!.perAccount ? 'perAccount' : 'total'"
-                    :items="comparisonItems"
-                    @update:model-value="selections[index]!.perAccount = $event === 'perAccount'"
+                <div class="flex items-start gap-3">
+                  <UCheckbox
+                    v-model="selections[index]!.kept"
+                    :aria-label="t('documentTypes.edit.fields.keep')"
+                    class="mt-1"
                   />
-                </UFormField>
 
-                <UFormField
-                  v-if="selections[index]!.perAccount"
-                  :label="t('documentTypes.edit.fields.accountPath')"
-                  :help="t('documentTypes.edit.fields.accountPathHint')"
+                  <div class="min-w-0">
+                    <UBadge
+                      v-if="fieldSection(selections[index]!.path)"
+                      color="neutral"
+                      variant="subtle"
+                      size="sm"
+                      class="mb-1"
+                      data-testid="field-section"
+                    >
+                      {{ fieldSection(selections[index]!.path) }}
+                    </UBadge>
+                    <p
+                      class="text-sm font-medium"
+                      :class="selections[index]!.kept ? 'text-highlighted' : 'text-muted line-through'"
+                    >
+                      {{ fieldName(selections[index]!.path) }}
+                    </p>
+                    <p
+                      v-if="descriptionByPath.get(selections[index]!.path)"
+                      class="text-muted text-xs"
+                    >
+                      {{ descriptionByPath.get(selections[index]!.path) }}
+                    </p>
+                    <p class="text-dimmed break-all font-mono text-xs">
+                      {{ selections[index]!.path }}
+                    </p>
+                    <p
+                      v-if="!selections[index]!.kept"
+                      class="text-warning text-xs"
+                    >
+                      {{ t('documentTypes.edit.fields.removed') }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-2 sm:pl-8">
+                  <UFormField
+                    :label="t('documentTypes.edit.fields.conceptQuestion')"
+                    :help="t('documentTypes.edit.fields.conceptHint')"
+                  >
+                    <USelect
+                      :model-value="selections[index]!.conceptId ?? UNMAPPED"
+                      :items="conceptItems"
+                      :disabled="!selections[index]!.kept"
+                      class="w-full"
+                      @update:model-value="selections[index]!.conceptId = toPath($event as string)"
+                    />
+                  </UFormField>
+
+                  <UFormField
+                    :label="t('documentTypes.edit.fields.spineQuestion')"
+                    :help="t('documentTypes.edit.fields.spineHint')"
+                  >
+                    <USelect
+                      :model-value="selections[index]!.spineConceptId ?? UNMAPPED"
+                      :items="spineItems"
+                      :disabled="!selections[index]!.kept || !selections[index]!.conceptId"
+                      class="w-full"
+                      @update:model-value="selections[index]!.spineConceptId = toPath($event as string)"
+                    />
+                  </UFormField>
+                </div>
+
+                <div
+                  v-if="selections[index]!.kept && selections[index]!.conceptId && selections[index]!.spineConceptId"
+                  class="flex flex-col gap-3 sm:pl-8"
                 >
-                  <USelect
-                    :model-value="selectValue(selections[index]!.accountPath)"
-                    :items="optionalFieldItems"
-                    class="w-full sm:w-96"
-                    @update:model-value="selections[index]!.accountPath = toPath($event as string)"
+                  <UFormField :label="t('documentTypes.edit.fields.comparison.question')">
+                    <URadioGroup
+                      :model-value="selections[index]!.perAccount ? 'perAccount' : 'total'"
+                      :items="comparisonItems"
+                      @update:model-value="selections[index]!.perAccount = $event === 'perAccount'"
+                    />
+                  </UFormField>
+
+                  <UFormField
+                    v-if="selections[index]!.perAccount"
+                    :label="t('documentTypes.edit.fields.accountPath')"
+                    :help="t('documentTypes.edit.fields.accountPathHint')"
+                  >
+                    <USelect
+                      :model-value="selectValue(selections[index]!.accountPath)"
+                      :items="optionalFieldItems"
+                      class="w-full sm:w-96"
+                      @update:model-value="selections[index]!.accountPath = toPath($event as string)"
+                    />
+                  </UFormField>
+
+                  <UAlert
+                    v-if="selections[index]!.perAccount && !selections[index]!.accountPath"
+                    color="warning"
+                    variant="soft"
+                    icon="i-lucide-triangle-alert"
+                    data-testid="account-path-missing"
+                    :title="t('documentTypes.edit.fields.accountPathMissing')"
                   />
-                </UFormField>
-
-                <UAlert
-                  v-if="selections[index]!.perAccount && !selections[index]!.accountPath"
-                  color="warning"
-                  variant="soft"
-                  icon="i-lucide-triangle-alert"
-                  data-testid="account-path-missing"
-                  :title="t('documentTypes.edit.fields.accountPathMissing')"
-                />
+                </div>
               </div>
-            </div>
-          </section>
-        </div>
+            </section>
+          </div>
 
-        <p
-          v-if="missingAccountPaths.length > 0"
-          class="text-warning mt-3 text-sm"
-          data-testid="account-path-warning"
-        >
-          {{ t(
-            'documentTypes.edit.fields.accountPathMissingCount',
-            { count: missingAccountPaths.length },
-            missingAccountPaths.length
-          ) }}
-        </p>
-
-        <p
-          v-if="removedCount > 0"
-          class="text-warning mt-3 text-sm"
-          data-testid="removed-count"
-        >
-          {{ t('documentTypes.edit.fields.removedCount', { count: removedCount }, removedCount) }}
-        </p>
-      </UCard>
-
-      <UAlert
-        v-if="status === 'notMapped'"
-        color="neutral"
-        variant="soft"
-        :title="t('documentTypes.edit.status.notMapped')"
-        :description="t('documentTypes.edit.status.notMappedHint')"
-      />
-
-      <section
-        v-if="mappingChanges.length > 0"
-        class="flex flex-col gap-2"
-        data-testid="mapping-changes"
-      >
-        <h2 class="font-medium">
-          {{ t('documentTypes.edit.mappingChanges.title') }}
-        </h2>
-        <UAlert
-          v-for="(change, index) in mappingChanges"
-          :key="`${change.change}-${index}`"
-          :color="mappingChangeSeverity(change) === 'critical' ? 'error' : 'warning'"
-          variant="soft"
-          :title="mappingChangeText(change)"
-          :description="change.reason"
-        />
-      </section>
-
-      <div class="flex flex-col gap-3">
-        <UAlert
-          v-if="saveFailed"
-          color="error"
-          :title="t('documentTypes.edit.saveError')"
-        />
-        <UAlert
-          v-else-if="typeSavedWithoutMapping"
-          color="warning"
-          variant="subtle"
-          icon="i-lucide-triangle-alert"
-          data-testid="save-partial"
-          :title="t('documentTypes.edit.savePartialTitle')"
-          :description="t('documentTypes.edit.savePartialDescription')"
-        />
-        <UAlert
-          v-else-if="saved"
-          color="success"
-          variant="soft"
-          :title="t('documentTypes.edit.saved')"
-        />
-
-        <div class="flex flex-wrap items-center gap-3">
-          <UButton
-            :loading="saving"
-            :disabled="!canSave"
-            data-testid="save-document-type"
-            @click="save"
-          >
-            {{ t('documentTypes.edit.save') }}
-          </UButton>
-          <UButton
-            to="/document-types"
-            color="neutral"
-            variant="soft"
-          >
-            {{ t('documentTypes.edit.back') }}
-          </UButton>
           <p
-            v-if="!isDraftSavable(draft)"
-            class="text-error text-sm"
+            v-if="missingAccountPaths.length > 0"
+            class="text-warning mt-3 text-sm"
+            data-testid="account-path-warning"
           >
-            {{ t('documentTypes.edit.reporter.blocksSave') }}
+            {{ t(
+              'documentTypes.edit.fields.accountPathMissingCount',
+              { count: missingAccountPaths.length },
+              missingAccountPaths.length
+            ) }}
           </p>
+
+          <p
+            v-if="removedCount > 0"
+            class="text-warning mt-3 text-sm"
+            data-testid="removed-count"
+          >
+            {{ t('documentTypes.edit.fields.removedCount', { count: removedCount }, removedCount) }}
+          </p>
+        </UCard>
+
+        <UAlert
+          v-if="status === 'notMapped'"
+          color="neutral"
+          variant="soft"
+          :title="t('documentTypes.edit.status.notMapped')"
+          :description="t('documentTypes.edit.status.notMappedHint')"
+        />
+
+        <section
+          v-if="mappingChanges.length > 0"
+          class="flex flex-col gap-2"
+          data-testid="mapping-changes"
+        >
+          <h2 class="font-medium">
+            {{ t('documentTypes.edit.mappingChanges.title') }}
+          </h2>
+          <UAlert
+            v-for="(change, index) in mappingChanges"
+            :key="`${change.change}-${index}`"
+            :color="mappingChangeSeverity(change) === 'critical' ? 'error' : 'warning'"
+            variant="soft"
+            :title="mappingChangeText(change)"
+            :description="change.reason"
+          />
+        </section>
+
+        <div class="flex flex-col gap-3">
+          <UAlert
+            v-if="saveFailed"
+            color="error"
+            :title="t('documentTypes.edit.saveError')"
+          />
+          <UAlert
+            v-else-if="typeSavedWithoutMapping"
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-triangle-alert"
+            data-testid="save-partial"
+            :title="t('documentTypes.edit.savePartialTitle')"
+            :description="t('documentTypes.edit.savePartialDescription')"
+          />
+          <UAlert
+            v-else-if="saved"
+            color="success"
+            variant="soft"
+            :title="t('documentTypes.edit.saved')"
+          />
+
+          <div class="flex flex-wrap items-center gap-3">
+            <UButton
+              :loading="saving"
+              :disabled="!canSave"
+              data-testid="save-document-type"
+              @click="save"
+            >
+              {{ t('documentTypes.edit.save') }}
+            </UButton>
+            <UButton
+              to="/document-types"
+              color="neutral"
+              variant="soft"
+            >
+              {{ t('documentTypes.edit.back') }}
+            </UButton>
+            <p
+              v-if="!isDraftSavable(draft)"
+              class="text-error text-sm"
+            >
+              {{ t('documentTypes.edit.reporter.blocksSave') }}
+            </p>
+          </div>
         </div>
-      </div>
-      <!--
+        <!--
         Last on the page and behind a confirmation: it is the one irreversible
         thing this screen does, and the schema, the prompt and the mappings
         that make a type worth having go with it.
       -->
-      <UCard v-if="documentType">
-        <template #header>
-          <h2 class="font-medium">
-            {{ t('documentTypes.edit.remove.title') }}
-          </h2>
-        </template>
+        <UCard v-if="documentType">
+          <template #header>
+            <h2 class="font-medium">
+              {{ t('documentTypes.edit.remove.title') }}
+            </h2>
+          </template>
 
-        <p class="text-muted mb-3 text-sm">
-          {{ t('documentTypes.edit.remove.hint') }}
-        </p>
-
-        <div
-          v-if="confirmingDelete"
-          class="flex flex-wrap items-center gap-3"
-        >
-          <p class="text-sm">
-            {{ t('documentTypes.edit.remove.confirm', { name: documentType.name }) }}
+          <p class="text-muted mb-3 text-sm">
+            {{ t('documentTypes.edit.remove.hint') }}
           </p>
+
+          <div
+            v-if="confirmingDelete"
+            class="flex flex-wrap items-center gap-3"
+          >
+            <p class="text-sm">
+              {{ t('documentTypes.edit.remove.confirm', { name: documentType.name }) }}
+            </p>
+            <UButton
+              color="error"
+              :loading="deleting"
+              :disabled="deleting"
+              data-testid="confirm-delete"
+              @click="remove"
+            >
+              {{ t('documentTypes.edit.remove.confirmAction') }}
+            </UButton>
+            <UButton
+              variant="ghost"
+              :disabled="deleting"
+              @click="confirmingDelete = false"
+            >
+              {{ t('documentTypes.edit.remove.cancel') }}
+            </UButton>
+          </div>
+
           <UButton
+            v-else
             color="error"
-            :loading="deleting"
-            :disabled="deleting"
-            data-testid="confirm-delete"
-            @click="remove"
+            variant="outline"
+            class="w-fit"
+            data-testid="delete-document-type"
+            @click="confirmingDelete = true"
           >
-            {{ t('documentTypes.edit.remove.confirmAction') }}
+            {{ t('documentTypes.edit.remove.action') }}
           </UButton>
+        </UCard>
+      </div>
+
+      <!--
+        Sticky: the field list runs to dozens of rows, and the point of the
+        paper is to be read against whichever row is being decided.
+      -->
+      <aside
+        v-if="sampleDocument"
+        class="lg:sticky lg:top-4"
+        data-testid="sample-document"
+      >
+        <div class="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="text-sm font-medium">
+            {{ t('documentTypes.edit.sample.title') }}
+          </h2>
           <UButton
-            variant="ghost"
-            :disabled="deleting"
-            @click="confirmingDelete = false"
+            :to="`/documents/${sampleDocument.id}`"
+            variant="link"
+            size="xs"
+            class="p-0"
           >
-            {{ t('documentTypes.edit.remove.cancel') }}
+            {{ sampleDocument.fileName }}
           </UButton>
         </div>
-
-        <UButton
-          v-else
-          color="error"
-          variant="outline"
-          class="w-fit"
-          data-testid="delete-document-type"
-          @click="confirmingDelete = true"
-        >
-          {{ t('documentTypes.edit.remove.action') }}
-        </UButton>
-      </UCard>
+        <p class="text-muted mb-2 text-xs">
+          {{ t('documentTypes.edit.sample.hint') }}
+        </p>
+        <DocumentViewer
+          :drive-file-id="sampleDocument.driveFileId"
+          :mime-type="sampleDocument.mimeType"
+          :file-name="sampleDocument.fileName"
+        />
+      </aside>
     </div>
   </UContainer>
 </template>

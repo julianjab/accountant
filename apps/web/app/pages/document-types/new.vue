@@ -297,7 +297,7 @@ async function save() {
       analysis and choosing the fields are all done by reading the document,
       so it never leaves the screen while the column beside it changes.
     -->
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
       <div class="flex min-w-0 flex-col gap-6">
         <form
           v-if="step === 'form'"
