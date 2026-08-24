@@ -38,6 +38,12 @@ class DefinedDocumentType:
     #: Fields that will be extracted but cannot be reconciled, with the AI's
     #: reason. Returned so the gap is visible rather than silently absent.
     unmapped_fields: tuple[tuple[str, str], ...]
+    #: Where the document names the party reporting these amounts, and the
+    #: period it covers. Without the first, no fact can be attributed to
+    #: anyone and every mapping above is discarded.
+    reporter_path: str | None = None
+    reporter_name_path: str | None = None
+    period_path: str | None = None
 
 
 class DefineDocumentType:
@@ -68,4 +74,7 @@ class DefineDocumentType:
             document_type=document_type,
             field_mappings=proposal.field_mappings,
             unmapped_fields=proposal.unmapped_fields,
+            reporter_path=proposal.reporter_path,
+            reporter_name_path=proposal.reporter_name_path,
+            period_path=proposal.period_path,
         )

@@ -62,6 +62,14 @@ class ProposedOcrConfig:
     #: get extracted; they just cannot be reconciled. Surfaced rather than
     #: dropped so the gap is a visible decision instead of a silent omission.
     unmapped_fields: tuple[tuple[str, str], ...] = ()
+    #: Where the document states who is reporting the amounts. Without it no
+    #: fact can be attributed to anyone, and every mapped field is discarded —
+    #: so a mapping is only as useful as this.
+    reporter_path: str | None = None
+    reporter_name_path: str | None = None
+    #: Where the document states the period it covers, so a certificate for
+    #: one year cannot reconcile against another.
+    period_path: str | None = None
 
 
 class DocumentTypeConfigurator(Protocol):

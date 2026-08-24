@@ -85,14 +85,16 @@ class ClaudeDocumentTypeConfigurator:
         for block in response["content"]:
             if block["type"] == "tool_use" and block["name"] == _PROPOSE_TOOL_NAME:
                 payload = block["input"]
-                mappings, rejected = _read_mappings(
-                    payload, concepts, payload.get("extraction_schema")
-                )
+                schema = payload.get("extraction_schema")
+                mappings, rejected = _read_mappings(payload, concepts, schema)
                 return ProposedOcrConfig(
                     extraction_prompt=payload["extraction_prompt"],
                     extraction_schema=payload["extraction_schema"],
                     field_mappings=mappings,
                     unmapped_fields=(*_read_unmapped(payload), *rejected),
+                    reporter_path=_read_path(payload, "reporter_path", schema),
+                    reporter_name_path=_read_path(payload, "reporter_name_path", schema),
+                    period_path=_read_path(payload, "period_path", schema),
                 )
         msg = "Claude did not return the expected config proposal tool call"
         raise RuntimeError(msg)
@@ -139,6 +141,22 @@ def _mapping_properties(concepts: Sequence[ConceptOption]) -> dict:
                 },
                 "required": ["field_path", "concept_id"],
             },
+        },
+        "reporter_path": {
+            "type": "string",
+            "description": "Path to the identifier of the party issuing this document — "
+            "the bank or employer whose figures these are. Required for any of the "
+            "mappings to be usable: an amount that cannot be attributed to a reporting "
+            "party cannot be checked against what that party declared elsewhere.",
+        },
+        "reporter_name_path": {
+            "type": "string",
+            "description": "Path to that party's name, for display.",
+        },
+        "period_path": {
+            "type": "string",
+            "description": "Path to the tax year or period the document covers, so a "
+            "certificate for one year is not reconciled against another.",
         },
         "unmapped_fields": {
             "type": "array",
@@ -275,3 +293,11 @@ def _entries(payload: dict, key: str) -> list:
     """
     value = payload.get(key)
     return value if isinstance(value, list) else []
+
+
+def _read_path(payload: dict, key: str, schema: object) -> str | None:
+    """A single path from the proposal, dropped unless the schema declares it."""
+    value = payload.get(key)
+    if not isinstance(value, str) or not value:
+        return None
+    return value if _resolves_in(value, schema) else None

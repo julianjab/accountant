@@ -78,6 +78,9 @@ def create_document_type(
                     mapping=ConceptMapping(
                         document_type_id=defined.document_type.id,
                         kind_id=kind.id,
+                        reporter_path=defined.reporter_path,
+                        reporter_name_path=defined.reporter_name_path,
+                        period_path=defined.period_path,
                         entries=tuple(
                             ConceptMappingEntry(
                                 field_path=m.field_path,
