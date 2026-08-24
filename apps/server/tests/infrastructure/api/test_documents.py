@@ -9,6 +9,8 @@ from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import get_document_repository
 from server.main import app
 
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
 
 def _document(**overrides) -> Document:
     defaults = dict(
@@ -112,3 +114,72 @@ def test_approve_document_returns_409_when_not_processed(client, documents) -> N
     response = client.post("/documents/doc-1/approve")
 
     assert response.status_code == 409
+
+
+def test_the_parsable_sources_are_offered_for_a_person_to_pick(client) -> None:
+    """The classifier can never propose these — they are read by a parser
+    rather than configured as a document type — so the screen has to offer
+    them itself."""
+    response = client.get("/documents/sources")
+
+    assert response.status_code == 200
+    sources = response.json()
+    exogena = next(s for s in sources if s["id"] == "exogena_report")
+    assert "exógena" in exogena["label"].lower()
+    assert (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        in exogena["media_types"]
+    )
+
+
+def test_sources_is_not_read_as_a_document_id(client, documents) -> None:
+    """`/documents/sources` sits under the same prefix as `/documents/{id}`;
+    declared the other way round it would 404 for every caller."""
+    assert client.get("/documents/sources").status_code == 200
+
+
+@pytest.fixture
+def drive(monkeypatch):
+    """Keeps `/recognize` off a real Drive client.
+
+    `get_recognize_document_source_use_case` builds the storage adapter eagerly,
+    and `GoogleDriveStorage.__init__` reads a service-account file — so without
+    this even the 404 path fails before it ever looks for the document.
+    """
+    from server.domain.ports import DocumentContent
+    from server.infrastructure.api import deps
+
+    holder = {"data": b"not a workbook"}
+
+    class _Storage:
+        def download(self, file_reference):
+            return DocumentContent(data=holder["data"], mime_type=XLSX, file_name="notes.xlsx")
+
+    monkeypatch.setattr(deps, "get_document_storage", lambda: _Storage())
+    return holder
+
+
+def test_recognizing_a_missing_document_is_a_404(client, documents, drive) -> None:
+    response = client.post("/documents/missing/recognize", json={"source_id": "exogena_report"})
+
+    assert response.status_code == 404
+
+
+def test_a_file_that_is_not_the_named_source_is_a_422(client, documents, drive) -> None:
+    """Well-formed request, entitled caller — the file simply is not what they
+    said it was, which is about the content and not the request."""
+    documents.save(
+        _document(
+            id="doc-1",
+            status=DocumentStatus.FAILED,
+            document_type_id=None,
+            file_name="notes.xlsx",
+            mime_type=XLSX,
+        )
+    )
+
+    response = client.post("/documents/doc-1/recognize", json={"source_id": "exogena_report"})
+
+    assert response.status_code == 422
+    # Untouched: choosing the wrong source must leave nothing behind.
+    assert documents.get("doc-1").status == DocumentStatus.FAILED
