@@ -11,7 +11,8 @@ const REPORT: ReconciliationReport = {
   period: '2025',
   generatedAt: '2026-08-24T00:40:10Z',
   summary: { counts: { matched: 1 }, totalFindings: 1, reconciled: 1, needingAttention: 0 },
-  findings: []
+  findings: [],
+  contributions: []
 }
 
 class FakeReconciliationRepository implements ReconciliationRepository {

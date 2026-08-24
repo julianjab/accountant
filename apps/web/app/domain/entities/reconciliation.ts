@@ -46,6 +46,33 @@ export interface ReconciliationFinding {
   evidenceFacts: ReconciliationFact[]
 }
 
+/** What a document ended up doing for the reconciliation.
+ *
+ * Only `contributed` and `spine_parsed` mean the figures arrived; every other
+ * value is a reason some amount that should be reconciling is not. */
+export type ContributionStatus
+  = | 'contributed'
+    | 'spine_parsed'
+    | 'not_ready'
+    | 'not_classified'
+    | 'type_not_mapped'
+    | 'no_extraction'
+    | 'no_reporting_party'
+    | 'other_period'
+    | 'no_amounts'
+    | 'unreadable'
+
+export interface ReconciliationContribution {
+  documentId: string
+  fileName: string
+  status: ContributionStatus
+  factCount: number
+  /** Whatever makes the status actionable — the field that could not name the
+   * reporting party, the year the certificate turned out to cover, the intake
+   * error. Empty when the status speaks for itself. */
+  detail: string
+}
+
 export interface ReconciliationSummary {
   counts: Record<string, number>
   totalFindings: number
@@ -61,6 +88,14 @@ export interface ReconciliationReport {
   generatedAt: string
   summary: ReconciliationSummary
   findings: ReconciliationFinding[]
+  /** One entry per document the run looked at, whether or not it helped. */
+  contributions: ReconciliationContribution[]
+}
+
+/** The two outcomes that mean the document did its job. Anything else is a
+ * figure missing from the reconciliation, however innocuous the wording. */
+export function isContributing(status: ContributionStatus): boolean {
+  return status === 'contributed' || status === 'spine_parsed'
 }
 
 /** Attention first, then what already reconciles, then what was not checked. */

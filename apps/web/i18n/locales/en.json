@@ -49,7 +49,28 @@
         "empty": "This client doesn't have any documents yet.",
         "awaited": "Missing",
         "awaitedClaims": "{count} exogena values with no certificate",
-        "defineType": "Define type"
+        "defineType": "Define type",
+        "contribution": {
+          "exogena": "Exogena",
+          "facts": "{count} values used in the reconciliation",
+          "spineFacts": "{count} exogena rows read",
+          "status": {
+            "contributed": "Contributed",
+            "spine_parsed": "Reconciliation base",
+            "not_ready": "Not processed",
+            "not_classified": "Unclassified",
+            "type_not_mapped": "Type has no mapped concepts",
+            "no_extraction": "No extracted data",
+            "no_reporting_party": "No reporting party",
+            "other_period": "Different year",
+            "no_amounts": "No usable amounts",
+            "unreadable": "Could not be read"
+          },
+          "detail": {
+            "noReportingParty": "Reporting party could not be identified: field {field}",
+            "otherPeriod": "The certificate covers year {year}"
+          }
+        }
       },
       "summary": {
         "title": "Monthly summary"

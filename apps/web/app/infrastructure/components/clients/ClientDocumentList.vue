@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
 import type { DocumentType } from '~/domain/entities/document-type'
-import type { ReconciliationReport } from '~/domain/entities/reconciliation'
+import type {
+  ContributionStatus,
+  ReconciliationContribution,
+  ReconciliationReport
+} from '~/domain/entities/reconciliation'
+import { isContributing } from '~/domain/entities/reconciliation'
 
 const props = defineProps<{
   documents: ClientDocument[]
@@ -24,6 +29,65 @@ const STATUS_COLOR: Record<DocumentStatus, 'warning' | 'info' | 'primary' | 'suc
 function typeName(documentTypeId: string | null): string {
   const type = documentTypeId ? props.types.find(t => t.id === documentTypeId) : undefined
   return type?.name ?? t('clients.detail.documents.unclassified')
+}
+
+const contributionsByDocument = computed(() => {
+  const byId = new Map<string, ReconciliationContribution>()
+  for (const contribution of props.report?.contributions ?? []) {
+    byId.set(contribution.documentId, contribution)
+  }
+  return byId
+})
+
+/** Whether the document is the exogena itself, which the engine parses row by
+ * row instead of sending to the OCR. */
+function isSpine(status: ContributionStatus | undefined): boolean {
+  return status === 'spine_parsed'
+}
+
+/** What the document is. The exogena has no document type — nothing classifies
+ * it — so its own name has to come from the reconciliation. */
+function documentKind(doc: ClientDocument): string {
+  const contribution = contributionsByDocument.value.get(doc.id)
+  if (isSpine(contribution?.status)) return t('clients.detail.documents.contribution.exogena')
+  return typeName(doc.documentTypeId)
+}
+
+/** The intake badge tells whether the pipeline finished, not whether the
+ * document helped, so a spreadsheet the Anthropic API refuses reads as `failed`
+ * while being the one file everything else is checked against. Neutral there;
+ * the contribution tag carries the real outcome. */
+function intakeColor(doc: ClientDocument): 'warning' | 'info' | 'primary' | 'success' | 'error' | 'neutral' {
+  if (isSpine(contributionsByDocument.value.get(doc.id)?.status)) return 'neutral'
+  return STATUS_COLOR[doc.status]
+}
+
+/** Anything that is not contributing means figures that should be reconciling
+ * are not, so all of it is warned about equally rather than ranked. */
+function contributionColor(status: ContributionStatus): 'success' | 'info' | 'warning' {
+  if (status === 'spine_parsed') return 'info'
+  return isContributing(status) ? 'success' : 'warning'
+}
+
+/** The status names the problem; this names the fix. */
+function detailText(doc: ClientDocument): string {
+  const contribution = contributionsByDocument.value.get(doc.id)
+  if (!contribution) return ''
+  const { status, detail, factCount } = contribution
+  if (status === 'spine_parsed') {
+    return t('clients.detail.documents.contribution.spineFacts', { count: factCount })
+  }
+  if (status === 'contributed') {
+    return t('clients.detail.documents.contribution.facts', { count: factCount })
+  }
+  if (!detail) return ''
+  if (status === 'no_reporting_party') {
+    return t('clients.detail.documents.contribution.detail.noReportingParty', { field: detail })
+  }
+  if (status === 'other_period') {
+    return t('clients.detail.documents.contribution.detail.otherPeriod', { year: detail })
+  }
+  return detail
 }
 
 function formattedTime(createdAt: string): string {
@@ -118,16 +182,43 @@ function defineTypeLink(reporterName: string, detail: string): string {
             {{ doc.fileName }}
           </div>
           <div class="mt-0.5 truncate text-[12px] text-muted">
-            {{ typeName(doc.documentTypeId) }} · {{ formattedTime(doc.createdAt) }}
+            {{ documentKind(doc) }} · {{ formattedTime(doc.createdAt) }}
+          </div>
+          <!-- Named right under the file, because "which field failed" or
+               "which year it turned out to cover" is what the preparer acts on. -->
+          <div
+            v-if="detailText(doc)"
+            class="mt-0.5 truncate text-[11.5px]"
+            :class="isContributing(contributionsByDocument.get(doc.id)!.status)
+              ? 'text-muted'
+              : 'text-amber-700 dark:text-amber-400'"
+            data-testid="contribution-detail"
+          >
+            {{ detailText(doc) }}
           </div>
         </div>
 
-        <UBadge
-          :label="t(`documents.status.${doc.status}`)"
-          :color="STATUS_COLOR[doc.status]"
-          variant="subtle"
-          class="shrink-0"
-        />
+        <div class="flex shrink-0 items-center gap-1.5">
+          <UBadge
+            :label="t(`documents.status.${doc.status}`)"
+            :color="intakeColor(doc)"
+            variant="subtle"
+          />
+          <!-- The outcome that matters: a document can finish intake cleanly and
+               still hand the reconciliation nothing. -->
+          <UBadge
+            v-if="contributionsByDocument.get(doc.id)"
+            :label="t(
+              `clients.detail.documents.contribution.status.${contributionsByDocument.get(doc.id)!.status}`
+            )"
+            :color="contributionColor(contributionsByDocument.get(doc.id)!.status)"
+            :variant="isContributing(contributionsByDocument.get(doc.id)!.status)
+              ? 'subtle'
+              : 'solid'"
+            data-testid="contribution-status"
+            :data-status="contributionsByDocument.get(doc.id)!.status"
+          />
+        </div>
       </NuxtLink>
     </li>
 
