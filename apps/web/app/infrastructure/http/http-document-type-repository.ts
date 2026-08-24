@@ -15,6 +15,7 @@ import type {
 } from '~/domain/entities/document-type-proposal'
 import type {
   CreateDocumentTypeInput,
+  DescribeDocumentTypeFieldsInput,
   DocumentTypeRepository,
   ProposeDocumentTypeInput,
   UpdateDocumentTypeInput
@@ -228,6 +229,27 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
       body: formData
     })
     return toProposal(dto)
+  }
+
+  async describeFields(
+    id: string,
+    input: DescribeDocumentTypeFieldsInput
+  ): Promise<DocumentTypeField[]> {
+    // Multipart like the proposal endpoint, which takes the sample the same
+    // two ways; only a stored document is offered here.
+    const formData = new FormData()
+    formData.append('document_id', input.documentId)
+
+    const dto = await $fetch<{ fields?: DocumentTypeFieldDto[] }>(
+      `/document-types/${id}/field-descriptions`,
+      {
+        baseURL: this.baseUrl,
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      }
+    )
+    return (dto.fields ?? []).map(toDocumentTypeField)
   }
 
   async create(input: CreateDocumentTypeInput): Promise<DocumentTypeCreation> {

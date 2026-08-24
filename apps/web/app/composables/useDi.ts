@@ -20,6 +20,7 @@ import { ImportClientsFromDrive } from '~/application/use-cases/import-clients-f
 import { GetCurrentUser } from '~/application/use-cases/get-current-user'
 import { ListDocumentTypes } from '~/application/use-cases/list-document-types'
 import { ProposeDocumentType } from '~/application/use-cases/propose-document-type'
+import { DescribeDocumentTypeFields } from '~/application/use-cases/describe-document-type-fields'
 import { CreateDocumentType } from '~/application/use-cases/create-document-type'
 import { GetDocumentType } from '~/application/use-cases/get-document-type'
 import { DeleteDocumentType } from '~/application/use-cases/delete-document-type'
@@ -97,6 +98,10 @@ export function useListDocumentTypesUseCase() {
 
 export function useProposeDocumentTypeUseCase() {
   return new ProposeDocumentType(useDocumentTypeRepository())
+}
+
+export function useDescribeDocumentTypeFieldsUseCase() {
+  return new DescribeDocumentTypeFields(useDocumentTypeRepository())
 }
 
 export function useCreateDocumentTypeUseCase() {

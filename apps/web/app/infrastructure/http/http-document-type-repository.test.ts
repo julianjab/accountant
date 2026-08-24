@@ -300,6 +300,59 @@ describe('HttpDocumentTypeRepository field descriptions', () => {
   })
 })
 
+describe('HttpDocumentTypeRepository.describeFields', () => {
+  it('asks the type to describe its own fields from a stored document', async () => {
+    const fetcher = stubFetch(() => ({ fields: [] }))
+
+    await new HttpDocumentTypeRepository('http://api').describeFields('dt-1', {
+      documentId: 'doc-9'
+    })
+
+    const [path, options] = fetcher.mock.calls[0]!
+    expect(path).toBe('/document-types/dt-1/field-descriptions')
+    expect(options).toMatchObject({ baseURL: 'http://api', method: 'POST' })
+    expect((options!.body as FormData).get('document_id')).toBe('doc-9')
+  })
+
+  it('maps the descriptions into the shape the configurator merges', async () => {
+    stubFetch(() => ({
+      fields: [
+        {
+          path: 'retenciones[].valor',
+          label: 'Retención practicada',
+          role: 'amount',
+          section: 'Retenciones',
+          sample_value: '$ 19.586,00'
+        }
+      ]
+    }))
+
+    const fields = await new HttpDocumentTypeRepository('http://api').describeFields('dt-1', {
+      documentId: 'doc-9'
+    })
+
+    expect(fields).toEqual([
+      {
+        path: 'retenciones[].valor',
+        label: 'Retención practicada',
+        role: 'amount',
+        section: 'Retenciones',
+        sampleValue: '$ 19.586,00'
+      }
+    ])
+  })
+
+  it('reads a response that describes nothing as no descriptions', async () => {
+    stubFetch(() => ({}))
+
+    const fields = await new HttpDocumentTypeRepository('http://api').describeFields('dt-1', {
+      documentId: 'doc-9'
+    })
+
+    expect(fields).toEqual([])
+  })
+})
+
 describe('HttpDocumentTypeRepository.update', () => {
   it('patches the type with only the fields that changed, in the server\'s casing', async () => {
     const fetcher = stubFetch(() => DOCUMENT_TYPE_DTO)

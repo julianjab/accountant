@@ -77,10 +77,30 @@ export interface UpdateDocumentTypeInput {
   sampleDocumentId?: string
 }
 
+/**
+ * Asking the AI what a document calls the fields a type already declares.
+ *
+ * Not a proposal: a fresh proposal invents its own field names and lines up
+ * with the stored schema only by chance, so a re-reading meant to fill in
+ * missing labels routinely recovered nothing at all. Here the type's own paths
+ * are the question, and the answer can only describe them.
+ */
+export interface DescribeDocumentTypeFieldsInput {
+  /** The paper to read. A stored document, because the descriptions are only
+   * worth keeping when the type can point back at what they came from. */
+  documentId: string
+}
+
 export interface DocumentTypeRepository {
   listActive: () => Promise<DocumentType[]>
   list: () => Promise<DocumentType[]>
   propose: (input: ProposeDocumentTypeInput) => Promise<DocumentTypeProposal>
+  /** Stores nothing: the caller decides how these meet the descriptions it
+   * already curated. */
+  describeFields: (
+    id: string,
+    input: DescribeDocumentTypeFieldsInput
+  ) => Promise<DocumentTypeField[]>
   create: (input: CreateDocumentTypeInput) => Promise<DocumentTypeCreation>
   update: (id: string, changes: UpdateDocumentTypeInput) => Promise<DocumentTypeUpdate>
   /** Throws DocumentTypeInUseError when documents were classified as it. */

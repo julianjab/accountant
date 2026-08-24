@@ -307,7 +307,7 @@
         "action": "Read the document again",
         "failed": "The document could not be read. Try again.",
         "done": "Filled in {named} fields, out of {total}. The document was saved with the type.",
-        "nothing": "No field could be filled in: re-reading the document, the model used different field names than the ones this type has stored. Nothing was deleted; the document was saved with the type."
+        "nothing": "No field could be filled in: reading «{file}» again, the model found none of the fields this type declares on the paper. It may be a different document, or the page may not state them. Nothing was deleted; the document was saved with the type."
       },
       "remove": {
         "title": "Delete this type",

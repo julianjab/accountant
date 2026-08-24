@@ -38,7 +38,7 @@ const documentTypeId = route.params.id as string
 const getDocumentType = useGetDocumentTypeUseCase()
 const getDocument = useGetDocumentUseCase()
 const deleteDocumentType = useDeleteDocumentTypeUseCase()
-const proposeDocumentType = useProposeDocumentTypeUseCase()
+const describeDocumentTypeFields = useDescribeDocumentTypeFieldsUseCase()
 const updateDocumentType = useUpdateDocumentTypeUseCase()
 const listReconciliationKinds = useListReconciliationKindsUseCase()
 const getConceptMapping = useGetConceptMappingUseCase()
@@ -163,9 +163,11 @@ async function remove() {
 
 const recovering = ref(false)
 const recoveryFailed = ref(false)
-/** How many of the type's fields the re-read managed to name, and out of how
- * many. Null until a recovery has run. */
-const recovered = ref<{ named: number, total: number } | null>(null)
+/** How many of the type's fields the re-read managed to name, out of how many,
+ * and which paper was read. Null until a recovery has run. The file name is
+ * carried because a re-read that names nothing is most often the wrong paper,
+ * and saying which one was read is what lets the reader see that. */
+const recovered = ref<{ named: number, total: number, file: string } | null>(null)
 
 /**
  * Re-reads the offered document and stores what it calls this type's fields.
@@ -173,6 +175,12 @@ const recovered = ref<{ named: number, total: number } | null>(null)
  * Only the descriptions: the prompt, the schema and the concept mappings are
  * left exactly as they are, because those are what someone curated and this
  * is meant to add the labels they never got, not to reopen their decisions.
+ *
+ * It asks the server to describe *this type's* paths rather than to propose a
+ * configuration again. A proposal names its fields afresh every run and agrees
+ * with the stored schema only by chance, so the recovery it powered routinely
+ * matched nothing and reported the paper as unreadable when the paper was
+ * fine.
  */
 async function recoverDescriptions() {
   const paper = documentToReadAgain.value
@@ -182,17 +190,18 @@ async function recoverDescriptions() {
   recoveryFailed.value = false
 
   try {
-    const proposal = await proposeDocumentType.execute({
-      name: documentType.value.name,
+    const described = await describeDocumentTypeFields.execute(documentTypeId, {
       documentId: paper.id
     })
     const known = schemaFields.value.map(field => field.path)
     const stored = documentType.value.fields
     // Merged, never replaced: the server stores `fields` wholesale, so sending
-    // only what this run matched would delete every label it missed.
+    // only what this run matched would delete every label it missed. Still
+    // filtered by the known paths — the enum steers the model, it does not
+    // bind it.
     const merged: DocumentTypeField[] = mergeDescriptions(
       stored,
-      descriptionsForKnownPaths(proposal.fields, known)
+      descriptionsForKnownPaths(described, known)
     )
 
     await updateDocumentType.execute(documentTypeId, {
@@ -208,7 +217,7 @@ async function recoverDescriptions() {
       const previous = before.get(field.path)
       return previous === undefined || JSON.stringify(previous) !== JSON.stringify(field)
     }).length
-    recovered.value = { named, total: known.length }
+    recovered.value = { named, total: known.length, file: paper.fileName }
     await refreshDocumentType()
   } catch {
     recoveryFailed.value = true
@@ -888,7 +897,7 @@ watch(
             data-testid="recovery-result"
             :description="recovered.named > 0
               ? t('documentTypes.edit.recover.done', recovered)
-              : t('documentTypes.edit.recover.nothing')"
+              : t('documentTypes.edit.recover.nothing', recovered)"
           />
 
           <p

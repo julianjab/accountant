@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Client } from '~/domain/entities/client'
 import type { ClientDocument } from '~/domain/entities/document'
-import type { DocumentType, DocumentTypeCreation, DocumentTypeUpdate } from '~/domain/entities/document-type'
+import type { DocumentType, DocumentTypeCreation, DocumentTypeUpdate, DocumentTypeField } from '~/domain/entities/document-type'
 import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
 import type { ClientRepository, ImportSummary, RegisterClientInput } from '~/application/ports/client-repository'
 import type { DocumentListFilter, DocumentRepository,
@@ -72,6 +72,10 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
 
   list(): Promise<DocumentType[]> {
     return Promise.resolve(this.types)
+  }
+
+  describeFields(): Promise<DocumentTypeField[]> {
+    throw new Error('not implemented')
   }
 
   propose(_input: ProposeDocumentTypeInput): Promise<DocumentTypeProposal> {

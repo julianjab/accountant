@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { DocumentType, DocumentTypeCreation, DocumentTypeUpdate } from '~/domain/entities/document-type'
+import type { DocumentType, DocumentTypeCreation, DocumentTypeUpdate, DocumentTypeField } from '~/domain/entities/document-type'
 import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
 import type {
   CreateDocumentTypeInput,
@@ -33,6 +33,10 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
   }
 
   list(): Promise<DocumentType[]> {
+    throw new Error('not implemented')
+  }
+
+  describeFields(): Promise<DocumentTypeField[]> {
     throw new Error('not implemented')
   }
 
