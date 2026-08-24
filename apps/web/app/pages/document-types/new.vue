@@ -62,6 +62,11 @@ const rows = ref<ProposalFieldRow[]>([])
 const reporterPath = ref<string | null>(null)
 const reporterNamePath = ref<string | null>(null)
 const periodPath = ref<string | null>(null)
+// Declared values, for the papers that never state them. Empty string rather
+// than null so they can be bound straight to a text input.
+const reporterTaxId = ref('')
+const reporterName = ref('')
+const declaredPeriod = ref('')
 const taxYearsText = ref('')
 
 const saving = ref(false)
@@ -132,7 +137,10 @@ const draft = computed(() =>
     {
       reporterPath: reporterPath.value,
       reporterNamePath: reporterNamePath.value,
-      periodPath: periodPath.value
+      periodPath: periodPath.value,
+      reporterTaxId: reporterTaxId.value,
+      reporterName: reporterName.value,
+      period: declaredPeriod.value
     },
     // The proposal is the baseline rather than a stored mapping: it carries the
     // signs and account paths this screen has no control for.
@@ -454,8 +462,46 @@ async function save() {
               />
             </UFormField>
 
+            <!--
+                For the certificates that never print their own issuer: the
+                letterhead says who they are and the text does not repeat it.
+                Without an answer here every figure they certify is discarded
+                and comes back reported as a missing certificate.
+              -->
+            <UFormField
+              :label="t('documentTypes.edit.reporter.declaredTaxId')"
+              :help="t('documentTypes.edit.reporter.declaredTaxIdHint')"
+            >
+              <UInput
+                v-model="reporterTaxId"
+                class="w-full sm:w-80"
+                placeholder="890903938"
+              />
+            </UFormField>
+
+            <UFormField
+              :label="t('documentTypes.edit.reporter.declaredName')"
+              :help="t('documentTypes.edit.reporter.declaredNameHint')"
+            >
+              <UInput
+                v-model="reporterName"
+                class="w-full sm:w-80"
+              />
+            </UFormField>
+
+            <UFormField
+              :label="t('documentTypes.edit.reporter.declaredPeriod')"
+              :help="t('documentTypes.edit.reporter.declaredPeriodHint')"
+            >
+              <UInput
+                v-model="declaredPeriod"
+                class="w-full sm:w-40"
+                placeholder="2025"
+              />
+            </UFormField>
+
             <UAlert
-              v-if="!draft.periodPath"
+              v-if="!draft.periodPath && !draft.period"
               color="warning"
               variant="soft"
               :title="t('documentTypes.edit.period.missing')"

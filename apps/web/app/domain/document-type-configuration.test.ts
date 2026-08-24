@@ -1,3 +1,4 @@
+import type { MappingRoles, FieldSelection } from '~/domain/document-type-configuration'
 import { describe, expect, it } from 'vitest'
 import type { ConceptMapping, MappingChange } from '~/domain/entities/concept-mapping'
 import type { FieldRole } from '~/domain/entities/document-type'
@@ -5,7 +6,6 @@ import type {
   DocumentTypeProposal,
   ProposedField
 } from '~/domain/entities/document-type-proposal'
-import type { FieldSelection } from '~/domain/document-type-configuration'
 import type { SchemaField } from '~/domain/extraction-schema'
 import {
   buildFieldSelections,
@@ -48,10 +48,20 @@ const MAPPING: ConceptMapping = {
   ],
   reporterPath: 'nit',
   reporterNamePath: 'razon_social',
-  periodPath: 'anio'
+  periodPath: 'anio',
+  reporterTaxId: null,
+  reporterName: null,
+  period: null
 }
 
-const NO_ROLES = { reporterPath: null, reporterNamePath: null, periodPath: null }
+const NO_ROLES: MappingRoles = {
+  reporterPath: null,
+  reporterNamePath: null,
+  periodPath: null,
+  reporterTaxId: null,
+  reporterName: null,
+  period: null
+}
 
 describe('buildFieldSelections', () => {
   it('keeps every field the schema already declares', () => {
@@ -134,7 +144,10 @@ describe('toMappingDraft', () => {
     expect(toMappingDraft(selections, MAPPING, MAPPING)).toMatchObject({
       reporterPath: 'nit',
       reporterNamePath: 'razon_social',
-      periodPath: 'anio'
+      periodPath: 'anio',
+      reporterTaxId: null,
+      reporterName: null,
+      period: null
     })
   })
 })
@@ -462,7 +475,7 @@ describe('groupBySection', () => {
 })
 
 describe('creationBlock', () => {
-  const roles = { reporterPath: 'nit', reporterNamePath: null, periodPath: null }
+  const roles: MappingRoles = { ...NO_ROLES, reporterPath: 'nit' }
 
   it('lets a draft through when the reporting party is kept', () => {
     const rows = buildProposalRows(PROPOSAL, [])
@@ -494,7 +507,7 @@ describe('creationBlock', () => {
     const rows = buildProposalRows({ ...PROPOSAL, fieldMappings: [] }, [])
     const draft = toMappingDraft(
       rows,
-      { reporterPath: null, reporterNamePath: null, periodPath: null },
+      NO_ROLES,
       null
     )
 
@@ -538,7 +551,7 @@ describe('toProposedFieldMappings', () => {
     )
     const draft = toMappingDraft(
       rows,
-      { reporterPath: 'nit', reporterNamePath: null, periodPath: null },
+      { ...NO_ROLES, reporterPath: 'nit' },
       proposalMappingBaseline(PROPOSAL)
     )
 
@@ -558,5 +571,44 @@ describe('parseTaxYears', () => {
   it('reports what is not a year instead of dropping it', () => {
     expect(invalidTaxYears('2024, veinticuatro, 24')).toEqual(['veinticuatro', '24'])
     expect(parseTaxYears('2024, veinticuatro, 24')).toEqual([2024])
+  })
+})
+
+describe('a type that declares what its documents never state', () => {
+  const entry = { path: 'gmf', kept: true, conceptId: 'bank:cert_gmf_valor' }
+
+  it('counts as configured when the type declares who reports', () => {
+    // The certificate never prints its issuer, so no path can answer this and
+    // the mapping would otherwise read as unusable forever.
+    const draft = toMappingDraft([entry], { ...NO_ROLES, reporterTaxId: '890903938' }, null)
+
+    expect(configurationStatus(draft)).toBe('configured')
+    expect(isDraftSavable(draft)).toBe(true)
+  })
+
+  it('is still unusable when neither the paper nor the type names anyone', () => {
+    const draft = toMappingDraft([entry], NO_ROLES, null)
+
+    expect(configurationStatus(draft)).toBe('unusable')
+  })
+
+  it('reads an emptied input as not declared, not as declared blank', () => {
+    const draft = toMappingDraft([entry], { ...NO_ROLES, reporterTaxId: '   ' }, null)
+
+    expect(draft.reporterTaxId).toBeNull()
+    expect(configurationStatus(draft)).toBe('unusable')
+  })
+
+  it('keeps a declared value even though no kept field backs it', () => {
+    // Declared values are not read from the document, so trimming the schema
+    // cannot invalidate them the way it invalidates a path.
+    const draft = toMappingDraft(
+      [{ ...entry, kept: false }],
+      { ...NO_ROLES, reporterTaxId: '890903938', period: '2025' },
+      null
+    )
+
+    expect(draft.reporterTaxId).toBe('890903938')
+    expect(draft.period).toBe('2025')
   })
 })

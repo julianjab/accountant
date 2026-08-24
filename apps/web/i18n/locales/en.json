@@ -222,7 +222,13 @@
         "missing": "The server discards EVERY mapping on this type when it cannot attribute the figures to a tax id, and each claim this document should back is reported as missing.",
         "namePath": "Field holding the reporting party's name",
         "nameHint": "Optional. Only used to show whose document it is; it does not replace the tax id.",
-        "blocksSave": "Pick the field holding the reporting party's tax id before saving the mappings."
+        "blocksSave": "Pick the field holding the reporting party's tax id before saving the mappings.",
+        "declaredTaxId": "Or declare the tax id here",
+        "declaredTaxIdHint": "For documents that never print their issuer's tax id. Used only when the document does not state it: if the paper says it, the paper wins.",
+        "declaredName": "Or declare the name here",
+        "declaredNameHint": "Only used to show whose document this is.",
+        "declaredPeriod": "Or declare the year here",
+        "declaredPeriodHint": "For documents that do not say which year they cover. Careful: it makes every document of this type count for that year, so pair it with the type's tax years."
       },
       "period": {
         "path": "Field holding the period",

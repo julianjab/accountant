@@ -1,9 +1,11 @@
 /**
  * How a document type's extracted fields project onto a kind's concepts.
  *
- * `reporterPath` is load-bearing: a fact that cannot be attributed to a
- * reporting party is discarded by the projection, so a mapping without it
- * yields nothing at all no matter how many entries it carries.
+ * Attributing the figures to a reporting party is load-bearing: a fact that
+ * cannot be is discarded by the projection, so a mapping that names nobody
+ * yields nothing at all no matter how many entries it carries. Either
+ * `reporterPath` (the document states it) or `reporterTaxId` (the type
+ * declares it) answers that.
  */
 
 /** The document states the figure with the opposite sign to the concept. */
@@ -41,6 +43,19 @@ export interface ConceptMappingDraft {
   reporterPath: string | null
   reporterNamePath: string | null
   periodPath: string | null
+  /**
+   * Who reports, when the document never prints it.
+   *
+   * Plenty of certificates identify the taxpayer and never their own issuer:
+   * the letterhead says who they are and the text does not repeat it. Stated
+   * per document type, which is where it is knowable — every document of this
+   * type comes from the same entity. What the document says always wins; this
+   * only fills a silence.
+   */
+  reporterTaxId: string | null
+  reporterName: string | null
+  /** The period every document of this type covers, when the paper omits it. */
+  period: string | null
 }
 
 export interface ConceptMapping extends ConceptMappingDraft {
@@ -58,7 +73,7 @@ export interface ConceptMapping extends ConceptMappingDraft {
  * reconciling.
  */
 export function isConceptMappingCleared(mapping: ConceptMapping): boolean {
-  return mapping.entries.length === 0 && !mapping.reporterPath
+  return mapping.entries.length === 0 && !mapping.reporterPath && !mapping.reporterTaxId
 }
 
 /** What the server had to change about a mapping to keep it consistent with a

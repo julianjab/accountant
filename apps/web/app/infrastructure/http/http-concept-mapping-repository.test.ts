@@ -119,7 +119,10 @@ describe('HttpConceptMappingRepository', () => {
       ],
       reporterPath: 'bank_tax_id',
       reporterNamePath: null,
-      periodPath: null
+      periodPath: null,
+      reporterTaxId: null,
+      reporterName: null,
+      period: null
     })
 
     const [path, options] = fetcher.mock.calls[0]!
@@ -138,7 +141,30 @@ describe('HttpConceptMappingRepository', () => {
       ],
       reporter_path: 'bank_tax_id',
       reporter_name_path: null,
-      period_path: null
+      period_path: null,
+      reporter_tax_id: null,
+      reporter_name: null,
+      period: null
+    })
+  })
+
+  it('sends the values a type declares for the papers that never state them', async () => {
+    const fetcher = stubFetch(() => MAPPING_DTO)
+
+    await new HttpConceptMappingRepository('http://api').save('exogena_dian', 'dt-1', {
+      entries: [],
+      reporterPath: null,
+      reporterNamePath: null,
+      periodPath: null,
+      reporterTaxId: '890903938',
+      reporterName: 'JFK Cooperativa Financiera',
+      period: '2025'
+    })
+
+    expect(fetcher.mock.calls[0]![1]!.body).toMatchObject({
+      reporter_tax_id: '890903938',
+      reporter_name: 'JFK Cooperativa Financiera',
+      period: '2025'
     })
   })
 

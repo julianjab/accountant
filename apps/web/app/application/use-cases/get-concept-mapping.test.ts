@@ -19,7 +19,10 @@ const MAPPING: ConceptMapping = {
   ],
   reporterPath: 'bank_tax_id',
   reporterNamePath: 'bank_name',
-  periodPath: 'year'
+  periodPath: 'year',
+  reporterTaxId: null,
+  reporterName: null,
+  period: null
 }
 
 class FakeConceptMappingRepository implements ConceptMappingRepository {

@@ -37,6 +37,9 @@ interface MappingDto {
   reporter_path: string | null
   reporter_name_path: string | null
   period_path: string | null
+  reporter_tax_id?: string | null
+  reporter_name?: string | null
+  period?: string | null
 }
 
 function toConcept(dto: ConceptDto): ReconciliationKind['evidenceConcepts'][number] {
@@ -75,7 +78,10 @@ function toMapping(dto: MappingDto): ConceptMapping {
     entries: dto.entries.map(toEntry),
     reporterPath: dto.reporter_path,
     reporterNamePath: dto.reporter_name_path,
-    periodPath: dto.period_path
+    periodPath: dto.period_path,
+    reporterTaxId: dto.reporter_tax_id ?? null,
+    reporterName: dto.reporter_name ?? null,
+    period: dto.period ?? null
   }
 }
 
@@ -134,7 +140,10 @@ export class HttpConceptMappingRepository implements ConceptMappingRepository {
         })),
         reporter_path: draft.reporterPath,
         reporter_name_path: draft.reporterNamePath,
-        period_path: draft.periodPath
+        period_path: draft.periodPath,
+        reporter_tax_id: draft.reporterTaxId,
+        reporter_name: draft.reporterName,
+        period: draft.period
       }
     })
     return toMapping(dto)

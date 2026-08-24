@@ -222,7 +222,13 @@
         "missing": "El servidor descarta TODAS las asignaciones de este tipo cuando no sabe a qué NIT atribuir las cifras, y cada dato que este documento debería respaldar aparece como faltante.",
         "namePath": "Campo con el nombre de quien reporta",
         "nameHint": "Opcional. Sólo se usa para mostrar de quién es el documento; no reemplaza al NIT.",
-        "blocksSave": "Elegí el campo con el NIT de quien reporta para poder guardar las asignaciones."
+        "blocksSave": "Elegí el campo con el NIT de quien reporta para poder guardar las asignaciones.",
+        "declaredTaxId": "O declarar el NIT acá",
+        "declaredTaxIdHint": "Para los documentos que nunca imprimen el NIT de quien los emite. Se usa sólo cuando el documento no lo trae: si el papel lo dice, gana el papel.",
+        "declaredName": "O declarar el nombre acá",
+        "declaredNameHint": "Sólo para mostrar de quién es el documento.",
+        "declaredPeriod": "O declarar el año acá",
+        "declaredPeriodHint": "Para los documentos que no dicen a qué año corresponden. Ojo: hace que todo documento de este tipo cuente para ese año, así que conviene junto con los años del tipo."
       },
       "period": {
         "path": "Campo con el período",

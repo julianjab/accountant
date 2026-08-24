@@ -53,12 +53,20 @@ export type FieldSelectionInput
   = Pick<FieldSelection, 'path' | 'kept' | 'conceptId'>
     & Partial<Omit<FieldSelection, 'path' | 'kept' | 'conceptId'>>
 
-/** The three paths that are about the document as a whole rather than about
- * one figure it states. */
+/**
+ * What identifies the document as a whole, rather than one figure it states.
+ *
+ * Each has two ways to be answered: a path, when the paper says it, and a
+ * declared value, for the papers that never do. Both are carried because the
+ * choice is per document type and has to survive an edit either way.
+ */
 export interface MappingRoles {
   reporterPath: string | null
   reporterNamePath: string | null
   periodPath: string | null
+  reporterTaxId: string | null
+  reporterName: string | null
+  period: string | null
 }
 
 export type ConfigurationStatus = 'unusable' | 'notMapped' | 'configured'
@@ -147,20 +155,33 @@ export function toMappingDraft(
     entries,
     reporterPath: rolePath(roles.reporterPath),
     reporterNamePath: rolePath(roles.reporterNamePath),
-    periodPath: rolePath(roles.periodPath)
+    periodPath: rolePath(roles.periodPath),
+    // Not filtered by the kept fields: a declared value is not read from the
+    // document at all, so trimming the schema cannot invalidate it.
+    reporterTaxId: blankToNull(roles.reporterTaxId),
+    reporterName: blankToNull(roles.reporterName),
+    period: blankToNull(roles.period)
   }
+}
+
+/** An emptied text input means "not declared", not "declared as nothing". */
+function blankToNull(value: string | null): string | null {
+  const trimmed = value?.trim() ?? ''
+  return trimmed === '' ? null : trimmed
 }
 
 /**
  * Whether the type actually reconciles anything.
  *
- * Entries without a reporter path are the trap this screen exists to close:
- * the server stores them happily and then discards every fact they produce,
- * so that state is reported as unusable rather than as configured.
+ * Entries with nobody to attribute them to are the trap this screen exists
+ * to close: the server stores them happily and then discards every fact
+ * they produce, so that state is reported as unusable, not configured.
  */
 export function configurationStatus(draft: ConceptMappingDraft): ConfigurationStatus {
   if (draft.entries.length === 0) return 'notMapped'
-  if (!draft.reporterPath) return 'unusable'
+  // Either answer attributes the figures: the paper states the party, or the
+  // type declares it. Neither is what makes the mapping produce nothing.
+  if (!draft.reporterPath && !draft.reporterTaxId) return 'unusable'
   return 'configured'
 }
 
@@ -174,7 +195,13 @@ export function isDraftSavable(draft: ConceptMappingDraft): boolean {
  * type that was never mapped would only create an empty record. */
 export function shouldSaveDraft(draft: ConceptMappingDraft, existing: ConceptMapping | null): boolean {
   if (existing) return true
-  return draft.entries.length > 0 || draft.reporterPath !== null || draft.periodPath !== null
+  return (
+    draft.entries.length > 0
+    || draft.reporterPath !== null
+    || draft.periodPath !== null
+    || draft.reporterTaxId !== null
+    || draft.period !== null
+  )
 }
 
 /**
@@ -327,7 +354,12 @@ export function proposalMappingBaseline(proposal: DocumentTypeProposal): Concept
     })),
     reporterPath: proposal.reporterPath,
     reporterNamePath: proposal.reporterNamePath,
-    periodPath: proposal.periodPath
+    periodPath: proposal.periodPath,
+    // Never proposed: the model reads the paper, and these exist precisely for
+    // what the paper does not say.
+    reporterTaxId: null,
+    reporterName: null,
+    period: null
   }
 }
 

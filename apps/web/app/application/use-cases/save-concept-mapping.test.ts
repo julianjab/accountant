@@ -18,7 +18,10 @@ const DRAFT: ConceptMappingDraft = {
   ],
   reporterPath: 'bank_tax_id',
   reporterNamePath: 'bank_name',
-  periodPath: 'year'
+  periodPath: 'year',
+  reporterTaxId: null,
+  reporterName: null,
+  period: null
 }
 
 class FakeConceptMappingRepository implements ConceptMappingRepository {
@@ -72,7 +75,10 @@ describe('SaveConceptMapping', () => {
       entries: [],
       reporterPath: null,
       reporterNamePath: null,
-      periodPath: null
+      periodPath: null,
+      reporterTaxId: null,
+      reporterName: null,
+      period: null
     })
 
     expect(repository.savedDraft?.entries).toEqual([])
