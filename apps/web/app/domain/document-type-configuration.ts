@@ -548,7 +548,10 @@ export function toDocumentTypeFields(rows: readonly ProposalFieldRow[]): Documen
       path: row.path,
       label: row.label,
       role: row.role,
-      section: row.section ?? ''
+      section: row.section ?? '',
+      // Carried so the editor can show the same value the row was chosen by;
+      // recomputing it later would mean re-reading the paper.
+      sampleValue: row.sampleValue ?? ''
     }))
 }
 

@@ -11,12 +11,11 @@
 import type { ConceptMappingSign } from './concept-mapping'
 import type { DocumentTypeField } from './document-type'
 
-/** A proposed field is a field description plus what the AI read on the sample,
- * so the choice can be made by recognising the figure instead of by trusting
- * the label. The description itself is stored on the type when it is kept. */
-export interface ProposedField extends DocumentTypeField {
-  sampleValue: string
-}
+/** A proposed field is exactly a field description: the value read on the
+ * sample used to live only here, and is now kept on the type itself, so the
+ * editor can offer the same anchor the configurator does. Named separately
+ * because a proposal is an offer and a description is stored. */
+export type ProposedField = DocumentTypeField
 
 /** A field the proposal already knows the meaning of. Narrower than a stored
  * mapping entry: the spine line and the per-account comparison are curation

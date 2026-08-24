@@ -23,6 +23,15 @@ export interface DocumentTypeField {
   role: FieldRole
   /** The block of the document this field belongs to; empty when unknown. */
   section: string
+  /**
+   * What this field said on the sample the type was configured from; empty
+   * when unknown, which is every type saved before it was carried.
+   *
+   * A path and a label still leave "which of these figures is it?" open on a
+   * certificate that prints four of them — the configurator settles that by
+   * showing the value, and the editor asks the same question of the same list.
+   */
+  sampleValue: string
 }
 
 export interface DocumentType {

@@ -153,7 +153,8 @@
       "other": "Otros campos del documento",
       "count": "{kept} de {total} marcados",
       "all": "Marcar todo",
-      "none": "Ninguno"
+      "none": "Ninguno",
+      "sampleValue": "En la muestra: {value}"
     },
     "new": {
       "title": "Definir tipo de documento",
@@ -172,7 +173,6 @@
         "hint": "Vienen marcados la identificación y los valores, que suele ser lo que hace falta. Lo demás —fechas, textos, encabezados— viene sin marcar: marcá lo que sí necesites y desmarcá lo que no. Lo que quede sin marcar no se extrae.",
         "empty": "El análisis no encontró campos en este documento.",
         "keep": "Extraer este campo",
-        "sampleValue": "En la muestra: {value}",
         "keptSummary": "Se van a extraer {kept} de {total} campos.",
         "role": {
           "identifier": "Identificación",

@@ -153,7 +153,8 @@
       "other": "Other fields in the document",
       "count": "{kept} of {total} kept",
       "all": "Keep all",
-      "none": "None"
+      "none": "None",
+      "sampleValue": "On the sample: {value}"
     },
     "new": {
       "title": "Define document type",
@@ -172,7 +173,6 @@
         "hint": "The identification and the amounts start ticked, which is usually what is needed. Everything else — dates, wording, headings — starts unticked: tick what you do need and untick what you do not. Whatever stays unticked is not extracted.",
         "empty": "The analysis found no fields in this document.",
         "keep": "Extract this field",
-        "sampleValue": "On the sample: {value}",
         "keptSummary": "{kept} of {total} fields will be extracted.",
         "role": {
           "identifier": "Identification",

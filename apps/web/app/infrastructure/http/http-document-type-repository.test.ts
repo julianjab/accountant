@@ -14,7 +14,8 @@ const DOCUMENT_TYPE_DTO = {
       path: 'cuentas[].saldo',
       label: 'Saldo a 31 de diciembre',
       role: 'amount',
-      section: 'Cuentas de ahorro'
+      section: 'Cuentas de ahorro',
+      sample_value: '2.241.275,17'
     },
     { path: 'pie_de_pagina' }
   ],
@@ -190,7 +191,8 @@ describe('HttpDocumentTypeRepository.create', () => {
           path: 'gmf[].valor',
           label: 'Valor GMF',
           role: 'amount',
-          section: 'Gravamen a los movimientos financieros'
+          section: 'Gravamen a los movimientos financieros',
+          sampleValue: '512.561,52'
         }
       ],
       reporterPath: 'agente_retenedor.nit',
@@ -228,7 +230,8 @@ describe('HttpDocumentTypeRepository.create', () => {
             path: 'gmf[].valor',
             label: 'Valor GMF',
             role: 'amount',
-            section: 'Gravamen a los movimientos financieros'
+            section: 'Gravamen a los movimientos financieros',
+            sample_value: '512.561,52'
           }
         ],
         kind_id: 'exogena_dian',
@@ -277,7 +280,8 @@ describe('HttpDocumentTypeRepository field descriptions', () => {
       path: 'cuentas[].saldo',
       label: 'Saldo a 31 de diciembre',
       role: 'amount',
-      section: 'Cuentas de ahorro'
+      section: 'Cuentas de ahorro',
+      sampleValue: '2.241.275,17'
     })
   })
 
@@ -290,7 +294,8 @@ describe('HttpDocumentTypeRepository field descriptions', () => {
       path: 'pie_de_pagina',
       label: 'pie_de_pagina',
       role: 'context',
-      section: ''
+      section: '',
+      sampleValue: ''
     })
   })
 })

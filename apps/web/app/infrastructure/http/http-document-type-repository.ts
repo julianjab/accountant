@@ -25,6 +25,7 @@ interface DocumentTypeFieldDto {
   label?: string | null
   role?: string | null
   section?: string | null
+  sample_value?: string | null
 }
 
 interface DocumentTypeDto {
@@ -108,7 +109,8 @@ function toDocumentTypeField(dto: DocumentTypeFieldDto): DocumentTypeField {
     // offer, and a blank line in a list is worse than a technical one.
     label: dto.label || dto.path,
     role: toRole(dto.role),
-    section: dto.section ?? ''
+    section: dto.section ?? '',
+    sampleValue: dto.sample_value ?? ''
   }
 }
 
@@ -117,7 +119,8 @@ function toFieldDto(field: DocumentTypeField): DocumentTypeFieldDto {
     path: field.path,
     label: field.label,
     role: field.role,
-    section: field.section
+    section: field.section,
+    sample_value: field.sampleValue
   }
 }
 

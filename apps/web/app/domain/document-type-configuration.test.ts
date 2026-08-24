@@ -516,16 +516,23 @@ describe('creationBlock', () => {
 })
 
 describe('toDocumentTypeFields', () => {
-  it('stores the label, role and section of the fields that were kept', () => {
+  it('stores the label, role, section and sample value of the fields kept', () => {
     const rows = buildProposalRows(PROPOSAL, [])
 
     expect(toDocumentTypeFields(rows)).toEqual([
-      { path: 'nit', label: 'NIT', role: 'identifier', section: 'Datos del titular' },
+      {
+        path: 'nit',
+        label: 'NIT',
+        role: 'identifier',
+        section: 'Datos del titular',
+        sampleValue: '1'
+      },
       {
         path: 'gmf',
         label: 'GMF',
         role: 'amount',
-        section: 'Gravamen a los movimientos financieros'
+        section: 'Gravamen a los movimientos financieros',
+        sampleValue: '1'
       }
     ])
   })
@@ -539,7 +546,8 @@ describe('toDocumentTypeFields', () => {
       path: 'pie_de_pagina',
       label: 'PIE_DE_PAGINA',
       role: 'context',
-      section: ''
+      section: '',
+      sampleValue: '1'
     })
   })
 })

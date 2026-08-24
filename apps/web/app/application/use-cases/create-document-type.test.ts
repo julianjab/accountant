@@ -18,7 +18,7 @@ const CREATED: DocumentTypeCreation = {
     extractionSchema: { type: 'object', properties: {} },
     active: true,
     createdAt: '2026-08-24',
-    fields: [{ path: 'gmf', label: 'Valor GMF', role: 'amount', section: 'GMF' }],
+    fields: [{ path: 'gmf', label: 'Valor GMF', role: 'amount', section: 'GMF', sampleValue: '' }],
     taxYears: [],
     sampleDocumentId: null
   },
@@ -63,7 +63,7 @@ describe('CreateDocumentType', () => {
       extractionPrompt: 'Extraelo',
       extractionSchema: { type: 'object', properties: {} },
       fieldMappings: [{ fieldPath: 'gmf', conceptId: 'bank:gmf', accountPath: null, sign: -1 }],
-      fields: [{ path: 'gmf', label: 'Valor GMF', role: 'amount', section: 'GMF' }],
+      fields: [{ path: 'gmf', label: 'Valor GMF', role: 'amount', section: 'GMF', sampleValue: '' }],
       reporterPath: 'nit',
       reporterTaxId: null,
       reporterName: null,

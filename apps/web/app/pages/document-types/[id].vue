@@ -448,6 +448,13 @@ const nameByPath = computed(
   () => new Map(schemaFields.value.map(field => [field.path, field.name]))
 )
 
+/** What each field read on the paper the type was configured from. Empty for
+ * every type saved before the value was carried, and for any field a
+ * re-reading never matched. */
+const sampleValueByPath = computed(
+  () => new Map(describedFields.value.map(field => [field.path, field.sampleValue]))
+)
+
 /** What the type recorded about its fields when it was created: the document's
  * own name for each one and the block of the page it sits in. */
 const describedFields = computed(() => documentType.value?.fields ?? [])
@@ -900,6 +907,20 @@ watch(
                     </p>
                     <p class="text-dimmed break-all font-mono text-xs">
                       {{ selections[index]!.path }}
+                    </p>
+                    <!--
+                      The same anchor the configurator offers: on a certificate
+                      that prints four figures, the value is what says which
+                      one this row is.
+                    -->
+                    <p
+                      v-if="sampleValueByPath.get(selections[index]!.path)"
+                      class="text-toned text-[13px]"
+                      data-testid="field-sample-value"
+                    >
+                      {{ t('documentTypes.sections.sampleValue', {
+                        value: sampleValueByPath.get(selections[index]!.path)
+                      }) }}
                     </p>
                     <p
                       v-if="!selections[index]!.kept"

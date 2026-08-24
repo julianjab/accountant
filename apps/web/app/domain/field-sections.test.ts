@@ -12,7 +12,7 @@ import {
 } from '~/domain/field-sections'
 
 function field(path: string, section: string, label = path): DocumentTypeField {
-  return { path, label, role: 'context', section }
+  return { path, label, role: 'context', section, sampleValue: '' }
 }
 
 const FIELDS: DocumentTypeField[] = [

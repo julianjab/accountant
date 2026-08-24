@@ -591,7 +591,7 @@ async function save() {
                       v-if="row.sampleValue"
                       class="text-toned text-[13px]"
                     >
-                      {{ t('documentTypes.new.select.sampleValue', { value: row.sampleValue }) }}
+                      {{ t('documentTypes.sections.sampleValue', { value: row.sampleValue }) }}
                     </p>
                     <p class="text-dimmed break-all font-mono text-xs">
                       {{ row.path }}
