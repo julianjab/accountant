@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from server.domain.entities import DocumentType
+from server.domain.entities import DocumentType, DocumentTypeField
 from server.domain.ports import (
     ConceptOption,
     DocumentContent,
@@ -40,6 +40,10 @@ class DefineDocumentTypeInput:
     #: The document the configuration was derived from, kept so whoever
     #: revisits it can read the paper behind the choices.
     sample_document_id: str | None = None
+    #: What the kept fields are called and which block of the document they
+    #: came from. Saved with the type because a schema records a path and a
+    #: JSON type, and no screen can name a field from those.
+    fields: tuple[DocumentTypeField, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +115,7 @@ class DefineDocumentType:
             created_at=datetime.now(UTC),
             tax_years=data.tax_years,
             sample_document_id=data.sample_document_id,
+            fields=data.fields,
         )
         self._document_types.save(document_type)
         return DefinedDocumentType(

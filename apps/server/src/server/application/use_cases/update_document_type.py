@@ -1,7 +1,7 @@
 from dataclasses import dataclass, replace
 from typing import Any
 
-from server.domain.entities import DocumentType
+from server.domain.entities import DocumentType, DocumentTypeField
 from server.domain.ports import DocumentTypeRepository
 
 
@@ -29,6 +29,10 @@ class UpdateDocumentTypeInput:
     #: "applies to any year", which is a real choice a caller must be able to
     #: make, so None cannot double as it.
     tax_years: tuple[int, ...] | None = None
+    #: What each kept field is called and where it sits. Like tax years this
+    #: carries its own emptiness, so None means untouched and `()` means the
+    #: descriptions were deliberately cleared.
+    fields: tuple[DocumentTypeField, ...] | None = None
 
 
 class UpdateDocumentType:
@@ -57,6 +61,7 @@ class UpdateDocumentType:
                 ("extraction_prompt", data.extraction_prompt),
                 ("extraction_schema", data.extraction_schema),
                 ("tax_years", data.tax_years),
+                ("fields", data.fields),
             )
             if value is not None
         }

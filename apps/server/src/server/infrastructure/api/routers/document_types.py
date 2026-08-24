@@ -11,6 +11,7 @@ from server.application.use_cases import (
     UpdateDocumentType,
     UpdateDocumentTypeInput,
 )
+from server.domain.entities import DocumentType, DocumentTypeField, FieldRole
 from server.domain.ports import ConceptOption, DocumentContent, ProposedFieldMapping
 from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
@@ -25,6 +26,7 @@ from server.infrastructure.api.deps import (
 from server.infrastructure.api.schemas import (
     DocumentTypeCreatedResponse,
     DocumentTypeCreateRequest,
+    DocumentTypeFieldPayload,
     DocumentTypeProposalResponse,
     DocumentTypeResponse,
     DocumentTypeUpdatedResponse,
@@ -42,7 +44,11 @@ from server.reconciliation.application import (
     SaveConceptMapping,
     SaveConceptMappingInput,
 )
-from server.reconciliation.core.projection import ConceptMapping, ConceptMappingEntry
+from server.reconciliation.core.projection import (
+    ConceptMapping,
+    ConceptMappingEntry,
+    path_resolves_in,
+)
 from server.reconciliation.core.registry import KindRegistry, UnknownReconciliationKind
 
 logger = logging.getLogger(__name__)
@@ -164,6 +170,7 @@ def create_document_type(
             concepts=_concept_options(kind),
             tax_years=tax_years,
             sample_document_id=sample_document_id,
+            fields=_fields_from_payload(payload.fields),
         )
     )
 
@@ -253,7 +260,9 @@ def update_document_type(
     payload: DocumentTypeUpdateRequest,
     use_case: UpdateDocumentType = Depends(get_update_document_type_use_case),
     prune: PruneConceptMappings = Depends(get_prune_concept_mappings_use_case),
+    document_types=Depends(get_document_type_repository),
 ) -> DocumentTypeUpdatedResponse:
+    stored = document_types.get(document_type_id)
     try:
         updated = use_case.execute(
             UpdateDocumentTypeInput(
@@ -267,6 +276,7 @@ def update_document_type(
                 # assume one, and None must keep meaning "untouched" so that
                 # an empty list can mean "applies to any year".
                 tax_years=(tuple(payload.tax_years) if payload.tax_years is not None else None),
+                fields=_edited_fields(payload, stored),
             )
         )
     except DocumentTypeNotFound as exc:
@@ -356,3 +366,44 @@ def _concept_options(kind) -> tuple[ConceptOption, ...]:
         ConceptOption(id=c.id, label=c.label, description=c.description)
         for c in kind.concept_catalog().evidence_concepts
     )
+
+
+def _fields_from_payload(
+    payload: list[DocumentTypeFieldPayload],
+) -> tuple[DocumentTypeField, ...]:
+    """Descriptions as sent, with an unrecognised role read as plain context.
+
+    Rejecting the role would fail the whole save over a label, losing the
+    configuration someone just reviewed for the sake of a field that is only
+    ever used to sort a screen.
+    """
+    fields = []
+    for f in payload:
+        try:
+            role = FieldRole(f.role)
+        except ValueError:
+            logger.warning("Unknown field role %r on %s, kept as context", f.role, f.path)
+            role = FieldRole.CONTEXT
+        fields.append(
+            DocumentTypeField(path=f.path, label=f.label or f.path, role=role, section=f.section)
+        )
+    return tuple(fields)
+
+
+def _edited_fields(
+    payload: DocumentTypeUpdateRequest, stored: DocumentType | None
+) -> tuple[DocumentTypeField, ...] | None:
+    """What the type should describe after this edit, or None to leave it be.
+
+    An edit that trims the schema without resending the descriptions would
+    otherwise leave labels for fields that are no longer extracted, and the
+    document detail would show sections whose rows are always empty. So the
+    stored descriptions are realigned with the new schema here — the same
+    place, and the same reason, as pruning the concept mappings.
+    """
+    if payload.fields is not None:
+        return _fields_from_payload(payload.fields)
+    if payload.extraction_schema is None or stored is None or not stored.fields:
+        return None
+    kept = tuple(f for f in stored.fields if path_resolves_in(f.path, payload.extraction_schema))
+    return kept if len(kept) != len(stored.fields) else None

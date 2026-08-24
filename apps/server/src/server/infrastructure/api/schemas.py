@@ -55,6 +55,22 @@ class ClientImportResponse(BaseModel):
     unchanged: int
 
 
+class DocumentTypeFieldPayload(BaseModel):
+    """One extracted field, described the way the document describes it.
+
+    Carried on the type rather than recomputed per screen: the schema knows a
+    path and a JSON type, neither of which tells a reader what the paper calls
+    the field or which block of the page it sits in.
+    """
+
+    path: str
+    label: str
+    #: identifier | amount | context.
+    role: str = "context"
+    #: The block of the document this field belongs to. Empty when unknown.
+    section: str = ""
+
+
 class DocumentTypeResponse(BaseModel):
     id: str
     name: str
@@ -66,6 +82,9 @@ class DocumentTypeResponse(BaseModel):
     #: Empty means the type applies to any tax year.
     tax_years: list[int] = []
     sample_document_id: str | None = None
+    #: What each field is and where it sits, so the configurator and the
+    #: document detail can lay themselves out like the document.
+    fields: list[DocumentTypeFieldPayload] = []
 
 
 class DocumentResponse(BaseModel):
@@ -277,6 +296,9 @@ class DocumentTypeCreateRequest(BaseModel):
     #: The document the configuration was derived from, when it came from one
     #: already in the client's folder.
     sample_document_id: str | None = None
+    #: The fields that were kept, with the label and section the proposal gave
+    #: them. Empty is allowed and means no screen can do better than paths.
+    fields: list[DocumentTypeFieldPayload] = []
 
 
 class DocumentTypeUpdateRequest(BaseModel):
@@ -295,6 +317,9 @@ class DocumentTypeUpdateRequest(BaseModel):
     tax_years: list[int] | None = None
     extraction_prompt: str | None = None
     extraction_schema: dict[str, Any] | None = None
+    #: Omitted keeps the stored descriptions; sent replaces them wholesale,
+    #: since an edit that trims the schema is exactly when they change.
+    fields: list[DocumentTypeFieldPayload] | None = None
 
 
 class MappingChangeResponse(BaseModel):

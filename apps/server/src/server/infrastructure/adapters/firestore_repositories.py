@@ -20,8 +20,10 @@ from server.domain.entities import (
     Document,
     DocumentStatus,
     DocumentType,
+    DocumentTypeField,
     DriveWatchChannel,
     ExtractedData,
+    FieldRole,
     GoogleSession,
     GoogleUser,
 )
@@ -192,6 +194,15 @@ class FirestoreDocumentTypeRepository:
                 "created_at": document_type.created_at,
                 "tax_years": list(document_type.tax_years),
                 "sample_document_id": document_type.sample_document_id,
+                "fields": [
+                    {
+                        "path": f.path,
+                        "label": f.label,
+                        "role": str(f.role),
+                        "section": f.section,
+                    }
+                    for f in document_type.fields
+                ],
             }
         )
 
@@ -218,7 +229,36 @@ class FirestoreDocumentTypeRepository:
             created_at=_as_utc(data["created_at"]),
             tax_years=tuple(data.get("tax_years") or ()),
             sample_document_id=data.get("sample_document_id"),
+            fields=_document_type_fields(data.get("fields")),
         )
+
+
+def _document_type_fields(raw: Any) -> tuple[DocumentTypeField, ...]:
+    """Field descriptions as stored, skipping anything unreadable.
+
+    Types created before descriptions existed have no `fields` at all, and a
+    row written by an older shape must not make the whole type unreadable —
+    losing a label degrades a screen, raising here loses the type.
+    """
+    if not isinstance(raw, list):
+        return ()
+    fields = []
+    for item in raw:
+        if not isinstance(item, dict) or not item.get("path"):
+            continue
+        try:
+            role = FieldRole(item.get("role", FieldRole.CONTEXT))
+        except ValueError:
+            role = FieldRole.CONTEXT
+        fields.append(
+            DocumentTypeField(
+                path=item["path"],
+                label=item.get("label") or item["path"],
+                role=role,
+                section=item.get("section") or "",
+            )
+        )
+    return tuple(fields)
 
 
 class FirestoreExtractedDataRepository:
