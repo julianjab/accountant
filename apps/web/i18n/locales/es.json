@@ -49,7 +49,28 @@
         "empty": "Este cliente todavía no tiene documentos.",
         "awaited": "Falta",
         "awaitedClaims": "{count} valores de la exógena sin certificado",
-        "defineType": "Definir tipo"
+        "defineType": "Definir tipo",
+        "contribution": {
+          "exogena": "Exógena",
+          "facts": "{count} valores usados en el cruce",
+          "spineFacts": "{count} renglones leídos de la exógena",
+          "status": {
+            "contributed": "Aporta datos",
+            "spine_parsed": "Base del cruce",
+            "not_ready": "Sin procesar",
+            "not_classified": "Sin clasificar",
+            "type_not_mapped": "Tipo sin conceptos mapeados",
+            "no_extraction": "Sin datos extraídos",
+            "no_reporting_party": "Sin entidad que reporta",
+            "other_period": "De otro año",
+            "no_amounts": "Sin valores utilizables",
+            "unreadable": "No se pudo leer"
+          },
+          "detail": {
+            "noReportingParty": "No se pudo identificar la entidad: campo {field}",
+            "otherPeriod": "El certificado corresponde al año {year}"
+          }
+        }
       },
       "summary": {
         "title": "Resumen del mes"
