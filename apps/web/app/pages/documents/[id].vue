@@ -48,8 +48,12 @@ watch(
   isAuthenticated,
   async (authenticated) => {
     if (!authenticated) return
-    await refreshDocument()
+    // `refreshExtractedData` has no dependency on `document`, so it fires
+    // alongside it instead of waiting behind it — only `refreshDocumentType`
+    // needs `document.value.documentTypeId` and must wait for it to resolve.
+    const documentPromise = refreshDocument()
     refreshExtractedData()
+    await documentPromise
     refreshDocumentType()
   },
   { immediate: true }
