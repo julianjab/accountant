@@ -11,6 +11,12 @@ from server.reconciliation.application.ports import (
     FactProvider,
     ReconciliationReportRepository,
 )
+from server.reconciliation.application.prune_concept_mappings import (
+    MappingChange,
+    MappingChangeKind,
+    PruneConceptMappings,
+    PruneConceptMappingsInput,
+)
 from server.reconciliation.application.reconcile_client_period import (
     ReconcileClientPeriod,
     ReconcileClientPeriodInput,
@@ -23,6 +29,10 @@ from server.reconciliation.application.save_concept_mapping import (
 
 __all__ = [
     "ConceptMappingRepository",
+    "MappingChange",
+    "MappingChangeKind",
+    "PruneConceptMappings",
+    "PruneConceptMappingsInput",
     "FactProvider",
     "GetConceptMapping",
     "GetConceptMappingInput",
