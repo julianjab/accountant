@@ -16,6 +16,7 @@ const getDocumentType = useGetDocumentTypeUseCase()
 const listDocumentSources = useListDocumentSourcesUseCase()
 const recognizeDocumentSource = useRecognizeDocumentSourceUseCase()
 const approveDocument = useApproveDocumentUseCase()
+const reopenDocument = useReopenDocumentUseCase()
 const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
 const { setLabel: setBreadcrumbLabel, clearLabel: clearBreadcrumbLabel } = useBreadcrumbLabels()
 const showSignedOut = computed(() => !isAuthLoading.value && !isAuthenticated.value)
@@ -75,6 +76,7 @@ watch(
 
 const recognizing = ref(false)
 const approving = ref(false)
+const reopening = ref(false)
 const actionError = ref<string | null>(null)
 
 async function onRecognize(sourceId: string) {
@@ -104,6 +106,22 @@ async function onApprove() {
     actionError.value = errorMessage(error, t('documents.approveFailed'))
   } finally {
     approving.value = false
+  }
+}
+
+// Withdrawing an approval is the only way back to changing anything about a
+// document: while it stands, the file cannot be re-read as another format and
+// a re-import will not reprocess it.
+async function onReopen() {
+  reopening.value = true
+  actionError.value = null
+  try {
+    await reopenDocument.execute(documentId)
+    await refreshDocument()
+  } catch (error) {
+    actionError.value = errorMessage(error, t('documents.reopenFailed'))
+  } finally {
+    reopening.value = false
   }
 }
 
@@ -215,9 +233,11 @@ onUnmounted(() => {
           :sources="sources ?? []"
           :recognizing="recognizing"
           :approving="approving"
+          :reopening="reopening"
           :action-error="actionError"
           @recognize="onRecognize"
           @approve="onApprove"
+          @reopen="onReopen"
         />
       </div>
     </template>

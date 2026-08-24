@@ -132,9 +132,15 @@
       "description": "The classifier only recognises the configured document types. If this file is one of the formats the server reads directly, say so here and it will be read with its own parser.",
       "placeholder": "Choose a format",
       "action": "Read with this format",
-      "failed": "This file could not be read with that format."
+      "failed": "This file could not be read with that format.",
+      "changeTitle": "Read as a known format",
+      "changeDescription": "If that is not the right format, pick another one and the file is read again.",
+      "reread": "Read again"
     },
-    "approveFailed": "The document could not be approved."
+    "approveFailed": "The document could not be approved.",
+    "approvedNote": "Approved. It is now part of the client's spreadsheet.",
+    "reopen": "Reopen for review",
+    "reopenFailed": "The document could not be reopened."
   },
   "documentTypes": {
     "title": "Document types",

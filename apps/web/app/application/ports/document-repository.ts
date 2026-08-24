@@ -37,4 +37,11 @@ export interface DocumentRepository {
    * exactly as it was — so picking the wrong one costs nothing. */
   recognizeSource: (id: string, sourceId: string) => Promise<ClientDocument>
   approve: (id: string, approvedBy?: string) => Promise<ClientDocument>
+  /** Withdraws an approval, returning the document to review.
+   *
+   * Its own call rather than a flag on approve: while an approval stands, the
+   * document cannot be re-read as a different format and a re-import will not
+   * reprocess it, so taking it back has to be something the reviewer asked
+   * for outright. */
+  reopen: (id: string) => Promise<ClientDocument>
 }

@@ -17,6 +17,7 @@ import { GetDocumentExtractedData } from '~/application/use-cases/get-document-e
 import { ListDocumentSources } from '~/application/use-cases/list-document-sources'
 import { RecognizeDocumentSource } from '~/application/use-cases/recognize-document-source'
 import { ApproveDocument } from '~/application/use-cases/approve-document'
+import { ReopenDocument } from '~/application/use-cases/reopen-document'
 import { ImportClientDocuments } from '~/application/use-cases/import-client-documents'
 import { ImportClientsFromDrive } from '~/application/use-cases/import-clients-from-drive'
 import { GetCurrentUser } from '~/application/use-cases/get-current-user'
@@ -159,6 +160,10 @@ export function useRecognizeDocumentSourceUseCase() {
 
 export function useApproveDocumentUseCase() {
   return new ApproveDocument(useDocumentRepository())
+}
+
+export function useReopenDocumentUseCase() {
+  return new ReopenDocument(useDocumentRepository())
 }
 
 export function useImportClientsUseCase() {

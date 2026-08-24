@@ -148,6 +148,15 @@ export class HttpDocumentRepository implements DocumentRepository {
     return toClientDocument(dto)
   }
 
+  async reopen(id: string): Promise<ClientDocument> {
+    const dto = await $fetch<DocumentDto>(`/documents/${id}/reopen`, {
+      baseURL: this.baseUrl,
+      credentials: 'include',
+      method: 'POST'
+    })
+    return toClientDocument(dto)
+  }
+
   async list(filter?: DocumentListFilter): Promise<ClientDocument[]> {
     const dtos = await $fetch<DocumentDto[]>('/documents', {
       baseURL: this.baseUrl,

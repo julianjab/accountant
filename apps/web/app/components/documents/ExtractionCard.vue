@@ -18,15 +18,22 @@ const props = defineProps<{
   sources?: DocumentSource[]
   recognizing?: boolean
   approving?: boolean
+  reopening?: boolean
   actionError?: string | null
 }>()
 
 const emit = defineEmits<{
   recognize: [sourceId: string]
   approve: []
+  reopen: []
 }>()
 
-const chosenSource = ref<string | undefined>(undefined)
+// Preselected with whatever the document was already read as, so the control
+// states the current answer rather than asking again from blank.
+const chosenSource = ref<string | undefined>(props.document.sourceId ?? undefined)
+watch(() => props.document.sourceId, (sourceId) => {
+  chosenSource.value = sourceId ?? undefined
+})
 
 const { t, locale } = useI18n()
 
@@ -155,7 +162,24 @@ const sourceOptions = computed(() =>
   (props.sources ?? []).map(source => ({ label: source.label, value: source.id }))
 )
 
-const canDeclareSource = computed(() => hasExtractionError.value && sourceOptions.value.length > 0)
+const isApproved = computed(() => props.document.status === 'approved')
+
+// Offered on a document that already has a source too, not only on a failed
+// one: someone who picked the wrong format has no other way back, and the
+// picker is the only place that answer lives. Withheld while an approval
+// stands — the server refuses it, and offering a control that cannot work
+// reads as a bug.
+const canDeclareSource = computed(() =>
+  sourceOptions.value.length > 0
+  && !isApproved.value
+  && (hasExtractionError.value || props.document.sourceId !== null)
+)
+
+// Already the current answer, so acting on it would rewrite the document with
+// what it already says.
+const wouldChangeSource = computed(() =>
+  !!chosenSource.value && (hasExtractionError.value || chosenSource.value !== props.document.sourceId)
+)
 
 const canApprove = computed(() => props.document.status === 'processed')
 
@@ -210,10 +234,11 @@ const isMissingExtraction = computed(() =>
     </template>
 
     <div
-      v-if="hasExtractionError"
+      v-if="hasExtractionError || canDeclareSource"
       class="flex flex-col gap-4"
     >
       <UAlert
+        v-if="hasExtractionError"
         color="error"
         :title="t('documents.errorTitle')"
         :description="document.error ?? t('documents.errorFallback')"
@@ -223,17 +248,18 @@ const isMissingExtraction = computed(() =>
         Offered because the classifier structurally cannot reach these: they
         are read by a parser instead of being configured as document types, so
         a file of one of those formats always lands here. Naming it by hand is
-        the only way it ever gets read.
+        the only way it ever gets read — and the only way a wrong answer gets
+        corrected.
       -->
       <section
         v-if="canDeclareSource"
         class="rounded-lg border border-default p-4"
       >
         <h3 class="text-sm font-semibold">
-          {{ t('documents.declareSource.title') }}
+          {{ document.sourceId ? t('documents.declareSource.changeTitle') : t('documents.declareSource.title') }}
         </h3>
         <p class="mt-1 text-sm text-muted">
-          {{ t('documents.declareSource.description') }}
+          {{ document.sourceId ? t('documents.declareSource.changeDescription') : t('documents.declareSource.description') }}
         </p>
         <div class="mt-3 flex flex-col gap-2 sm:flex-row">
           <USelectMenu
@@ -244,11 +270,11 @@ const isMissingExtraction = computed(() =>
             class="sm:flex-1"
           />
           <UButton
-            :disabled="!chosenSource"
+            :disabled="!wouldChangeSource"
             :loading="recognizing"
             @click="chosenSource && emit('recognize', chosenSource)"
           >
-            {{ t('documents.declareSource.action') }}
+            {{ document.sourceId ? t('documents.declareSource.reread') : t('documents.declareSource.action') }}
           </UButton>
         </div>
         <p
@@ -261,7 +287,7 @@ const isMissingExtraction = computed(() =>
     </div>
 
     <div
-      v-else-if="isProcessing"
+      v-if="isProcessing"
       class="space-y-4"
     >
       <USkeleton
@@ -323,16 +349,45 @@ const isMissingExtraction = computed(() =>
     </div>
 
     <template #footer>
-      <UButton
-        :disabled="!canApprove"
-        :loading="approving"
-        block
-        class="sm:w-auto"
-        :title="canApprove ? undefined : t('documents.approveDisabledHint')"
-        @click="emit('approve')"
+      <!--
+        Approval is what puts the document in the spreadsheet export, and what
+        stops a re-import from reprocessing it. Withdrawing it therefore sits
+        right beside it rather than somewhere else: it is the only way back to
+        changing anything about this document.
+      -->
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <UButton
+          v-if="!isApproved"
+          :disabled="!canApprove"
+          :loading="approving"
+          block
+          class="sm:w-auto"
+          :title="canApprove ? undefined : t('documents.approveDisabledHint')"
+          @click="emit('approve')"
+        >
+          {{ t('documents.approveAndSend') }}
+        </UButton>
+        <template v-else>
+          <p class="text-sm text-muted">
+            {{ t('documents.approvedNote') }}
+          </p>
+          <UButton
+            variant="outline"
+            size="sm"
+            :loading="reopening"
+            class="sm:ml-auto"
+            @click="emit('reopen')"
+          >
+            {{ t('documents.reopen') }}
+          </UButton>
+        </template>
+      </div>
+      <p
+        v-if="actionError && !canDeclareSource"
+        class="mt-2 text-sm text-error"
       >
-        {{ document.status === 'approved' ? t('documents.status.approved') : t('documents.approveAndSend') }}
-      </UButton>
+        {{ actionError }}
+      </p>
     </template>
   </UCard>
 </template>
