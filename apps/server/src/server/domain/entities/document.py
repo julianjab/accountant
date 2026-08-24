@@ -26,3 +26,9 @@ class Document:
     processed_at: datetime | None = None
     reviewed_at: datetime | None = None
     approved_by: str | None = None
+    #: The machine-readable source this file was recognised as, when it is one.
+    #: Some documents are read by a dedicated parser rather than by OCR against
+    #: a configured document type — a tax authority's generated spreadsheet, for
+    #: instance — so they never get a `document_type_id` and would otherwise
+    #: stay indistinguishable from a document nothing could be made of.
+    source_id: str | None = None

@@ -6,10 +6,12 @@ from server.reconciliation.infrastructure.in_memory_repositories import (
     InMemoryConceptMappingRepository,
     InMemoryReconciliationReportRepository,
 )
+from server.reconciliation.infrastructure.kind_source_parsers import KindSourceParsers
 
 __all__ = [
     "DeleteDocumentTypeAndMappings",
     "DocumentFactProvider",
     "InMemoryConceptMappingRepository",
+    "KindSourceParsers",
     "InMemoryReconciliationReportRepository",
 ]

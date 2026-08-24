@@ -48,6 +48,10 @@ class ApproveDocument:
             processed_at=document.processed_at,
             reviewed_at=datetime.now(UTC),
             approved_by=data.approved_by,
+            # Carried over, or approving a document read by a parser would drop
+            # the only record of what it was read as — leaving it approved and
+            # indistinguishable from one nothing could be made of.
+            source_id=document.source_id,
         )
         self._documents.save(approved)
         return approved

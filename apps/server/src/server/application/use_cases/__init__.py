@@ -52,6 +52,12 @@ from server.application.use_cases.read_stored_document import (
     ReadStoredDocument,
     ReadStoredDocumentInput,
 )
+from server.application.use_cases.recognize_document_source import (
+    DocumentAlreadyApproved,
+    DocumentNotRecognized,
+    RecognizeDocumentSource,
+    RecognizeDocumentSourceInput,
+)
 from server.application.use_cases.register_client import (
     RegisterClient,
     RegisterClientInput,
@@ -102,6 +108,10 @@ __all__ = [
     "ProcessDriveChangeNotification",
     "ProcessUploadedDocument",
     "ProcessUploadedDocumentInput",
+    "DocumentAlreadyApproved",
+    "DocumentNotRecognized",
+    "RecognizeDocumentSource",
+    "RecognizeDocumentSourceInput",
     "RegisterClient",
     "RegisterClientInput",
     "SignInNotAllowed",

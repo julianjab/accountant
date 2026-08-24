@@ -128,6 +128,25 @@ class DocumentResponse(BaseModel):
     processed_at: datetime | None
     reviewed_at: datetime | None
     approved_by: str | None
+    #: Set when the file was read by a dedicated parser instead of OCR, which
+    #: is why such a document has no `document_type_id`.
+    source_id: str | None = None
+
+
+class DocumentSourceResponse(BaseModel):
+    """A format the server can read on its own, offered for a person to pick.
+
+    Not a document type: these have a parser behind them rather than a prompt
+    and a schema, which is why the classifier never proposes one.
+    """
+
+    id: str
+    label: str
+    media_types: list[str]
+
+
+class DocumentRecognizeRequest(BaseModel):
+    source_id: str
 
 
 class DocumentApproveRequest(BaseModel):

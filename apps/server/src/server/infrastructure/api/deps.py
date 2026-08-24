@@ -18,6 +18,7 @@ from server.application.use_cases import (
     ProcessUploadedDocument,
     ProposeDocumentType,
     ReadStoredDocument,
+    RecognizeDocumentSource,
     RegisterClient,
     SignOutGoogle,
     StartGoogleSignIn,
@@ -87,6 +88,7 @@ from server.reconciliation.infrastructure import (
     DocumentFactProvider,
     InMemoryConceptMappingRepository,
     InMemoryReconciliationReportRepository,
+    KindSourceParsers,
 )
 from server.reconciliation.infrastructure.firestore_repositories import (
     FirestoreConceptMappingRepository,
@@ -388,6 +390,26 @@ def get_save_concept_mapping_use_case() -> SaveConceptMapping:
 
 def get_prune_concept_mappings_use_case() -> PruneConceptMappings:
     return PruneConceptMappings(get_reconciliation_registry(), get_concept_mapping_repository())
+
+
+@lru_cache
+def get_source_parsers() -> KindSourceParsers:
+    """The formats the server reads without an AI, offered to intake.
+
+    Composed from the reconciliation kinds because that is where such a parser
+    lives — a kind owns the report it reconciles against. Intake only needs to
+    know that some file formats can be read exactly.
+    """
+    return KindSourceParsers(get_reconciliation_registry())
+
+
+def get_recognize_document_source_use_case() -> RecognizeDocumentSource:
+    return RecognizeDocumentSource(
+        documents=get_document_repository(),
+        storage=get_document_storage(),
+        parsers=get_source_parsers(),
+        extracted_data=get_extracted_data_repository(),
+    )
 
 
 def get_read_stored_document_use_case() -> ReadStoredDocument:

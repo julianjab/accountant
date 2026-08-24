@@ -31,6 +31,12 @@ from server.domain.ports.repositories import (
     ExtractedDataRepository,
     SessionRepository,
 )
+from server.domain.ports.source_parser import (
+    DocumentSourceParsers,
+    ParsableSource,
+    ParsedSource,
+    SourceNotParsable,
+)
 
 __all__ = [
     "ProposedField",
@@ -42,6 +48,7 @@ __all__ = [
     "ClientRepository",
     "DocumentClassifier",
     "DocumentContent",
+    "DocumentSourceParsers",
     "DocumentRepository",
     "DocumentStorage",
     "DriveAccessNotGranted",
@@ -57,7 +64,10 @@ __all__ = [
     "OAuthTokens",
     "OAuthTransportError",
     "OcrEngine",
+    "ParsableSource",
+    "ParsedSource",
     "ProposedOcrConfig",
+    "SourceNotParsable",
     "SessionRepository",
     "StoredFile",
 ]

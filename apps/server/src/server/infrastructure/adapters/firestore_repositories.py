@@ -127,6 +127,7 @@ class FirestoreDocumentRepository:
                 "processed_at": document.processed_at,
                 "reviewed_at": document.reviewed_at,
                 "approved_by": document.approved_by,
+                "source_id": document.source_id,
             }
         )
 
@@ -180,6 +181,7 @@ class FirestoreDocumentRepository:
             processed_at=_as_utc_or_none(data.get("processed_at")),
             reviewed_at=_as_utc_or_none(data.get("reviewed_at")),
             approved_by=data.get("approved_by"),
+            source_id=data.get("source_id"),
         )
 
 
