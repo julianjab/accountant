@@ -49,6 +49,11 @@ from server.application.use_cases.start_google_sign_in import (
     StartGoogleSignIn,
 )
 from server.application.use_cases.subscribe_drive_webhook import SubscribeDriveWebhook
+from server.application.use_cases.update_document_type import (
+    DocumentTypeNotFound,
+    UpdateDocumentType,
+    UpdateDocumentTypeInput,
+)
 
 __all__ = [
     "DefinedDocumentType",
@@ -83,4 +88,7 @@ __all__ = [
     "SignOutGoogle",
     "StartGoogleSignIn",
     "SubscribeDriveWebhook",
+    "DocumentTypeNotFound",
+    "UpdateDocumentType",
+    "UpdateDocumentTypeInput",
 ]
