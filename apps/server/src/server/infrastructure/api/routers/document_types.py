@@ -6,6 +6,8 @@ from server.application.use_cases import (
     DefineDocumentType,
     DefineDocumentTypeInput,
     DocumentTypeNotFound,
+    ProposeDocumentType,
+    ProposeDocumentTypeInput,
     UpdateDocumentType,
     UpdateDocumentTypeInput,
 )
@@ -14,6 +16,7 @@ from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
     get_define_document_type_use_case,
     get_document_type_repository,
+    get_propose_document_type_use_case,
     get_prune_concept_mappings_use_case,
     get_reconciliation_registry,
     get_save_concept_mapping_use_case,
@@ -21,11 +24,13 @@ from server.infrastructure.api.deps import (
 )
 from server.infrastructure.api.schemas import (
     DocumentTypeCreatedResponse,
+    DocumentTypeProposalResponse,
     DocumentTypeResponse,
     DocumentTypeUpdatedResponse,
     DocumentTypeUpdateRequest,
     MappingChangeResponse,
     ProposedFieldMappingResponse,
+    ProposedFieldResponse,
     UnmappedFieldResponse,
 )
 from server.reconciliation.application import (
@@ -55,12 +60,73 @@ def list_document_types(
     return [DocumentTypeResponse.model_validate(t, from_attributes=True) for t in items]
 
 
+@router.post("/proposals", response_model=DocumentTypeProposalResponse)
+def propose_document_type(
+    name: str = Form(...),
+    sample_file: UploadFile = File(...),
+    kind_id: str | None = Form(None),
+    use_case: ProposeDocumentType = Depends(get_propose_document_type_use_case),
+    registry: KindRegistry = Depends(get_reconciliation_registry),
+) -> DocumentTypeProposalResponse:
+    """Reads a sample and reports what could be configured, storing nothing.
+
+    A proposal routinely lists twenty fields where the accountant wants the
+    identifier and three figures. Saving it whole made pruning the type their
+    problem afterwards; this makes choosing it their decision up front.
+
+    Sync on purpose, like the create handler: this calls a blocking AIProvider,
+    and a `def` handler runs in FastAPI's threadpool rather than stalling the
+    event loop for the length of the Claude call.
+    """
+    kind = _resolve_kind(registry, kind_id)
+    proposal = use_case.execute(
+        ProposeDocumentTypeInput(
+            type_name=name,
+            sample_document=DocumentContent(
+                data=sample_file.file.read(),
+                mime_type=sample_file.content_type or "application/octet-stream",
+                file_name=sample_file.filename or "sample",
+            ),
+            concepts=_concept_options(kind),
+        )
+    )
+    return DocumentTypeProposalResponse(
+        extraction_prompt=proposal.extraction_prompt,
+        extraction_schema=proposal.extraction_schema,
+        fields=[
+            ProposedFieldResponse(
+                path=f.path, label=f.label, role=f.role.value, sample_value=f.sample_value
+            )
+            for f in proposal.fields
+        ],
+        field_mappings=[
+            ProposedFieldMappingResponse(
+                field_path=m.field_path,
+                concept_id=m.concept_id,
+                account_path=m.account_path,
+                sign=m.sign,
+            )
+            for m in proposal.field_mappings
+        ],
+        unmapped_fields=[
+            UnmappedFieldResponse(field_path=path, reason=reason)
+            for path, reason in proposal.unmapped_fields
+        ],
+        kind_id=kind.id if kind is not None else None,
+        reporter_path=proposal.reporter_path,
+        reporter_name_path=proposal.reporter_name_path,
+        period_path=proposal.period_path,
+    )
+
+
 @router.post("", response_model=DocumentTypeCreatedResponse, status_code=201)
 def create_document_type(
     name: str = Form(...),
     description: str = Form(...),
     sample_file: UploadFile = File(...),
     kind_id: str | None = Form(None),
+    tax_years: str = Form(""),
+    sample_document_id: str | None = Form(None),
     use_case: DefineDocumentType = Depends(get_define_document_type_use_case),
     registry: KindRegistry = Depends(get_reconciliation_registry),
     save_mapping: SaveConceptMapping = Depends(get_save_concept_mapping_use_case),
@@ -81,6 +147,8 @@ def create_document_type(
             description=description,
             sample_document=sample_document,
             concepts=_concept_options(kind),
+            tax_years=_parse_years(tax_years),
+            sample_document_id=sample_document_id,
         )
     )
 
@@ -234,6 +302,16 @@ def _prune_mappings(
                 ),
             ),
         )
+
+
+def _parse_years(raw: str) -> tuple[int, ...]:
+    """Reads `2024,2025` from a form field. Empty means any year."""
+    years = []
+    for part in raw.split(","):
+        part = part.strip()
+        if part.isdigit():
+            years.append(int(part))
+    return tuple(sorted(set(years)))
 
 
 def _resolve_kind(registry: KindRegistry, kind_id: str | None):

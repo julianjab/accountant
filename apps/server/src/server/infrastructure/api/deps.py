@@ -15,6 +15,7 @@ from server.application.use_cases import (
     ListClientSheetRows,
     ProcessDriveChangeNotification,
     ProcessUploadedDocument,
+    ProposeDocumentType,
     RegisterClient,
     SignOutGoogle,
     StartGoogleSignIn,
@@ -294,6 +295,10 @@ def get_client_directory() -> GoogleDriveClientDirectory:
     return GoogleDriveClientDirectory(
         settings.google_service_account_file, settings.google_drive_clients_folder_id
     )
+
+
+def get_propose_document_type_use_case() -> ProposeDocumentType:
+    return ProposeDocumentType(get_document_type_configurator())
 
 
 def get_import_client_documents_use_case() -> ImportClientDocuments:

@@ -63,6 +63,9 @@ class DocumentTypeResponse(BaseModel):
     extraction_schema: dict[str, Any]
     active: bool
     created_at: datetime
+    #: Empty means the type applies to any tax year.
+    tax_years: list[int] = []
+    sample_document_id: str | None = None
 
 
 class DocumentResponse(BaseModel):
@@ -263,6 +266,9 @@ class DocumentTypeUpdateRequest(BaseModel):
     name: str | None = None
     description: str | None = None
     active: bool | None = None
+    #: An empty list means "applies to any year" and is a real choice, so it
+    #: cannot be spelled the same way as "leave this alone".
+    tax_years: list[int] | None = None
     extraction_prompt: str | None = None
     extraction_schema: dict[str, Any] | None = None
 
@@ -309,6 +315,31 @@ class ProposedFieldMappingResponse(BaseModel):
 class UnmappedFieldResponse(BaseModel):
     field_path: str
     reason: str
+
+
+class ProposedFieldResponse(BaseModel):
+    """One field the AI found, with enough for a person to judge it without
+    the document open beside them."""
+
+    path: str
+    label: str
+    #: identifier · amount · context
+    role: str
+    sample_value: str
+
+
+class DocumentTypeProposalResponse(BaseModel):
+    """What the AI would configure, stored nowhere until someone approves it."""
+
+    extraction_prompt: str
+    extraction_schema: dict[str, Any]
+    fields: list[ProposedFieldResponse]
+    field_mappings: list["ProposedFieldMappingResponse"]
+    unmapped_fields: list["UnmappedFieldResponse"]
+    kind_id: str | None
+    reporter_path: str | None
+    reporter_name_path: str | None
+    period_path: str | None
 
 
 class DocumentTypeCreatedResponse(DocumentTypeResponse):
