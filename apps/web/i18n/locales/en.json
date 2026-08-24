@@ -138,6 +138,60 @@
       "confirmEdit": "Confirm edit",
       "cancelEdit": "Cancel editing",
       "localEditsNotice": "These edits were only kept on this screen, not on the server (there is no way to update an already-saved type yet)."
+    },
+    "configure": "Configure",
+    "edit": {
+      "title": "Configure document type",
+      "notFound": "We could not find this document type.",
+      "details": "Type details",
+      "active": "Active",
+      "activeHint": "Only active types are used to classify incoming documents.",
+      "kind": "Reconciliation model",
+      "back": "Back",
+      "save": "Save changes",
+      "saved": "Changes saved.",
+      "saveError": "Could not save the changes. Please try again.",
+      "status": {
+        "configured": "Ready to reconcile",
+        "notMapped": "This type feeds nothing into reconciliation",
+        "notMappedHint": "It is still extracted as usual: no field has a concept assigned, so there is nothing to cross-check. Nothing is broken.",
+        "unusable": "The reporting party's tax id is missing"
+      },
+      "reporter": {
+        "title": "Reporting party identification",
+        "hint": "The most important control on this screen: it says whose figures the document states.",
+        "path": "Field holding the reporting party's tax id",
+        "pathHint": "Pick the field carrying the tax identification NUMBER, not the entity's name.",
+        "missingTitle": "Without this field the type reconciles nothing",
+        "missing": "The server discards EVERY mapping on this type when it cannot attribute the figures to a tax id, and each claim this document should back is reported as missing.",
+        "namePath": "Field holding the reporting party's name",
+        "nameHint": "Optional. Only used to show whose document it is; it does not replace the tax id.",
+        "blocksSave": "Pick the field holding the reporting party's tax id before saving the mappings."
+      },
+      "period": {
+        "path": "Field holding the period",
+        "hint": "Pick the field with the year or month the document certifies.",
+        "missing": "Without a period, a certificate for one year can be reconciled against another."
+      },
+      "fields": {
+        "title": "Fields the AI extracts",
+        "hint": "Untick the ones you do not need: they stop being asked for during extraction. Each remaining field can be assigned a concept so it can be reconciled; a field with no concept is still extracted, it just takes no part in reconciliation.",
+        "keep": "Extract this field",
+        "concept": "Concept",
+        "unmapped": "No concept",
+        "removed": "Will be removed from the schema on save",
+        "removedCount": "{count} field will be removed from the schema on save. | {count} fields will be removed from the schema on save.",
+        "empty": "This type does not declare any field yet.",
+        "unsetField": "No field selected"
+      },
+      "mappingChanges": {
+        "title": "What happened to the mappings",
+        "entry_dropped": "The mapping from {field} to concept {concept} was dropped.",
+        "path_cleared": "The {path} field was cleared from the reconciliation configuration.",
+        "mapping_cleared": "The whole mapping for this type was cleared: until it is configured again, it reconciles nothing.",
+        "prune_failed": "The server could not fit the mapping to this schema; review it before going on.",
+        "unknown": "The server adjusted the mapping ({change}) at {path}."
+      }
     }
   },
   "auth": {

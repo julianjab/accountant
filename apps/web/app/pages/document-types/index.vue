@@ -95,6 +95,19 @@ function fieldsCount(documentType: DocumentType): number {
             {{ key }}
           </UBadge>
         </div>
+
+        <template #footer>
+          <UButton
+            :to="`/document-types/${documentType.id}`"
+            icon="i-lucide-sliders-horizontal"
+            color="neutral"
+            variant="soft"
+            block
+            class="sm:w-fit"
+          >
+            {{ t('documentTypes.configure') }}
+          </UButton>
+        </template>
       </UCard>
     </div>
   </UContainer>
