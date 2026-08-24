@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from server.reconciliation.core.concepts import ConceptCatalog
+from server.reconciliation.core.contribution import DocumentContribution
 from server.reconciliation.core.findings import (
     FindingStatus,
     ReconciliationFinding,
@@ -67,6 +68,7 @@ class ReconciliationEngine:
         facts: Iterable[FinancialFact],
         report_id: str | None = None,
         generated_at: datetime | None = None,
+        contributions: tuple[DocumentContribution, ...] = (),
     ) -> ReconciliationReport:
         catalog = kind.concept_catalog()
         in_period = [f for f in facts if f.period == period]
@@ -102,6 +104,7 @@ class ReconciliationEngine:
             generated_at=generated_at or datetime.now(UTC),
             findings=ordered,
             summary=ReportSummary.of(ordered),
+            contributions=contributions,
         )
 
     def _apply_rule(

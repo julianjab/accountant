@@ -19,6 +19,11 @@ from server.domain.ports import (
     ExtractedDataRepository,
 )
 from server.reconciliation.application.ports import ConceptMappingRepository
+from server.reconciliation.core.contribution import (
+    ContributionStatus,
+    DocumentContribution,
+    GatheredFacts,
+)
 from server.reconciliation.core.kind import (
     FactSourceSpec,
     SourceContent,
@@ -56,7 +61,7 @@ class DocumentFactProvider:
         self._mappings = mappings
         self._storage = storage
 
-    def facts_for(self, client_id: str, period: Period, kind_id: str) -> tuple[FinancialFact, ...]:
+    def facts_for(self, client_id: str, period: Period, kind_id: str) -> GatheredFacts:
         kind = self._registry.get(kind_id)
         client = self._clients.get(client_id)
         subject = TaxId.parse(client.tax_id) if client is not None else None
@@ -67,6 +72,8 @@ class DocumentFactProvider:
         )
 
         facts: list[FinancialFact] = []
+        contributions: list[DocumentContribution] = []
+
         for document in self._documents.list_by_client(client_id):
             # A format this kind parses itself is tried whatever intake made of
             # it. Intake classifies against the configured document types, and
@@ -74,20 +81,39 @@ class DocumentFactProvider:
             # instead of an extraction prompt — so intake marks it FAILED. That
             # verdict is about OCR, not about this file, and honouring it would
             # discard the very document the reconciliation is built around.
-            extracted = self._from_parser(document, parsed_sources, subject)
-            if extracted is None:
-                if document.status not in _USABLE:
-                    continue
-                extracted = self._from_extraction(document, kind_id, subject, period)
-            facts.extend(extracted or ())
-        return tuple(facts)
+            parsed, parse_status = self._from_parser(document, parsed_sources, subject)
+            if parsed is not None:
+                facts.extend(parsed)
+                contributions.append(
+                    _contribution(document, ContributionStatus.SPINE_PARSED, len(parsed))
+                )
+                continue
+            if parse_status is not None:
+                contributions.append(_contribution(document, parse_status))
+                continue
+
+            if document.status not in _USABLE:
+                contributions.append(
+                    _contribution(
+                        document,
+                        ContributionStatus.NOT_READY,
+                        detail=document.error or str(document.status),
+                    )
+                )
+                continue
+
+            projected, status, detail = self._from_extraction(document, kind_id, subject, period)
+            facts.extend(projected)
+            contributions.append(_contribution(document, status, len(projected), detail))
+
+        return GatheredFacts(facts=tuple(facts), contributions=tuple(contributions))
 
     def _from_parser(
         self,
         document,
         sources: tuple[FactSourceSpec, ...],
         subject: TaxId | None,
-    ) -> tuple[FinancialFact, ...] | None:
+    ) -> tuple[tuple[FinancialFact, ...] | None, ContributionStatus | None]:
         """Run a kind's own parser when the document's format is one it owns."""
         for source in sources:
             if document.mime_type not in source.media_types:
@@ -103,7 +129,7 @@ class DocumentFactProvider:
                     "Could not read a document the kind parses itself",
                     extra={"document_id": document.id, "source_id": source.id},
                 )
-                continue
+                return None, ContributionStatus.UNREADABLE
             try:
                 return source.extractor.extract(
                     SourceContent(
@@ -118,7 +144,7 @@ class DocumentFactProvider:
                         # year it covers.
                         period=None,
                     )
-                )
+                ), None
             except SourceNotRecognized:
                 # A spreadsheet that is not this kind's report. Ordinary — the
                 # client's folder holds all sorts of files.
@@ -126,28 +152,32 @@ class DocumentFactProvider:
                     "Document is not a %s source", source.id, extra={"document_id": document.id}
                 )
                 continue
-        return None
+        return None, None
 
     def _from_extraction(
         self, document, kind_id: str, subject: TaxId | None, period: Period
-    ) -> tuple[FinancialFact, ...]:
-        """Project OCR output through the document type's concept mapping."""
+    ) -> tuple[tuple[FinancialFact, ...], ContributionStatus, str]:
+        """Project OCR output through the document type's concept mapping.
+
+        Returns why nothing came out as well as what did. Every one of these
+        outcomes used to be a silent zero: the document showed as processed,
+        the claim it was meant to satisfy showed as missing, and nothing
+        connected the two.
+        """
         if document.document_type_id is None:
-            return ()
+            return (), ContributionStatus.NOT_CLASSIFIED, ""
+
         mapping = self._mappings.get(document.document_type_id, kind_id)
         if mapping is None:
-            # The type has not been mapped onto this kind's vocabulary yet.
-            # Silence here is correct: the document still shows in intake, and
-            # the reconciliation reports the gap it leaves as missing evidence
-            # rather than inventing facts for it.
-            return ()
+            return (), ContributionStatus.TYPE_NOT_MAPPED, ""
+
         extracted = self._extracted_data.get_by_document(document.id)
         if extracted is None:
-            return ()
+            return (), ContributionStatus.NO_EXTRACTION, ""
 
         document_type = self._document_types.get(document.document_type_id)
         try:
-            return project_facts(
+            projected = project_facts(
                 mapping,
                 extracted.fields,
                 source_id=document.id,
@@ -157,11 +187,39 @@ class DocumentFactProvider:
                 locator=document.file_name,
             )
         except ValueError:
-            # No reporting party could be determined, so these amounts cannot
-            # be attributed to anyone. Dropping them keeps the report honest:
-            # the claims they would have backed stay MISSING_EVIDENCE.
+            # The mapping's reporter field held nothing that reads as a tax id
+            # — often the party's *name* rather than its number. Every fact
+            # would be unattributable, so none is produced.
             logger.warning(
-                "Could not project document into facts",
-                extra={"document_id": document.id, "document_type_id": document.document_type_id},
+                "Could not attribute a document to a reporting party",
+                extra={"document_id": document.id, "reporter_path": mapping.reporter_path},
             )
-            return ()
+            return (
+                (),
+                ContributionStatus.NO_REPORTING_PARTY,
+                mapping.reporter_path or "",
+            )
+
+        if not projected:
+            return (), ContributionStatus.NO_AMOUNTS, ""
+
+        # Facts exist but for another year: the certificate is real and simply
+        # does not belong to the period being reconciled. Saying so beats
+        # leaving the claim unexplained.
+        in_period = tuple(fact for fact in projected if fact.period == period)
+        if not in_period:
+            return (), ContributionStatus.OTHER_PERIOD, projected[0].period.key
+
+        return in_period, ContributionStatus.CONTRIBUTED, ""
+
+
+def _contribution(
+    document, status: ContributionStatus, fact_count: int = 0, detail: str = ""
+) -> DocumentContribution:
+    return DocumentContribution(
+        document_id=document.id,
+        file_name=document.file_name,
+        status=status,
+        fact_count=fact_count,
+        detail=detail,
+    )

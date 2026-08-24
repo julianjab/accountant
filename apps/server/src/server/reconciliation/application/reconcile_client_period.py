@@ -51,13 +51,14 @@ class ReconcileClientPeriod:
                 f"but {data.period} is a {data.period.granularity} period"
             )
 
-        facts = self._facts.facts_for(data.client_id, data.period, kind.id)
+        gathered = self._facts.facts_for(data.client_id, data.period, kind.id)
         report = self._engine.reconcile(
             kind=kind,
             client_id=data.client_id,
             period=data.period,
-            facts=facts,
+            facts=gathered.facts,
             report_id=report_id_for(data.client_id, kind.id, data.period),
+            contributions=gathered.contributions,
         )
         self._reports.save(report)
         logger.info(

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+from server.reconciliation.core.contribution import DocumentContribution
 from server.shared import AccountRef, FinancialFact, MatchStrength, Money, Period, TaxId
 
 
@@ -109,6 +110,10 @@ class ReconciliationReport:
     generated_at: datetime
     findings: tuple[ReconciliationFinding, ...]
     summary: ReportSummary
+    #: What each of the client's documents contributed, and why, so a document
+    #: that fed the reconciliation nothing can say so instead of looking
+    #: indistinguishable from one that worked.
+    contributions: tuple[DocumentContribution, ...] = ()
 
     def of_status(self, *statuses: FindingStatus) -> tuple[ReconciliationFinding, ...]:
         wanted = set(statuses)

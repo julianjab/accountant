@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from server.reconciliation.core.contribution import GatheredFacts
 from server.reconciliation.core.findings import ReconciliationReport
 from server.reconciliation.core.projection import ConceptMapping
-from server.shared import FinancialFact, Period
+from server.shared import Period
 
 
 class FactProvider(Protocol):
@@ -16,9 +17,7 @@ class FactProvider(Protocol):
     composition edge.
     """
 
-    def facts_for(
-        self, client_id: str, period: Period, kind_id: str
-    ) -> tuple[FinancialFact, ...]: ...
+    def facts_for(self, client_id: str, period: Period, kind_id: str) -> GatheredFacts: ...
 
 
 class ConceptMappingRepository(Protocol):

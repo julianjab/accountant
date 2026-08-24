@@ -10,6 +10,7 @@ from server.infrastructure.api import deps
 from server.infrastructure.api.auth_dependency import require_session
 from server.main import app
 from server.reconciliation.application import ReconcileClientPeriod
+from server.reconciliation.core.contribution import GatheredFacts
 from server.reconciliation.kinds.exogena import KIND_ID
 
 NOW = datetime.now(UTC)
@@ -49,7 +50,7 @@ class _NoFacts:
     """
 
     def facts_for(self, client_id, period, kind_id):
-        return ()
+        return GatheredFacts(facts=())
 
 
 @pytest.fixture

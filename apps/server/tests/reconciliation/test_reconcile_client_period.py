@@ -24,6 +24,7 @@ from server.infrastructure.adapters.in_memory_repositories import (
     InMemoryExtractedDataRepository,
 )
 from server.reconciliation.application import ReconcileClientPeriod, ReconcileClientPeriodInput
+from server.reconciliation.core.contribution import ContributionStatus
 from server.reconciliation.core.findings import FindingStatus
 from server.reconciliation.core.projection import ConceptMapping, ConceptMappingEntry
 from server.reconciliation.core.registry import KindRegistry
@@ -318,3 +319,77 @@ def test_a_spine_whose_bytes_cannot_be_read_does_not_sink_the_run(wiring):
 
 def _provider_of(use_case):
     return use_case._facts
+
+
+def test_every_document_says_what_it_contributed(wiring):
+    """A processed document that fed the reconciliation nothing used to look
+    exactly like one that worked: a green badge, and a claim reported as
+    missing, with nothing connecting the two."""
+    use_case, _, _, _, _, _ = wiring
+
+    report = use_case.execute(ReconcileClientPeriodInput("client-1", KIND_ID, Period.of_year(2025)))
+
+    by_file = {c.file_name: c for c in report.contributions}
+    assert by_file["exogena.bin"].status is ContributionStatus.SPINE_PARSED
+    assert by_file["exogena.bin"].fact_count > 0
+    assert by_file["cert-banco.bin"].status is ContributionStatus.CONTRIBUTED
+
+
+def test_a_document_whose_type_is_not_mapped_says_so(wiring):
+    use_case, _, _, mappings, _, _ = wiring
+    mappings._by_key.clear()
+
+    report = use_case.execute(ReconcileClientPeriodInput("client-1", KIND_ID, Period.of_year(2025)))
+
+    statuses = {c.file_name: c.status for c in report.contributions}
+    assert statuses["cert-banco.bin"] is ContributionStatus.TYPE_NOT_MAPPED
+
+
+def test_a_mapping_that_names_no_reporting_party_says_which_field_failed(wiring):
+    """The real case: the AI pointed reporter_path at the fund's *name*, so
+    every fact was unattributable and silently dropped."""
+    use_case, _, _, mappings, _, _ = wiring
+    mappings.save(
+        ConceptMapping(
+            document_type_id=fixtures.BANCOLOMBIA_MAPPING.document_type_id,
+            kind_id=KIND_ID,
+            reporter_path="agente_retenedor_nombre",
+            entries=fixtures.BANCOLOMBIA_MAPPING.entries,
+        )
+    )
+
+    report = use_case.execute(ReconcileClientPeriodInput("client-1", KIND_ID, Period.of_year(2025)))
+
+    contribution = next(c for c in report.contributions if c.file_name == "cert-banco.bin")
+    assert contribution.status is ContributionStatus.NO_REPORTING_PARTY
+    assert contribution.detail == "agente_retenedor_nombre"
+
+
+def test_a_certificate_for_another_year_says_which_year(wiring):
+    """The real case: a 2024 certificate uploaded against a 2025
+    reconciliation. Reporting the year beats leaving the claim unexplained."""
+    use_case, _, _, mappings, _, extracted = wiring
+    mappings.save(
+        ConceptMapping(
+            document_type_id=fixtures.BANCOLOMBIA_MAPPING.document_type_id,
+            kind_id=KIND_ID,
+            reporter_path=fixtures.BANCOLOMBIA_MAPPING.reporter_path,
+            period_path="ano_gravable",
+            entries=fixtures.BANCOLOMBIA_MAPPING.entries,
+        )
+    )
+    extracted.save(
+        ExtractedData(
+            id="ex-2024",
+            document_id="cert-banco",
+            fields={**fixtures.BANCOLOMBIA_CERTIFICATE_FIELDS, "ano_gravable": "2024"},
+            confidence=None,
+            created_at=NOW,
+        )
+    )
+
+    report = use_case.execute(ReconcileClientPeriodInput("client-1", KIND_ID, Period.of_year(2025)))
+
+    contribution = next(c for c in report.contributions if c.file_name == "cert-banco.bin")
+    assert contribution.status is ContributionStatus.OTHER_PERIOD
+    assert contribution.detail == "2024"

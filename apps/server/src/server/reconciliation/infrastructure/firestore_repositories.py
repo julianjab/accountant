@@ -22,6 +22,7 @@ from typing import Any
 
 from google.cloud.firestore import Client as FirestoreClient
 
+from server.reconciliation.core.contribution import ContributionStatus, DocumentContribution
 from server.reconciliation.core.findings import (
     FindingStatus,
     ReconciliationFinding,
@@ -162,6 +163,16 @@ class FirestoreReconciliationReportRepository:
                     "reconciled": report.summary.reconciled,
                     "needing_attention": report.summary.needing_attention,
                 },
+                "contributions": [
+                    {
+                        "document_id": c.document_id,
+                        "file_name": c.file_name,
+                        "status": c.status.value,
+                        "fact_count": c.fact_count,
+                        "detail": c.detail,
+                    }
+                    for c in report.contributions
+                ],
             }
         )
         findings = document.collection(FINDINGS)
@@ -212,6 +223,16 @@ class FirestoreReconciliationReportRepository:
             # Recomputed rather than read back: a stored summary that disagrees
             # with the findings beside it is worse than no summary at all.
             summary=ReportSummary.of(ordered),
+            contributions=tuple(
+                DocumentContribution(
+                    document_id=c["document_id"],
+                    file_name=c.get("file_name", ""),
+                    status=ContributionStatus(c["status"]),
+                    fact_count=c.get("fact_count", 0),
+                    detail=c.get("detail", ""),
+                )
+                for c in data.get("contributions") or []
+            ),
         )
 
 

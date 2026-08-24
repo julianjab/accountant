@@ -6,6 +6,11 @@ import another bounded context. Those two rules are enforced in CI
 """
 
 from server.reconciliation.core.concepts import Concept, ConceptCatalog
+from server.reconciliation.core.contribution import (
+    ContributionStatus,
+    DocumentContribution,
+    GatheredFacts,
+)
 from server.reconciliation.core.engine import ReconciliationEngine
 from server.reconciliation.core.findings import (
     FindingStatus,
@@ -36,6 +41,9 @@ from server.reconciliation.core.rules import (
 )
 
 __all__ = [
+    "GatheredFacts",
+    "DocumentContribution",
+    "ContributionStatus",
     "DEFAULT_TOLERANCE",
     "Concept",
     "ConceptCatalog",
