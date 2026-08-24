@@ -39,14 +39,15 @@
       "driveMissing": "Este cliente no tiene una carpeta de Drive configurada",
       "tabs": {
         "documents": "Documentos",
-        "extractedData": "Datos extraídos",
         "spreadsheets": "Hojas de cálculo",
         "reconciliation": "Cruce"
       },
       "comingSoon": "Próximamente.",
       "documents": {
         "unclassified": "Sin clasificar",
-        "empty": "Este cliente todavía no tiene documentos."
+        "empty": "Este cliente todavía no tiene documentos.",
+        "awaited": "Falta",
+        "awaitedClaims": "{count} valores de la exógena sin certificado"
       },
       "summary": {
         "title": "Resumen del mes"
@@ -60,11 +61,6 @@
       "export": {
         "label": "Exportar a hoja de cálculo",
         "disabledTooltip": "Disponible cuando se implemente la exportación a hojas de cálculo (issue #11)"
-      },
-      "extractedData": {
-        "empty": "Todavía no hay documentos con datos extraídos.",
-        "notExtracted": "Este documento aún no tiene datos extraídos.",
-        "fieldCount": "{count} campos"
       }
     }
   },
@@ -224,9 +220,6 @@
     "rerun": "Volver a conciliar",
     "runFailed": "No se pudo ejecutar la conciliación.",
     "notRunYet": "Todavía no se ha conciliado este año. Ejecuta la conciliación para ver los cruces.",
-    "spine": "Exógena",
-    "evidence": "Certificado",
-    "noEvidence": "Sin certificado que lo respalde.",
     "status": {
       "matched": "Cuadra",
       "matched_within_tolerance": "Cuadra (redondeo)",
@@ -234,6 +227,16 @@
       "missing_evidence": "Falta certificado",
       "unsupported_by_spine": "No está en la exógena",
       "out_of_scope": "Sin validar"
-    }
+    },
+    "columns": {
+      "reporter": "Razón social",
+      "detail": "Detalle",
+      "exogenaAmount": "Exógena",
+      "certificateAmount": "Certificado",
+      "difference": "Dif.",
+      "notFound": "no encontrado"
+    },
+    "unsupportedTitle": "Certificado sin contraparte en la exógena",
+    "unsupportedHint": "Valores que el certificado reporta y la exógena no menciona. Suelen ser deducciones que nadie reclamó."
   }
 }

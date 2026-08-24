@@ -2,11 +2,11 @@
 import type { Client } from '~/domain/entities/client'
 import type { ClientDocument } from '~/domain/entities/document'
 import type { DocumentType } from '~/domain/entities/document-type'
+import type { ReconciliationReport } from '~/domain/entities/reconciliation'
 import ClientHeader from '~/infrastructure/components/clients/ClientHeader.vue'
 import ClientDocumentList from '~/infrastructure/components/clients/ClientDocumentList.vue'
 import MonthlySummaryCard from '~/infrastructure/components/clients/MonthlySummaryCard.vue'
 import ConfiguredTypesCard from '~/infrastructure/components/clients/ConfiguredTypesCard.vue'
-import ClientExtractedData from '~/infrastructure/components/clients/ClientExtractedData.vue'
 import ReconciliationPanel from '~/infrastructure/components/reconciliation/ReconciliationPanel.vue'
 
 const { t } = useI18n()
@@ -16,6 +16,11 @@ const id = String(route.params.id)
 const getClient = useGetClientUseCase()
 const listClientDocuments = useListClientDocumentsUseCase()
 const listActiveDocumentTypes = useListActiveDocumentTypesUseCase()
+const getReconciliationReport = useGetReconciliationReportUseCase()
+
+// One reconciliation model and one tax year for now.
+const KIND_ID = 'exogena_dian'
+const PERIOD = '2025'
 const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
 
 // Deferred and client-only on purpose: these endpoints need the session
@@ -34,6 +39,14 @@ const { data: types, refresh: refreshTypes } = await useAsyncData<DocumentType[]
   { immediate: false, server: false, default: () => [] }
 )
 
+// Read here rather than only inside the reconciliation tab: the document list
+// needs it too, to show which certificates the exogena is still waiting for.
+const { data: report, refresh: refreshReport } = await useAsyncData<ReconciliationReport | null>(
+  `reconciliation:${id}`,
+  () => getReconciliationReport.execute(KIND_ID, id, PERIOD),
+  { immediate: false, server: false, default: () => null }
+)
+
 watch(
   isAuthenticated,
   (authenticated) => {
@@ -41,13 +54,13 @@ watch(
     refreshClient()
     refreshDocuments()
     refreshTypes()
+    refreshReport()
   },
   { immediate: true }
 )
 
 const tabItems = computed(() => [
   { label: t('clients.detail.tabs.documents'), slot: 'documents' as const },
-  { label: t('clients.detail.tabs.extractedData'), slot: 'extractedData' as const },
   { label: t('clients.detail.tabs.reconciliation'), slot: 'reconciliation' as const },
   { label: t('clients.detail.tabs.spreadsheets'), slot: 'spreadsheets' as const }
 ])
@@ -106,10 +119,8 @@ const tabItems = computed(() => [
               <ClientDocumentList
                 :documents="documents ?? []"
                 :types="types ?? []"
+                :report="report"
               />
-            </template>
-            <template #extractedData>
-              <ClientExtractedData :documents="documents ?? []" />
             </template>
             <template #reconciliation>
               <ReconciliationPanel :client-id="id" />

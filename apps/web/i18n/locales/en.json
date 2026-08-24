@@ -39,14 +39,15 @@
       "driveMissing": "This client doesn't have a Drive folder configured",
       "tabs": {
         "documents": "Documents",
-        "extractedData": "Extracted data",
         "spreadsheets": "Spreadsheets",
         "reconciliation": "Reconciliation"
       },
       "comingSoon": "Coming soon.",
       "documents": {
         "unclassified": "Unclassified",
-        "empty": "This client doesn't have any documents yet."
+        "empty": "This client doesn't have any documents yet.",
+        "awaited": "Missing",
+        "awaitedClaims": "{count} exogena values with no certificate"
       },
       "summary": {
         "title": "Monthly summary"
@@ -60,11 +61,6 @@
       "export": {
         "label": "Export to spreadsheet",
         "disabledTooltip": "Available once spreadsheet export ships (issue #11)"
-      },
-      "extractedData": {
-        "empty": "No documents have extracted data yet.",
-        "notExtracted": "This document has no extracted data yet.",
-        "fieldCount": "{count} fields"
       }
     }
   },
@@ -224,9 +220,6 @@
     "rerun": "Reconcile again",
     "runFailed": "The reconciliation could not be run.",
     "notRunYet": "This year has not been reconciled yet. Run the reconciliation to see the cross-checks.",
-    "spine": "Exogena",
-    "evidence": "Certificate",
-    "noEvidence": "No certificate backs this.",
     "status": {
       "matched": "Matched",
       "matched_within_tolerance": "Matched (rounding)",
@@ -234,6 +227,16 @@
       "missing_evidence": "Certificate missing",
       "unsupported_by_spine": "Not in the exogena",
       "out_of_scope": "Not validated"
-    }
+    },
+    "columns": {
+      "reporter": "Reporting party",
+      "detail": "Detail",
+      "exogenaAmount": "Exogena",
+      "certificateAmount": "Certificate",
+      "difference": "Diff.",
+      "notFound": "not found"
+    },
+    "unsupportedTitle": "Certified with no counterpart in the exogena",
+    "unsupportedHint": "Figures the certificate reports and the exogena never mentions. Usually deductions nobody claimed."
   }
 }
