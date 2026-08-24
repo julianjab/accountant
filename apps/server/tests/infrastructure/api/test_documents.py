@@ -152,3 +152,57 @@ def test_a_document_nothing_can_be_read_from_is_a_422(client, documents, drive) 
     )
 
     assert client.post("/documents/doc-1/approve").status_code == 422
+
+
+def test_reprocessing_reads_an_approved_document_again(client, documents, drive) -> None:
+    """The folder import skips an APPROVED document on purpose; this is the
+    deliberate, per-document act that is allowed to undo that review."""
+    import fixtures
+
+    drive["data"] = fixtures.exogena_workbook_bytes()
+    documents.save(
+        _document(
+            id="doc-1",
+            status=DocumentStatus.APPROVED,
+            document_type_id=None,
+            approved_by="jane",
+            reviewed_at=datetime.now(UTC),
+            file_name="reporteExogena2025.xlsx",
+            mime_type=XLSX,
+        )
+    )
+
+    response = client.post("/documents/doc-1/reprocess")
+
+    assert response.status_code == 200
+    body = response.json()
+    # Back to unreviewed: the figures on it are ones nobody has looked at.
+    assert body["status"] == "processed"
+    assert body["approved_by"] is None
+    assert body["source_id"] == "exogena_report"
+
+
+def test_a_reprocess_that_reads_nothing_is_a_200_with_the_failed_document(
+    client, documents, drive
+) -> None:
+    """Not a 422 like approving: the reread already replaced what the document
+    held, so the failure is its new state and the caller needs it to show why."""
+    documents.save(
+        _document(
+            id="doc-1",
+            status=DocumentStatus.APPROVED,
+            document_type_id=None,
+            approved_by="jane",
+            file_name="notes.xlsx",
+            mime_type=XLSX,
+        )
+    )
+
+    response = client.post("/documents/doc-1/reprocess")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
+
+
+def test_reprocessing_a_missing_document_is_a_404(client, documents, drive) -> None:
+    assert client.post("/documents/missing/reprocess").status_code == 404

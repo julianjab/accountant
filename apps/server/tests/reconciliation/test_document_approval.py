@@ -14,7 +14,10 @@ import fixtures
 from server.application.use_cases import (
     ApproveDocument,
     ApproveDocumentInput,
+    ExtractDocument,
     ProcessUploadedDocument,
+    ReprocessDocument,
+    ReprocessDocumentInput,
 )
 from server.domain.entities import Client, Document, DocumentStatus
 from server.domain.ports import DocumentContent
@@ -35,6 +38,7 @@ from server.reconciliation.infrastructure import (
     InMemoryConceptMappingRepository,
     InMemoryReconciliationReportRepository,
     KindSourceParsers,
+    ReprocessDocumentAndReconcile,
 )
 from server.reconciliation.kinds.exogena import ExogenaReconciliation
 from server.shared import Period
@@ -101,16 +105,18 @@ def _build(reconcile, data: bytes, documents=None, extracted=None, clients=None,
     return ApproveDocumentAndReconcile(
         approve=ApproveDocument(
             documents=documents,
-            storage=storage,
-            parsers=KindSourceParsers(registry),
-            extracted_data=extracted,
-            process_document=ProcessUploadedDocument(
+            extract=ExtractDocument(
                 storage=storage,
-                classifier=_NeverClassifies(),
-                ocr=_Ocr(),
-                documents=documents,
-                document_types=document_types,
+                parsers=KindSourceParsers(registry),
                 extracted_data=extracted,
+                process_document=ProcessUploadedDocument(
+                    storage=storage,
+                    classifier=_NeverClassifies(),
+                    ocr=_Ocr(),
+                    documents=documents,
+                    document_types=document_types,
+                    extracted_data=extracted,
+                ),
             ),
         ),
         reconcile=reconcile,
@@ -212,3 +218,63 @@ def test_one_press_leaves_the_client_with_a_cross_check_to_read() -> None:
     assert all(finding.evidence_facts == () for finding in report.findings), (
         "no certificates are configured, so nothing can back these rows yet"
     )
+
+
+def _build_reprocess(reconcile, data: bytes, documents=None, extracted=None):
+    documents = documents if documents is not None else InMemoryDocumentRepository()
+    extracted = extracted if extracted is not None else InMemoryExtractedDataRepository()
+    registry = KindRegistry([ExogenaReconciliation()])
+    storage = _Storage(data)
+    return ReprocessDocumentAndReconcile(
+        reprocess=ReprocessDocument(
+            documents=documents,
+            extract=ExtractDocument(
+                storage=storage,
+                parsers=KindSourceParsers(registry),
+                extracted_data=extracted,
+                process_document=ProcessUploadedDocument(
+                    storage=storage,
+                    classifier=_NeverClassifies(),
+                    ocr=_Ocr(),
+                    documents=documents,
+                    document_types=InMemoryDocumentTypeRepository(),
+                    extracted_data=extracted,
+                ),
+            ),
+        ),
+        reconcile=reconcile,
+        registry=registry,
+    )
+
+
+def test_reprocessing_rebuilds_the_report_the_reread_changed() -> None:
+    """Reprocessing replaces the figures a report was built from, so leaving
+    that report standing would show the client a cross-check of numbers that
+    no longer exist."""
+    documents = InMemoryDocumentRepository()
+    approved = _failed_exogena()
+    documents.save(
+        Document(
+            id=approved.id,
+            client_id=approved.client_id,
+            document_type_id=None,
+            drive_file_id=approved.drive_file_id,
+            file_name=approved.file_name,
+            mime_type=approved.mime_type,
+            status=DocumentStatus.APPROVED,
+            error=None,
+            created_at=approved.created_at,
+            approved_by="jane",
+            source_id="exogena_report",
+        )
+    )
+    reconcile = _RecordingReconcile()
+
+    reprocessed = _build_reprocess(
+        reconcile, fixtures.exogena_workbook_bytes(), documents=documents
+    ).execute(ReprocessDocumentInput(document_id="doc-1"))
+
+    assert reprocessed.document.status == DocumentStatus.PROCESSED
+    assert [(c.client_id, c.kind_id, c.period) for c in reconcile.calls] == [
+        ("client-1", KIND_ID, Period.of_year(2025))
+    ]

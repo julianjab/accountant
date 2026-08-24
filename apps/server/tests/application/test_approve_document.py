@@ -18,6 +18,7 @@ from server.application.use_cases import (
     ApproveDocumentInput,
     DocumentNotExtractable,
     DocumentNotFound,
+    ExtractDocument,
     ProcessUploadedDocument,
 )
 from server.domain.entities import Document, DocumentStatus, DocumentType, ExtractedData
@@ -91,16 +92,18 @@ def _use_case(
         document_types.save(document_type)
     return ApproveDocument(
         documents=documents,
-        storage=storage,
-        parsers=KindSourceParsers(KindRegistry([ExogenaReconciliation()])),
-        extracted_data=extracted,
-        process_document=ProcessUploadedDocument(
+        extract=ExtractDocument(
             storage=storage,
-            classifier=classifier or _Classifier(None),
-            ocr=ocr or _Ocr(),
-            documents=documents,
-            document_types=document_types,
+            parsers=KindSourceParsers(KindRegistry([ExogenaReconciliation()])),
             extracted_data=extracted,
+            process_document=ProcessUploadedDocument(
+                storage=storage,
+                classifier=classifier or _Classifier(None),
+                ocr=ocr or _Ocr(),
+                documents=documents,
+                document_types=document_types,
+                extracted_data=extracted,
+            ),
         ),
     )
 
