@@ -144,23 +144,52 @@
     },
     "new": {
       "title": "Definir tipo de documento",
+      "nothingSaved": "Todavía no se guarda nada. Primero se analiza el documento de muestra y después vos elegís qué se le va a pedir a cada documento de este tipo.",
       "submit": "Analizar documento",
+      "sampleFileHint": "Subí un ejemplo del papel que vas a recibir siempre: de ahí sale la lista de campos.",
       "loading": "Claude está analizando el documento…",
       "loadingHint": "Esto puede tardar cerca de un minuto",
-      "error": "No se pudo definir el tipo de documento. Intentá de nuevo.",
-      "invalidJson": "El esquema no es un JSON válido",
+      "error": "No pudimos analizar el documento. Intentá de nuevo.",
       "issuerDescription": "Certificado tributario emitido por {issuer}.",
-      "claimDescription": "Certificado tributario de {issuer} que respalda: {claim}."
-    },
-    "proposal": {
-      "title": "Propuesta generada",
-      "prompt": "Prompt de extracción",
-      "schema": "Esquema de extracción",
-      "save": "Guardar tipo",
-      "edit": "Editar",
-      "confirmEdit": "Confirmar edición",
-      "cancelEdit": "Cancelar edición",
-      "localEditsNotice": "Los cambios de esta edición sólo se guardaron en esta pantalla, no en el servidor (aún no existe una forma de actualizar un tipo ya guardado)."
+      "claimDescription": "Certificado tributario de {issuer} que respalda: {claim}.",
+      "reporterProposed": "El análisis propone «{field}» como el NIT de quien reporta. En la muestra dice «{value}».",
+      "reporterNotProposed": "El análisis no encontró en este documento el NIT de quien reporta.",
+      "select": {
+        "title": "Qué se le va a pedir a cada documento de este tipo",
+        "hint": "Vienen marcados la identificación y los valores, que suele ser lo que hace falta. Lo demás —fechas, textos, encabezados— viene sin marcar: marcá lo que sí necesites y desmarcá lo que no. Lo que quede sin marcar no se extrae.",
+        "empty": "El análisis no encontró campos en este documento.",
+        "keep": "Extraer este campo",
+        "all": "Marcar todo",
+        "none": "Ninguno",
+        "sectionCount": "{kept} de {total} marcados",
+        "otherSection": "Otros campos del documento",
+        "sampleValue": "En la muestra: {value}",
+        "keptSummary": "Se van a extraer {kept} de {total} campos.",
+        "role": {
+          "identifier": "Identificación",
+          "amount": "Valor",
+          "context": "Contexto"
+        }
+      },
+      "taxYears": {
+        "title": "Años gravables",
+        "label": "Años gravables (opcional)",
+        "hint": "Dejalo vacío y el tipo sirve para cualquier año. Se llena cuando una entidad cambia su certificado de un año a otro y el mismo papel necesita dos configuraciones.",
+        "placeholder": "2024, 2025",
+        "invalid": "Esto no parece un año: {years}. Escribí los años con cuatro dígitos, separados por comas."
+      },
+      "blocked": {
+        "noFields": "Marcá por lo menos un campo: un tipo sin campos no extrae nada."
+      },
+      "save": "Crear tipo de documento",
+      "startOver": "Empezar de nuevo",
+      "createError": "No pudimos crear el tipo. Intentá de nuevo — no se pierde lo que elegiste.",
+      "created": {
+        "title": "Se creó «{name}»",
+        "hint": "Ya se usa para reconocer y extraer los documentos que lleguen como éste.",
+        "configure": "Ajustar la conciliación",
+        "list": "Ver todos los tipos"
+      }
     },
     "configure": "Configurar",
     "edit": {

@@ -144,23 +144,52 @@
     },
     "new": {
       "title": "Define document type",
+      "nothingSaved": "Nothing is saved yet. First the sample document is analyzed, then you choose what will be asked of every document of this type.",
       "submit": "Analyze document",
+      "sampleFileHint": "Upload one example of the paper you will keep receiving: the field list comes from it.",
       "loading": "Claude is analyzing the document…",
       "loadingHint": "This can take about a minute",
-      "error": "Could not define the document type. Please try again.",
-      "invalidJson": "The schema is not valid JSON",
+      "error": "We could not analyze the document. Please try again.",
       "issuerDescription": "Tax certificate issued by {issuer}.",
-      "claimDescription": "Tax certificate from {issuer} backing: {claim}."
-    },
-    "proposal": {
-      "title": "Generated proposal",
-      "prompt": "Extraction prompt",
-      "schema": "Extraction schema",
-      "save": "Save type",
-      "edit": "Edit",
-      "confirmEdit": "Confirm edit",
-      "cancelEdit": "Cancel editing",
-      "localEditsNotice": "These edits were only kept on this screen, not on the server (there is no way to update an already-saved type yet)."
+      "claimDescription": "Tax certificate from {issuer} backing: {claim}.",
+      "reporterProposed": "The analysis proposes “{field}” as the tax id of the reporting party. On the sample it reads “{value}”.",
+      "reporterNotProposed": "The analysis did not find the tax id of the reporting party in this document.",
+      "select": {
+        "title": "What will be asked of every document of this type",
+        "hint": "The identification and the amounts start ticked, which is usually what is needed. Everything else — dates, wording, headings — starts unticked: tick what you do need and untick what you do not. Whatever stays unticked is not extracted.",
+        "empty": "The analysis found no fields in this document.",
+        "keep": "Extract this field",
+        "all": "Tick all",
+        "none": "None",
+        "sectionCount": "{kept} of {total} ticked",
+        "otherSection": "Other fields in the document",
+        "sampleValue": "On the sample: {value}",
+        "keptSummary": "{kept} of {total} fields will be extracted.",
+        "role": {
+          "identifier": "Identification",
+          "amount": "Amount",
+          "context": "Context"
+        }
+      },
+      "taxYears": {
+        "title": "Tax years",
+        "label": "Tax years (optional)",
+        "hint": "Leave it empty and the type works for any year. Fill it in when an issuer changes its certificate from one year to the next and the same paperwork needs two configurations.",
+        "placeholder": "2024, 2025",
+        "invalid": "This does not look like a year: {years}. Write four-digit years separated by commas."
+      },
+      "blocked": {
+        "noFields": "Tick at least one field: a type with no fields extracts nothing."
+      },
+      "save": "Create document type",
+      "startOver": "Start over",
+      "createError": "We could not create the type. Try again — your choices are not lost.",
+      "created": {
+        "title": "“{name}” was created",
+        "hint": "It is already used to recognize and extract documents like this one.",
+        "configure": "Adjust the reconciliation",
+        "list": "See all types"
+      }
     },
     "configure": "Configure",
     "edit": {
