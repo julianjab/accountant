@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, HttpUrl, TypeAdapter, field_validator
+from pydantic import BaseModel, HttpUrl, TypeAdapter, field_validator, model_validator
 
 from server.domain.entities import DocumentStatus
 
@@ -225,6 +225,15 @@ class ConceptMappingEntryPayload(BaseModel):
         if value not in (1, -1):
             raise ValueError("sign must be 1 or -1")
         return value
+
+    @model_validator(mode="after")
+    def _account_comparison_needs_an_account(self) -> "ConceptMappingEntryPayload":
+        # Rejected here so the caller gets a 422 naming the field. The entity
+        # refuses this too, but that far in it is a 500 — an error the caller
+        # cannot act on for a mistake they can fix.
+        if self.per_account and not self.account_path:
+            raise ValueError("per_account requires account_path")
+        return self
 
 
 class ConceptMappingRequest(BaseModel):

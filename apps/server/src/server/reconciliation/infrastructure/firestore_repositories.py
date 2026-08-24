@@ -269,17 +269,7 @@ class FirestoreConceptMappingRepository:
             reporter_path=data.get("reporter_path"),
             reporter_name_path=data.get("reporter_name_path"),
             period_path=data.get("period_path"),
-            entries=tuple(
-                ConceptMappingEntry(
-                    field_path=e["field_path"],
-                    concept_id=e["concept_id"],
-                    account_path=e.get("account_path"),
-                    sign=e.get("sign", 1),
-                    spine_concept_id=e.get("spine_concept_id"),
-                    per_account=e.get("per_account", False),
-                )
-                for e in data.get("entries", [])
-            ),
+            entries=tuple(_mapping_entry_from_doc(e) for e in data.get("entries", [])),
         )
 
 
@@ -300,6 +290,26 @@ def _contribution_from_doc(data: dict[str, Any]) -> DocumentContribution:
         status=status,
         fact_count=data.get("fact_count", 0),
         detail=data.get("detail", ""),
+    )
+
+
+def _mapping_entry_from_doc(data: dict[str, Any]) -> ConceptMappingEntry:
+    """Reads one entry, tolerating rows written before today's invariants.
+
+    A row asking to compare per account without an account path predates the
+    rule that the two belong together. Refusing it here would make the whole
+    mapping unreadable — every other entry with it — over one field, so the
+    comparison degrades to totals instead, which is what that row could ever
+    actually do.
+    """
+    account_path = data.get("account_path")
+    return ConceptMappingEntry(
+        field_path=data["field_path"],
+        concept_id=data["concept_id"],
+        account_path=account_path,
+        sign=data.get("sign", 1),
+        spine_concept_id=data.get("spine_concept_id"),
+        per_account=bool(data.get("per_account")) and account_path is not None,
     )
 
 
