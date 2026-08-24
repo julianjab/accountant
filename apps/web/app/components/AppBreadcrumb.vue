@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const { labels: breadcrumbLabels } = useBreadcrumbLabels()
 
 const NAV_LABEL_KEYS: Record<string, string> = {
@@ -12,6 +13,11 @@ const NAV_LABEL_KEYS: Record<string, string> = {
 interface Crumb {
   label: string
   path: string
+  /** False for a segment that is only part of a URL and not a page of its own.
+   *
+   * `/documents/<id>` is the only route under `documents`; there is no index
+   * beneath it, so linking that crumb would send the reader to a 404. */
+  navigable: boolean
 }
 
 const crumbs = computed<Crumb[]>(() => {
@@ -22,10 +28,14 @@ const crumbs = computed<Crumb[]>(() => {
     cumulativePath += `/${segment}`
     const key = NAV_LABEL_KEYS[segment]
     const label = breadcrumbLabels.value[cumulativePath] ?? (key ? t(key) : segment)
-    return { label, path: cumulativePath }
+    return {
+      label,
+      path: cumulativePath,
+      navigable: router.resolve(cumulativePath).matched.length > 0
+    }
   })
 
-  return [{ label: t('breadcrumb.home'), path: '/' }, ...trail]
+  return [{ label: t('breadcrumb.home'), path: '/', navigable: true }, ...trail]
 })
 </script>
 
@@ -52,7 +62,7 @@ const crumbs = computed<Crumb[]>(() => {
           :class="index === crumbs.length - 1 ? '' : 'hidden sm:inline'"
         >/</span>
         <NuxtLink
-          v-if="index < crumbs.length - 1"
+          v-if="index < crumbs.length - 1 && crumb.navigable"
           :to="crumb.path"
           class="truncate transition-colors duration-[120ms] hover:text-green-600"
         >{{ crumb.label }}</NuxtLink>
