@@ -25,6 +25,23 @@ export interface ProposeDocumentTypeInput {
   /** The reconciliation model to propose concepts from; null lets the server
    * pick the one it knows. */
   kindId?: string | null
+  /**
+   * The type this proposal revises, when it is a regeneration.
+   *
+   * The server then starts from that type's stored prompt and schema and may
+   * not rename what it already declares: the concept mappings are keyed by
+   * path, so a regeneration that renamed a surviving field would throw away
+   * every mapping someone curated to fix the one field that was missing.
+   */
+  documentTypeId?: string | null
+  /**
+   * What the person configuring the type says the last reading got wrong.
+   *
+   * The lever the screen otherwise lacks: a table the model read as one row
+   * stays one row however many times the same request is repeated, because
+   * nothing in it ever said the other rows were missing.
+   */
+  guidance?: string | null
 }
 
 /**

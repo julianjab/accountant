@@ -221,6 +221,8 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
     if (input.documentId) formData.append('document_id', input.documentId)
     else if (input.sampleFile) formData.append('sample_file', input.sampleFile)
     if (input.kindId) formData.append('kind_id', input.kindId)
+    if (input.documentTypeId) formData.append('document_type_id', input.documentTypeId)
+    if (input.guidance) formData.append('guidance', input.guidance)
 
     const dto = await $fetch<DocumentTypeProposalDto>('/document-types/proposals', {
       baseURL: this.baseUrl,

@@ -4,6 +4,7 @@ import type { DocumentType, DocumentTypeField } from '~/domain/entities/document
 import type { ClientDocument } from '~/domain/entities/document'
 import { DocumentTypeInUseError } from '~/domain/errors/document-type-in-use-error'
 import type { ReconciliationKind } from '~/domain/entities/reconciliation-kind'
+import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
 import type { FieldSelection } from '~/domain/document-type-configuration'
 import {
   buildFieldSelections,
@@ -19,6 +20,8 @@ import {
   writeSource
 } from '~/domain/document-type-configuration'
 import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
+import { changesNothing, compareSchemaPaths } from '~/domain/schema-revision'
+import type { SchemaRevision } from '~/domain/schema-revision'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
 import { matchesFieldQuery } from '~/domain/field-search'
 import {
@@ -39,6 +42,7 @@ const getDocumentType = useGetDocumentTypeUseCase()
 const getDocument = useGetDocumentUseCase()
 const deleteDocumentType = useDeleteDocumentTypeUseCase()
 const describeDocumentTypeFields = useDescribeDocumentTypeFieldsUseCase()
+const proposeDocumentType = useProposeDocumentTypeUseCase()
 const updateDocumentType = useUpdateDocumentTypeUseCase()
 const listReconciliationKinds = useListReconciliationKindsUseCase()
 const getConceptMapping = useGetConceptMappingUseCase()
@@ -223,6 +227,111 @@ async function recoverDescriptions() {
     recoveryFailed.value = true
   } finally {
     recovering.value = false
+  }
+}
+
+/**
+ * Regenerating the configuration from the sample, told what went wrong.
+ *
+ * The gap this closes: the fields below can be trimmed and mapped, but nothing
+ * on this screen could ever *add* one. A certificate whose obligations table
+ * has a row per item is read as a single row until someone says so, and no
+ * amount of re-reading finds a row that was never asked for — the extraction
+ * prompt and the schema had to be reopened, and only the AI writes those.
+ */
+const regenerationGuidance = ref('')
+const regenerating = ref(false)
+const regenerationFailed = ref(false)
+const applyingRegeneration = ref(false)
+/** The proposal in hand, kept until it is applied or discarded: applying it
+ * replaces the schema every future document of this kind is read with, so it
+ * is shown and confirmed rather than saved on arrival. */
+const regenerated = ref<DocumentTypeProposal | null>(null)
+
+const regeneratedRevision = computed<SchemaRevision | null>(() =>
+  regenerated.value
+    ? compareSchemaPaths(
+        schemaFields.value.map(field => field.path),
+        listSchemaFields(regenerated.value.extractionSchema).map(field => field.path)
+      )
+    : null
+)
+
+const regenerationChangesNothing = computed(
+  () => regeneratedRevision.value !== null && changesNothing(regeneratedRevision.value)
+)
+
+/** The document's own name for a proposed path, so the additions read as the
+ * paper reads and not as dotted paths. */
+const regeneratedLabels = computed(
+  () => new Map((regenerated.value?.fields ?? []).map(field => [field.path, field.label]))
+)
+
+function regeneratedLabelFor(path: string): string {
+  return regeneratedLabels.value.get(path) || fieldName(path)
+}
+
+async function regenerate() {
+  const paper = documentToReadAgain.value
+  if (regenerating.value || !documentType.value || !paper) return
+
+  regenerating.value = true
+  regenerationFailed.value = false
+  regenerated.value = null
+
+  try {
+    regenerated.value = await proposeDocumentType.execute({
+      name: documentType.value.name,
+      documentId: paper.id,
+      // Named so the server revises this type rather than reading it afresh:
+      // the mappings are keyed by path, and a proposal that renamed the fields
+      // it kept would discard every one of them to fix the one that was
+      // missing.
+      documentTypeId: documentTypeId,
+      guidance: regenerationGuidance.value
+    })
+  } catch {
+    regenerationFailed.value = true
+  } finally {
+    regenerating.value = false
+  }
+}
+
+function discardRegeneration() {
+  regenerated.value = null
+  regenerationFailed.value = false
+}
+
+/**
+ * Writes the regenerated prompt and schema, keeping the curated descriptions.
+ *
+ * The mappings are not touched here: the server re-checks them against the new
+ * schema and reports what it had to drop, which is the same path an edit that
+ * trims a field already takes. That report is why the changes are shown below
+ * rather than assumed away.
+ */
+async function applyRegeneration() {
+  const proposal = regenerated.value
+  if (applyingRegeneration.value || !proposal || !documentType.value) return
+
+  applyingRegeneration.value = true
+  regenerationFailed.value = false
+
+  try {
+    const updated = await updateDocumentType.execute(documentTypeId, {
+      extractionPrompt: proposal.extractionPrompt,
+      extractionSchema: proposal.extractionSchema,
+      fields: mergeDescriptions(documentType.value.fields, proposal.fields),
+      sampleDocumentId: documentToReadAgain.value?.id
+    })
+    mappingChanges.value = updated.mappingChanges
+    regenerated.value = null
+    regenerationGuidance.value = ''
+    await refreshDocumentType()
+  } catch {
+    regenerationFailed.value = true
+  } finally {
+    applyingRegeneration.value = false
   }
 }
 
@@ -899,6 +1008,138 @@ watch(
               ? t('documentTypes.edit.recover.done', recovered)
               : t('documentTypes.edit.recover.nothing', recovered)"
           />
+
+          <!--
+          The only way to add a field: everything else on this screen trims or
+          maps what the schema already declares, and a row of a table that was
+          never asked for cannot be mapped into existence.
+        -->
+          <section
+            v-if="documentToReadAgain"
+            class="border-default mb-6 flex flex-col gap-3 rounded-lg border p-3"
+            data-testid="regenerate-type"
+          >
+            <div>
+              <h3 class="text-sm font-medium">
+                {{ t('documentTypes.edit.regenerate.title') }}
+              </h3>
+              <p class="text-muted text-xs">
+                {{ t('documentTypes.edit.regenerate.hint', { file: documentToReadAgain.fileName }) }}
+              </p>
+            </div>
+
+            <UFormField :label="t('documentTypes.edit.regenerate.guidance')">
+              <UTextarea
+                v-model="regenerationGuidance"
+                :rows="3"
+                class="w-full"
+                data-testid="regenerate-guidance"
+                :placeholder="t('documentTypes.edit.regenerate.guidancePlaceholder')"
+              />
+            </UFormField>
+
+            <UAlert
+              v-if="regenerationFailed"
+              color="error"
+              variant="soft"
+              :description="t('documentTypes.edit.regenerate.failed')"
+            />
+
+            <UButton
+              v-if="!regenerated"
+              :loading="regenerating"
+              :disabled="regenerating"
+              variant="outline"
+              size="sm"
+              class="w-fit"
+              @click="regenerate"
+            >
+              {{ t('documentTypes.edit.regenerate.action') }}
+            </UButton>
+
+            <!--
+            Shown before anything is written: applying this replaces the schema
+            every future document of this kind is read with, and a field that
+            disappears takes its mapping with it.
+          -->
+            <div
+              v-if="regenerated && regeneratedRevision"
+              class="flex flex-col gap-3"
+              data-testid="regenerate-preview"
+            >
+              <p
+                v-if="regenerationChangesNothing"
+                class="text-warning text-sm"
+              >
+                {{ t('documentTypes.edit.regenerate.noChange') }}
+              </p>
+
+              <div v-if="regeneratedRevision.added.length > 0">
+                <p class="text-sm font-medium">
+                  {{ t('documentTypes.edit.regenerate.added', {
+                    count: regeneratedRevision.added.length
+                  }) }}
+                </p>
+                <ul class="mt-1 flex flex-col gap-1">
+                  <li
+                    v-for="path in regeneratedRevision.added"
+                    :key="path"
+                    class="text-sm"
+                  >
+                    <span class="text-success">+</span>
+                    {{ regeneratedLabelFor(path) }}
+                    <span class="text-dimmed break-all font-mono text-xs">{{ path }}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div v-if="regeneratedRevision.removed.length > 0">
+                <p class="text-warning text-sm font-medium">
+                  {{ t('documentTypes.edit.regenerate.removed', {
+                    count: regeneratedRevision.removed.length
+                  }) }}
+                </p>
+                <ul class="mt-1 flex flex-col gap-1">
+                  <li
+                    v-for="path in regeneratedRevision.removed"
+                    :key="path"
+                    class="text-sm"
+                  >
+                    <span class="text-warning">−</span>
+                    {{ fieldName(path) }}
+                    <span class="text-dimmed break-all font-mono text-xs">{{ path }}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <p class="text-muted text-xs">
+                {{ t('documentTypes.edit.regenerate.kept', {
+                  count: regeneratedRevision.kept.length
+                }) }}
+              </p>
+
+              <div class="flex flex-wrap gap-2">
+                <UButton
+                  :loading="applyingRegeneration"
+                  :disabled="applyingRegeneration"
+                  size="sm"
+                  data-testid="apply-regeneration"
+                  @click="applyRegeneration"
+                >
+                  {{ t('documentTypes.edit.regenerate.apply') }}
+                </UButton>
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  :disabled="applyingRegeneration"
+                  @click="discardRegeneration"
+                >
+                  {{ t('documentTypes.edit.regenerate.discard') }}
+                </UButton>
+              </div>
+            </div>
+          </section>
 
           <p
             v-if="!selections.length"

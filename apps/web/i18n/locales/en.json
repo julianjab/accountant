@@ -319,6 +319,20 @@
         "refusedTitle": "Cannot delete: documents of this type already exist",
         "refused": "Deleting it would leave those documents unable to say what they are or which exogena line they answer. Deactivate it above: it stops classifying new documents and the existing ones stay readable.",
         "failed": "The type could not be deleted. Try again."
+      },
+      "regenerate": {
+        "title": "Regenerate the configuration from the sample",
+        "hint": "Read «{file}» again so the model proposes the prompt and the schema afresh. Fields that already exist keep their path, so the mappings survive. This is the only way to add a field the type never asked for.",
+        "guidance": "What did the last reading miss?",
+        "guidancePlaceholder": "E.g.: the «Obligaciones a Cargo» table has one row per obligation (loan and credit card). Extract every row with its name, capital, interest and other charges.",
+        "action": "Regenerate with these instructions",
+        "failed": "The type could not be regenerated. Try again.",
+        "added": "{count} new fields",
+        "removed": "{count} fields that would stop being extracted",
+        "kept": "{count} fields stay as they are, with their mappings.",
+        "noChange": "The new reading declares the same fields. The extraction prompt does change; apply it only if you want that new wording.",
+        "apply": "Apply to the type",
+        "discard": "Discard"
       }
     }
   },

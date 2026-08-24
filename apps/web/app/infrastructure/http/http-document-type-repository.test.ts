@@ -174,6 +174,36 @@ describe('HttpDocumentTypeRepository.propose', () => {
   })
 })
 
+describe('HttpDocumentTypeRepository.propose as a revision', () => {
+  it('names the type being revised and carries the instructions', async () => {
+    const fetcher = stubFetch(() => PROPOSAL_DTO)
+
+    await new HttpDocumentTypeRepository('http://api').propose({
+      name: 'Certificado',
+      documentId: 'doc-1',
+      documentTypeId: 'dt-1',
+      guidance: 'La tabla tiene una fila por obligación.'
+    })
+
+    const body = fetcher.mock.calls[0]![1]!.body as FormData
+    expect(body.get('document_type_id')).toBe('dt-1')
+    expect(body.get('guidance')).toBe('La tabla tiene una fila por obligación.')
+  })
+
+  it('says nothing about revising on a first reading', async () => {
+    const fetcher = stubFetch(() => PROPOSAL_DTO)
+
+    await new HttpDocumentTypeRepository('http://api').propose({
+      name: 'Certificado',
+      documentId: 'doc-1'
+    })
+
+    const body = fetcher.mock.calls[0]![1]!.body as FormData
+    expect(body.get('document_type_id')).toBeNull()
+    expect(body.get('guidance')).toBeNull()
+  })
+})
+
 describe('HttpDocumentTypeRepository.create', () => {
   it('sends the trimmed type as JSON, with no file', async () => {
     const fetcher = stubFetch(() => DOCUMENT_TYPE_DTO)

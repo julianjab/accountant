@@ -319,6 +319,20 @@
         "refusedTitle": "No se puede eliminar: ya hay documentos de este tipo",
         "refused": "Borrarlo dejaría esos documentos sin poder decir qué son ni con qué línea de la exógena se cruzan. Desactivalo arriba: deja de clasificar documentos nuevos y los que ya existen se siguen entendiendo.",
         "failed": "No se pudo eliminar el tipo. Intentá de nuevo."
+      },
+      "regenerate": {
+        "title": "Regenerar la configuración desde la muestra",
+        "hint": "Volver a leer «{file}» para que el modelo proponga de nuevo el prompt y el esquema. Los campos que ya existen conservan su ruta, así que las asignaciones no se pierden. Es la única forma de agregar un campo que el tipo nunca pidió.",
+        "guidance": "¿Qué le faltó a la lectura anterior?",
+        "guidancePlaceholder": "Ej.: la tabla «Obligaciones a Cargo» tiene una fila por obligación (cartera y tarjeta de crédito). Extraé cada fila con su nombre, capital, interés y otros conceptos.",
+        "action": "Regenerar con estas indicaciones",
+        "failed": "No se pudo regenerar. Intentá de nuevo.",
+        "added": "{count} campos nuevos",
+        "removed": "{count} campos que dejarían de extraerse",
+        "kept": "{count} campos se mantienen igual, con sus asignaciones.",
+        "noChange": "La nueva lectura declara los mismos campos. El prompt de extracción sí cambia; aplicalo solo si querés esa nueva redacción.",
+        "apply": "Aplicar al tipo",
+        "discard": "Descartar"
       }
     }
   },
