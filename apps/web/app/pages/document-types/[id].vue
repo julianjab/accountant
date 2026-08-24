@@ -56,7 +56,7 @@ const selectedKind = computed(
   () => kinds.value.find(kind => kind.id === selectedKindId.value) ?? null
 )
 
-const { data: mapping } = await useAsyncData<ConceptMapping | null>(
+const { data: mapping, refresh: refreshMapping } = await useAsyncData<ConceptMapping | null>(
   `concept-mapping-${documentTypeId}`,
   () =>
     selectedKindId.value
@@ -76,6 +76,9 @@ const periodPath = ref<string | null>(null)
 const saving = ref(false)
 const saved = ref(false)
 const saveFailed = ref(false)
+/** The type was written and its mapping was not — a state a plain failure
+ * message would misreport, since retrying is not the same as starting over. */
+const typeSavedWithoutMapping = ref(false)
 const mappingChanges = ref<MappingChange[]>([])
 
 const schemaFields = computed(() => listSchemaFields(documentType.value?.extractionSchema ?? {}))
@@ -185,8 +188,14 @@ async function save() {
   saving.value = true
   saved.value = false
   saveFailed.value = false
+  typeSavedWithoutMapping.value = false
   mappingChanges.value = []
 
+  // Two writes with no transaction between them. If the second fails the type
+  // is already changed on the server, so reporting a plain failure would be a
+  // lie: the user would retry believing nothing was written, and the mapping
+  // they see would no longer describe the stored schema.
+  let typeSaved = false
   try {
     const update = await updateDocumentType.execute(documentTypeId, {
       name: name.value,
@@ -194,6 +203,7 @@ async function save() {
       active: active.value,
       ...(schemaChanged.value ? { extractionSchema: prunedSchema.value } : {})
     })
+    typeSaved = true
     documentType.value = update.documentType
     mappingChanges.value = update.mappingChanges
 
@@ -210,7 +220,14 @@ async function save() {
     syncMappingForm()
     saved.value = true
   } catch {
-    saveFailed.value = true
+    if (typeSaved) {
+      // Re-read so the form stops showing a mapping the server no longer has.
+      typeSavedWithoutMapping.value = true
+      await refreshMapping()
+      syncMappingForm()
+    } else {
+      saveFailed.value = true
+    }
   } finally {
     saving.value = false
   }
@@ -490,6 +507,15 @@ watch(
           v-if="saveFailed"
           color="error"
           :title="t('documentTypes.edit.saveError')"
+        />
+        <UAlert
+          v-else-if="typeSavedWithoutMapping"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          data-testid="save-partial"
+          :title="t('documentTypes.edit.savePartialTitle')"
+          :description="t('documentTypes.edit.savePartialDescription')"
         />
         <UAlert
           v-else-if="saved"

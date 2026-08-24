@@ -212,7 +212,9 @@
         "mapping_cleared": "Se borró toda la asignación de este tipo: hasta volver a configurarla, no concilia nada.",
         "prune_failed": "El servidor no pudo ajustar la asignación a este esquema; revisala antes de seguir.",
         "unknown": "El servidor ajustó la asignación ({change}) en {path}."
-      }
+      },
+      "savePartialTitle": "El tipo se guardó, el mapeo no",
+      "savePartialDescription": "Los cambios del documento quedaron guardados, pero no se pudo guardar el mapeo de conceptos. Revisa los conceptos y guarda de nuevo — no hace falta repetir lo demás."
     }
   },
   "auth": {
