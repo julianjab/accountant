@@ -33,6 +33,14 @@ class ConceptMappingEntry:
     account_path: str | None = None
     sign: int = 1
 
+    def __post_init__(self) -> None:
+        # A sign of 0 would silently zero every amount this field contributes
+        # and a 2 would double it, with nothing downstream to notice. These
+        # values arrive from an AI proposal and from an HTTP payload, so the
+        # entity itself refuses anything else.
+        if self.sign not in (1, -1):
+            raise ValueError(f"A concept mapping's sign must be +1 or -1, not {self.sign}")
+
 
 @dataclass(frozen=True, slots=True)
 class ConceptMapping:

@@ -96,3 +96,55 @@ def test_a_response_without_the_tool_call_is_an_error():
         assert "proposal tool call" in str(error)
     else:
         raise AssertionError("expected a RuntimeError")
+
+
+def test_a_concept_the_model_invented_is_reported_instead_of_stored():
+    """The enum steers the model; it does not bind it. An invented id would
+    reach storage and then select nothing, leaving the claim it was meant to
+    satisfy reported as missing with nothing pointing at the mapping."""
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "p",
+            "extraction_schema": {},
+            "field_mappings": [
+                {"field_path": "saldo", "concept_id": "bank:invented"},
+                {"field_path": "gmf", "concept_id": "bank:cert_gmf_valor"},
+            ],
+        }
+    )
+    assert [m.concept_id for m in proposal.field_mappings] == ["bank:cert_gmf_valor"]
+    assert proposal.unmapped_fields == (("saldo", "proposed an unknown concept (bank:invented)"),)
+
+
+def test_an_invalid_sign_is_reported_instead_of_stored():
+    """A sign of 0 would silently zero every amount the field contributes and a
+    2 would double it, with nothing downstream to notice."""
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "p",
+            "extraction_schema": {},
+            "field_mappings": [
+                {"field_path": "saldo", "concept_id": "bank:cert_gmf_valor", "sign": 0},
+                {"field_path": "otro", "concept_id": "bank:cert_gmf_valor", "sign": 2},
+            ],
+        }
+    )
+    assert proposal.field_mappings == ()
+    assert [reason for _, reason in proposal.unmapped_fields] == [
+        "proposed an invalid sign (0)",
+        "proposed an invalid sign (2)",
+    ]
+
+
+def test_a_bad_entry_does_not_discard_the_whole_proposal():
+    """The document type itself is fine; failing the request would leave it
+    saved with no mapping at all."""
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "Extract it.",
+            "extraction_schema": {"type": "object"},
+            "field_mappings": [{"field_path": "x", "concept_id": "nope"}],
+        }
+    )
+    assert proposal.extraction_prompt == "Extract it."
+    assert proposal.extraction_schema == {"type": "object"}

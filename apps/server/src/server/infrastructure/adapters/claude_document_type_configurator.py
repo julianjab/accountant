@@ -84,11 +84,12 @@ class ClaudeDocumentTypeConfigurator:
 
         for block in response["content"]:
             if block["type"] == "tool_use" and block["name"] == _PROPOSE_TOOL_NAME:
+                mappings, rejected = _read_mappings(block["input"], concepts)
                 return ProposedOcrConfig(
                     extraction_prompt=block["input"]["extraction_prompt"],
                     extraction_schema=block["input"]["extraction_schema"],
-                    field_mappings=_read_mappings(block["input"]),
-                    unmapped_fields=_read_unmapped(block["input"]),
+                    field_mappings=mappings,
+                    unmapped_fields=(*_read_unmapped(block["input"]), *rejected),
                 )
         msg = "Claude did not return the expected config proposal tool call"
         raise RuntimeError(msg)
@@ -169,16 +170,39 @@ def _mapping_instructions(concepts: Sequence[ConceptOption]) -> str:
     )
 
 
-def _read_mappings(payload: dict) -> tuple[ProposedFieldMapping, ...]:
-    return tuple(
-        ProposedFieldMapping(
-            field_path=entry["field_path"],
-            concept_id=entry["concept_id"],
-            account_path=entry.get("account_path") or None,
-            sign=entry.get("sign", 1),
+def _read_mappings(
+    payload: dict, concepts: Sequence[ConceptOption]
+) -> tuple[tuple[ProposedFieldMapping, ...], tuple[tuple[str, str], ...]]:
+    """Reads the mappings, setting aside any the model got wrong.
+
+    The enum in the tool schema steers the model; it does not bind it. An
+    invented concept id would otherwise reach storage and then select nothing,
+    and a sign of 0 would silently zero the field's amounts. Both are reported
+    as unmapped rather than raised: the document type itself is fine, and
+    failing the request would leave it saved with no mapping at all — the
+    half-configured state this is meant to prevent.
+    """
+    known = {c.id for c in concepts}
+    mappings: list[ProposedFieldMapping] = []
+    rejected: list[tuple[str, str]] = []
+    for entry in payload.get("field_mappings", []):
+        field_path, concept_id = entry["field_path"], entry["concept_id"]
+        sign = entry.get("sign", 1)
+        if concept_id not in known:
+            rejected.append((field_path, f"proposed an unknown concept ({concept_id})"))
+            continue
+        if sign not in (1, -1):
+            rejected.append((field_path, f"proposed an invalid sign ({sign})"))
+            continue
+        mappings.append(
+            ProposedFieldMapping(
+                field_path=field_path,
+                concept_id=concept_id,
+                account_path=entry.get("account_path") or None,
+                sign=sign,
+            )
         )
-        for entry in payload.get("field_mappings", [])
-    )
+    return tuple(mappings), tuple(rejected)
 
 
 def _read_unmapped(payload: dict) -> tuple[tuple[str, str], ...]:

@@ -206,3 +206,12 @@ def test_an_entry_with_no_account_path_is_left_unidentified():
         {"nit": "890903938", "saldo": "10"},
     )
     assert facts[0].account is None
+
+
+@pytest.mark.parametrize("sign", [0, 2, -2])
+def test_a_mapping_entry_refuses_a_sign_that_is_neither_plus_nor_minus_one(sign):
+    """0 would zero the field's amounts and 2 would double them, with nothing
+    downstream to notice. These values arrive from an AI proposal and from an
+    HTTP payload, so the entity itself refuses them."""
+    with pytest.raises(ValueError, match="must be \\+1 or -1"):
+        ConceptMappingEntry("saldo", "ev:x", sign=sign)

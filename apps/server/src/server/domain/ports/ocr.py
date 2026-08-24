@@ -46,6 +46,10 @@ class ProposedFieldMapping:
     #: concept (a charge presented as a positive number, say).
     sign: int = 1
 
+    def __post_init__(self) -> None:
+        if self.sign not in (1, -1):
+            raise ValueError(f"A field mapping's sign must be +1 or -1, not {self.sign}")
+
 
 @dataclass(frozen=True, slots=True)
 class ProposedOcrConfig:
