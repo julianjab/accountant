@@ -98,11 +98,9 @@
     "notFound": "No se encontró el documento",
     "otherFields": "Otros campos",
     "mapped": {
-      "crossed": "Cruza con la exógena",
-      "uncrossed": "Otros conceptos mapeados",
-      "absent": "El documento no lo dice",
-      "account": "Cuenta {account}",
-      "inverted": "signo invertido"
+      "answers": "{concept} · responde «{spine}» de la exógena",
+      "notCompared": "{concept} · no se compara con la exógena",
+      "inverted": "se suma con signo invertido"
     },
     "unknownType": "Tipo de documento desconocido",
     "headerConfidence": "Confianza promedio",

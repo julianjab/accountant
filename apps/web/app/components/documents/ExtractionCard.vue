@@ -6,10 +6,9 @@ import type { ExtractedData } from '~/domain/entities/extracted-data'
 import type { ConceptMapping } from '~/domain/entities/concept-mapping'
 import type { ReconciliationKind } from '~/domain/entities/reconciliation-kind'
 import ExtractionFieldRow from '~/components/documents/ExtractionFieldRow.vue'
-import MappedConceptList from '~/components/documents/MappedConceptList.vue'
 import ProcessingTimeline from '~/components/documents/ProcessingTimeline.vue'
 import { groupBySection, hasUsefulSections, labelFor } from '~/domain/field-sections'
-import { mappedFieldGroups } from '~/domain/mapped-extraction'
+import { conceptsByPath } from '~/domain/mapped-extraction'
 
 const props = defineProps<{
   document: ClientDocument
@@ -127,20 +126,11 @@ const sections = computed(() =>
   groupBySection(fieldEntries.value, entry => entry.key, props.documentType?.fields ?? [])
 )
 
-// What this document contributes to the client's cross-check, ahead of the
-// transcription. A type with no mapping yields nothing here and the card
-// renders exactly as it did before.
-const mapped = computed(() =>
-  mappedFieldGroups(
-    props.conceptMapping ?? null,
-    props.extractedData?.fields ?? null,
-    props.documentType?.fields ?? [],
-    props.reconciliationKind ?? null
-  )
-)
-
-const hasMappedConcepts = computed(() =>
-  mapped.value.crossed.length > 0 || mapped.value.uncrossed.length > 0
+// What this document contributes to the client's cross-check, carried down to
+// the value rows so each figure can say it for itself. A type with no mapping
+// yields an empty lookup and the card renders exactly as it did before.
+const concepts = computed(() =>
+  conceptsByPath(props.conceptMapping ?? null, props.reconciliationKind ?? null)
 )
 
 const averageConfidence = computed<number | null>(() => {
@@ -264,79 +254,50 @@ const isMissingExtraction = computed(() =>
       :description="t('documents.extractionMissing')"
     />
 
-    <div v-else-if="extractedData">
-      <!--
-        Above the transcription, and in its own framed block, because these are
-        not another way of reading the same page: they are the figures the
-        client's cross-check compares against the exógena. Everything below is
-        what the paper says; this is what the paper is being held to.
-      -->
+    <!--
+      The document stays in the document's own order, blocks and all: that is
+      the only order a figure can be checked against the paper in. Which of
+      those figures the cross-check leans on is said on the figure itself, by
+      a tag, rather than by lifting them out into a list of their own.
+    -->
+    <div
+      v-else-if="extractedData && showSections"
+      class="flex flex-col gap-6"
+    >
       <section
-        v-if="hasMappedConcepts"
-        class="mb-6 rounded-lg border border-default bg-elevated/40 p-3"
-        data-testid="mapped-concepts"
+        v-for="section in sections"
+        :key="section.name || 'unsectioned'"
       >
-        <template v-if="mapped.crossed.length > 0">
-          <h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
-            {{ t('documents.mapped.crossed') }}
-          </h3>
-          <MappedConceptList
-            :fields="mapped.crossed"
-            :confidence="extractedData.confidence"
+        <h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+          {{ section.name || t('documents.otherFields') }}
+        </h3>
+        <div class="divide-y divide-default">
+          <ExtractionFieldRow
+            v-for="entry in section.items"
+            :key="entry.key"
+            :field-key="entry.key"
+            :value="entry.value"
+            :confidence="entry.confidence"
+            :label="entry.label"
+            :concepts="concepts"
           />
-        </template>
-
-        <template v-if="mapped.uncrossed.length > 0">
-          <h3
-            class="mb-1 text-xs font-semibold uppercase tracking-wide text-muted"
-            :class="mapped.crossed.length > 0 ? 'mt-5' : ''"
-          >
-            {{ t('documents.mapped.uncrossed') }}
-          </h3>
-          <MappedConceptList
-            :fields="mapped.uncrossed"
-            :confidence="extractedData.confidence"
-          />
-        </template>
+        </div>
       </section>
+    </div>
 
-      <div
-        v-if="showSections"
-        class="flex flex-col gap-6"
-      >
-        <section
-          v-for="section in sections"
-          :key="section.name || 'unsectioned'"
-        >
-          <h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
-            {{ section.name || t('documents.otherFields') }}
-          </h3>
-          <div class="divide-y divide-default">
-            <ExtractionFieldRow
-              v-for="entry in section.items"
-              :key="entry.key"
-              :field-key="entry.key"
-              :value="entry.value"
-              :confidence="entry.confidence"
-              :label="entry.label"
-            />
-          </div>
-        </section>
-      </div>
-
-      <div
-        v-else
-        class="divide-y divide-default"
-      >
-        <ExtractionFieldRow
-          v-for="entry in fieldEntries"
-          :key="entry.key"
-          :field-key="entry.key"
-          :value="entry.value"
-          :confidence="entry.confidence"
-          :label="entry.label"
-        />
-      </div>
+    <div
+      v-else-if="extractedData"
+      class="divide-y divide-default"
+    >
+      <ExtractionFieldRow
+        v-for="entry in fieldEntries"
+        :key="entry.key"
+        :field-key="entry.key"
+        :value="entry.value"
+        :confidence="entry.confidence"
+        :label="entry.label"
+        :concepts="concepts"
+      />
     </div>
 
     <template #footer>

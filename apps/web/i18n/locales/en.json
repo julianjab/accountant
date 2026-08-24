@@ -98,11 +98,9 @@
     "notFound": "Document not found",
     "otherFields": "Other fields",
     "mapped": {
-      "crossed": "Checked against the exógena",
-      "uncrossed": "Other mapped concepts",
-      "absent": "The document does not state it",
-      "account": "Account {account}",
-      "inverted": "sign inverted"
+      "answers": "{concept} · answers “{spine}” of the exogena",
+      "notCompared": "{concept} · not compared against the exogena",
+      "inverted": "added with the sign inverted"
     },
     "unknownType": "Unknown document type",
     "headerConfidence": "Average confidence",

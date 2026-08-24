@@ -126,12 +126,12 @@ Ruta `/documents/[id]`. Consume `GET /documents/{id}` y `GET /documents/{id}/ext
 - [ ] Trazabilidad con las transiciones reales de `process_uploaded_document.py` (detectado → clasificado → OCR → listo).
 - [ ] Botón "Aprobar y enviar a hoja" (deshabilitado hasta F).
 
-**Implementado — conceptos mapeados encima de la transcripción** (desvío del diseño, `ExtractionCard.vue` + `MappedConceptList.vue`):
+**Implementado — tag de concepto sobre cada valor mapeado** (desvío del diseño, `ConceptTag.vue` + `ExtractionValue.vue`):
 
-- [x] Bloque enmarcado al inicio de la tarjeta con los campos que el tipo mapeó a conceptos: primero "Cruza con la exógena" (los que responden un renglón de la base), después "Otros conceptos mapeados".
-- [x] Cada fila: etiqueta del documento, `concepto → renglón de la exógena` en `text-muted`, valor a la derecha y, cuando el certificado detalla cuentas, el número de cuenta en mono debajo de cada cifra.
-- [x] Un campo mapeado que el documento no trae conserva su fila diciéndolo: esa ausencia es justamente el hallazgo del cruce.
-- [x] Las reglas viven en `app/domain/mapped-extraction.ts` (`resolvePath`, `mappedFieldGroups`) con tests; los componentes sólo pintan.
+- [x] Cada valor que el tipo mapeó a un concepto lleva un `UBadge size="sm" variant="subtle"` encima de la cifra: `primary` si responde un renglón de la exógena (el badge dice ese renglón), `neutral` si se lee pero no se compara (dice el concepto). El `title` trae la frase completa, y un `−` marca los que se suman con signo invertido.
+- [x] El documento conserva su orden y sus bloques — es el único orden en el que una cifra se puede chequear contra el papel. El tag responde "¿esta importa?" mientras se lee, sin sacar las cifras a una lista aparte.
+- [x] El path se reconstruye al bajar por el árbol de valores (`childPath`), así que una hoja dentro de un arreglo (`obligaciones_a_cargo[].capital`) encuentra su concepto sola y cada fila del arreglo lleva su tag.
+- [x] Las reglas viven en `app/domain/mapped-extraction.ts` (`conceptsByPath`, `childPath`) con tests; los componentes sólo pintan.
 - **Por qué no estaba en el diseño**: el diseño es anterior a la conciliación. La tarjeta mostraba sólo lo que leyó el OCR, y qué figuras sostienen el cruce únicamente se veía en la pantalla de configuración del tipo — que no es donde se revisa el certificado de un cliente.
 
 ---

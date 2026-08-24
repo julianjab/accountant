@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { confidenceBarColorClass, confidenceBarWidthPercent } from '~/components/documents/confidence'
 import ExtractionValue from '~/components/documents/ExtractionValue.vue'
+import type { MappedConcept } from '~/domain/mapped-extraction'
 import { humanizeFieldKey } from '~/utils/extraction-field-display'
 
 const props = defineProps<{
@@ -13,6 +14,9 @@ const props = defineProps<{
    * "Saldo a 31 de diciembre" is the document's words.
    */
   label?: string
+  /** Every mapped field of this document's type, keyed by path. Handed
+   * straight down: a row is a top-level key, and the mapping names leaves. */
+  concepts?: Map<string, MappedConcept>
 }>()
 
 const displayLabel = computed(() => props.label || humanizeFieldKey(props.fieldKey))
@@ -37,6 +41,8 @@ const isDocumentLabel = computed(() => Boolean(props.label))
           :field-key="fieldKey"
           :value="value"
           :confidence="confidence"
+          :path="fieldKey"
+          :concepts="concepts"
         />
       </div>
     </div>
