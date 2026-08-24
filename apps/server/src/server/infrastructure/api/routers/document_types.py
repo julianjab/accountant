@@ -5,9 +5,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from server.application.use_cases import (
     DefineDocumentType,
     DefineDocumentTypeInput,
+    DocumentNotFound,
     DocumentTypeNotFound,
     ProposeDocumentType,
     ProposeDocumentTypeInput,
+    ReadStoredDocument,
+    ReadStoredDocumentInput,
     UpdateDocumentType,
     UpdateDocumentTypeInput,
 )
@@ -19,6 +22,7 @@ from server.infrastructure.api.deps import (
     get_document_type_repository,
     get_propose_document_type_use_case,
     get_prune_concept_mappings_use_case,
+    get_read_stored_document_use_case,
     get_reconciliation_registry,
     get_save_concept_mapping_use_case,
     get_update_document_type_use_case,
@@ -70,16 +74,23 @@ def list_document_types(
 @router.post("/proposals", response_model=DocumentTypeProposalResponse)
 def propose_document_type(
     name: str = Form(...),
-    sample_file: UploadFile = File(...),
+    sample_file: UploadFile | None = File(None),
+    document_id: str | None = Form(None),
     kind_id: str | None = Form(None),
     use_case: ProposeDocumentType = Depends(get_propose_document_type_use_case),
     registry: KindRegistry = Depends(get_reconciliation_registry),
+    read_document: ReadStoredDocument = Depends(get_read_stored_document_use_case),
 ) -> DocumentTypeProposalResponse:
     """Reads a sample and reports what could be configured, storing nothing.
 
     A proposal routinely lists twenty fields where the accountant wants the
     identifier and three figures. Saving it whole made pruning the type their
     problem afterwards; this makes choosing it their decision up front.
+
+    The sample is named either as a document already in a client's folder
+    (`document_id`) or as an uploaded file. The first is what lets the saved
+    type point back at the paper it was configured from; an upload leaves the
+    configuration uncheckable, because the bytes are gone once this returns.
 
     Sync on purpose, like the create handler: this calls a blocking AIProvider,
     and a `def` handler runs in FastAPI's threadpool rather than stalling the
@@ -89,11 +100,7 @@ def propose_document_type(
     proposal = use_case.execute(
         ProposeDocumentTypeInput(
             type_name=name,
-            sample_document=DocumentContent(
-                data=sample_file.file.read(),
-                mime_type=sample_file.content_type or "application/octet-stream",
-                file_name=sample_file.filename or "sample",
-            ),
+            sample_document=_sample(sample_file, document_id, read_document),
             concepts=_concept_options(kind),
         )
     )
@@ -407,3 +414,26 @@ def _edited_fields(
         return None
     kept = tuple(f for f in stored.fields if path_resolves_in(f.path, payload.extraction_schema))
     return kept if len(kept) != len(stored.fields) else None
+
+
+def _sample(
+    sample_file: UploadFile | None,
+    document_id: str | None,
+    read_document: ReadStoredDocument,
+) -> DocumentContent:
+    """The document to propose from, however the caller named it."""
+    if document_id:
+        try:
+            return read_document.execute(ReadStoredDocumentInput(document_id=document_id))
+        except DocumentNotFound as exc:
+            raise HTTPException(status_code=404, detail="Document not found") from exc
+    if sample_file is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Proposing a document type needs either document_id or sample_file",
+        )
+    return DocumentContent(
+        data=sample_file.file.read(),
+        mime_type=sample_file.content_type or "application/octet-stream",
+        file_name=sample_file.filename or "sample",
+    )

@@ -43,6 +43,10 @@ from server.application.use_cases.propose_document_type import (
     ProposeDocumentType,
     ProposeDocumentTypeInput,
 )
+from server.application.use_cases.read_stored_document import (
+    ReadStoredDocument,
+    ReadStoredDocumentInput,
+)
 from server.application.use_cases.register_client import (
     RegisterClient,
     RegisterClientInput,
@@ -60,6 +64,9 @@ from server.application.use_cases.update_document_type import (
 )
 
 __all__ = [
+    "ReadStoredDocumentInput",
+    "ReadStoredDocument",
+    "DocumentNotFound",
     "ProposeDocumentTypeInput",
     "ProposeDocumentType",
     "DefinedDocumentType",
