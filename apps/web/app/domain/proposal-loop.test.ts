@@ -60,8 +60,13 @@ describe('toFieldSelection', () => {
 
 describe('isEmptySelection', () => {
   it('is empty only when nothing was kept and nothing refused', () => {
-    expect(isEmptySelection({ kept: [], dropped: [] })).toBe(true)
-    expect(isEmptySelection({ kept: [], dropped: ['a'] })).toBe(false)
+    expect(isEmptySelection({ kept: [], dropped: [], sections: [] })).toBe(true)
+    expect(isEmptySelection({ kept: [], dropped: ['a'], sections: [] })).toBe(false)
+    // A block instruction alone is worth sending: the reader may say what a
+    // table is before they have chosen a single field out of it.
+    expect(
+      isEmptySelection({ kept: [], dropped: [], sections: [{ section: 'GMF', note: 'mensual' }] })
+    ).toBe(false)
   })
 })
 
@@ -114,5 +119,46 @@ describe('rowsForRemovedPaths', () => {
     rows[0]!.kept = true
 
     expect(toFieldSelection(rows).kept.map(field => field.path)).toEqual(['gmf.base_gravable'])
+  })
+})
+
+describe('block instructions', () => {
+  it('sends what was written about a block this reading actually has', () => {
+    const selection = toFieldSelection(
+      [row({ path: 'gmf.valor', section: 'Gravamen a los movimientos financieros' })],
+      { 'Gravamen a los movimientos financieros': '  son mensuales, no acumulados  ' }
+    )
+
+    expect(selection.sections).toEqual([
+      { section: 'Gravamen a los movimientos financieros', note: 'son mensuales, no acumulados' }
+    ])
+  })
+
+  it('drops a note about a block this reading no longer produces', () => {
+    // It would ask the model to watch a part of the page it no longer believes
+    // is there, which is worse than saying nothing.
+    const selection = toFieldSelection([row({ path: 'saldo', section: 'Cuentas' })], {
+      'Obligaciones a cargo': 'una fila por obligación'
+    })
+
+    expect(selection.sections).toEqual([])
+  })
+
+  it('drops a box that was opened and left alone', () => {
+    const selection = toFieldSelection([row({ path: 'saldo', section: 'Cuentas' })], {
+      Cuentas: '   '
+    })
+
+    expect(selection.sections).toEqual([])
+  })
+
+  it('carries a note about the fields no heading was given, like any other block', () => {
+    // The leftovers are exactly where a reader is most likely to have
+    // something to say, and they are keyed by the empty string.
+    const selection = toFieldSelection([row({ path: 'notas', section: null })], {
+      '': 'esto es el pie de página'
+    })
+
+    expect(selection.sections).toEqual([{ section: '', note: 'esto es el pie de página' }])
   })
 })

@@ -242,4 +242,26 @@ test.describe('Regenerar un tipo de documento', () => {
 
     await expect(page.getByTestId('field-row-gmf')).toContainText('$ 512.561,52')
   })
+
+  test('sends what the reader said about a whole block of the page', async ({ page, baseURL }) => {
+    // The correction that matters most on a certificate — what a table
+    // actually is — governs every field under one heading, so it is said
+    // against the heading rather than repeated on each row.
+    const proposals: string[] = []
+    await stubServer(page, baseURL!, proposals)
+    await regenerate(page)
+
+    await page.getByTestId('section-annotate-Gravamen a los movimientos financieros').click()
+    await page
+      .getByTestId('section-note-Gravamen a los movimientos financieros')
+      .fill('Son mensuales, no acumulados.')
+    await page.getByTestId('reread-type').click()
+
+    await expect.poll(() => proposals.length).toBe(2)
+    const selection = JSON.parse(/name="selection"\r\n\r\n(.*?)\r\n/s.exec(proposals[1]!)![1]!)
+    expect(selection.sections).toContainEqual({
+      section: 'Gravamen a los movimientos financieros',
+      note: 'Son mensuales, no acumulados.'
+    })
+  })
 })

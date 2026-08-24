@@ -198,14 +198,16 @@ describe('HttpDocumentTypeRepository.propose as a revision', () => {
       documentId: 'doc-1',
       selection: {
         kept: [{ path: 'gmf.valor', label: 'GMF retenido', note: 'es la fila' }],
-        dropped: ['agente.direccion']
+        dropped: ['agente.direccion'],
+        sections: [{ section: 'GMF', note: 'son mensuales' }]
       }
     })
 
     const body = fetcher.mock.calls[0]![1]!.body as FormData
     expect(JSON.parse(body.get('selection') as string)).toEqual({
       kept: [{ path: 'gmf.valor', label: 'GMF retenido', note: 'es la fila' }],
-      dropped: ['agente.direccion']
+      dropped: ['agente.direccion'],
+      sections: [{ section: 'GMF', note: 'son mensuales' }]
     })
   })
 
@@ -217,7 +219,7 @@ describe('HttpDocumentTypeRepository.propose as a revision', () => {
     await new HttpDocumentTypeRepository('http://api').propose({
       name: 'Certificado',
       documentId: 'doc-1',
-      selection: { kept: [], dropped: [] }
+      selection: { kept: [], dropped: [], sections: [] }
     })
 
     const body = fetcher.mock.calls[0]![1]!.body as FormData
