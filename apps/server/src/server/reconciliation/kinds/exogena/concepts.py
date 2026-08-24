@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 from server.reconciliation.core.concepts import Concept, ConceptCatalog
 from server.shared import FactRole
@@ -156,7 +158,193 @@ _EVIDENCE_CONCEPTS: tuple[tuple[str, str], ...] = (
     ("bank:cert_gmf_valor", "GMF retenido (certificado)"),
     ("bank:cert_intereses_causados", "Intereses causados de cartera (certificado)"),
     ("bank:cert_componente_inflacionario", "Componente inflacionario (certificado)"),
+    # The employer's certificado de ingresos y retenciones (DIAN form 220).
+    # Its boxes are fixed by resolution, so a payroll row of the exogena and a
+    # box of the form either denote the same figure or they plainly do not —
+    # there is no judgement call left to make when pairing them below.
+    ("payroll:cert_pagos_salarios", "Pagos por salarios (certificado)"),
+    ("payroll:cert_otros_pagos", "Otros pagos (certificado)"),
+    ("payroll:cert_prestaciones_sociales", "Pagos por prestaciones sociales (certificado)"),
+    ("payroll:cert_cesantias_pagadas", "Cesantías e intereses pagados al empleado (certificado)"),
+    ("payroll:cert_cesantias_consignadas", "Cesantías consignadas al fondo (certificado)"),
+    ("payroll:cert_aportes_salud", "Aportes obligatorios a salud (certificado)"),
+    ("payroll:cert_aportes_pension", "Aportes obligatorios a pensión (certificado)"),
+    ("payroll:cert_aportes_afc", "Aportes a cuentas AFC/AVC (certificado)"),
+    ("payroll:cert_retencion_rentas_trabajo", "Retención por rentas de trabajo (certificado)"),
+    # Two documents no document type maps onto yet. Declaring the concept
+    # anyway is what makes the exogena row reach the accountant as "certificate
+    # still to be requested" rather than as silence; the day one of these
+    # certificates is onboarded, the mapping is all that has to be added.
+    ("fund:cert_saldo_ahorro_voluntario", "Saldo de ahorro voluntario (certificado)"),
+    ("equity:cert_valor_aporte_social", "Valor del aporte o derecho social (certificado)"),
 )
+
+
+@dataclass(frozen=True, slots=True)
+class Correspondence:
+    """Which certificate figure evidences a DIAN exogena concept.
+
+    This table, not the rule pack, is what makes the report row-driven: every
+    exogena row the parser recognizes gets *attempted* against the certificates
+    on hand. Rules used to be the only path, and a hand-written pack is always
+    shorter than the DIAN's vocabulary — on a real 2025 report that left 17 of
+    40 rows stated but never validated. Declaring the pairing as data and
+    deriving the rule from it (`rules.build_rules`) makes covering one more
+    concept a one-line change, and makes what is *not* covered visible.
+
+    A correspondence is an assertion that the two sides mean the same thing.
+    Nothing weaker belongs here: an unvalidated row is honest, whereas two
+    unrelated figures reconciling against each other is a wrong answer the
+    accountant has no way to catch.
+    """
+
+    spine: frozenset[str]
+    evidence: frozenset[str]
+    #: True when both sides break the figure down by account and each account
+    #: must reconcile on its own. False — the default — when the certificate
+    #: consolidates what the exogena lists account by account, as banks do with
+    #: savings balances; comparing those per account would report mismatches
+    #: that are only a difference in disclosure detail.
+    per_account: bool = False
+    #: Only needed when one comparison covers several spine concepts, since the
+    #: id and the label can then not be derived from a single one of them.
+    id: str | None = None
+    label: str | None = None
+    note: str = ""
+
+
+def _pair(
+    spine: str | Iterable[str],
+    evidence: str | Iterable[str],
+    *,
+    per_account: bool = False,
+    rule_id: str | None = None,
+    label: str | None = None,
+    note: str = "",
+) -> Correspondence:
+    return Correspondence(
+        spine=_as_set(spine),
+        evidence=_as_set(evidence),
+        per_account=per_account,
+        id=rule_id,
+        label=label,
+        note=note,
+    )
+
+
+def _as_set(value: str | Iterable[str]) -> frozenset[str]:
+    return frozenset([value] if isinstance(value, str) else value)
+
+
+_CORRESPONDENCES: tuple[Correspondence, ...] = (
+    # --- Bank and fiduciary certificates ---
+    _pair("dian:retencion-rendimientos", "bank:cert_retencion_total"),
+    _pair(
+        {"dian:rendimientos-pagados-fic", "dian:intereses-rendimientos-pagados"},
+        "bank:cert_rendimientos_pagados",
+        # One certificate line answers both wordings: whether the payer calls
+        # it a yield or an interest is a matter of the product it was earned
+        # on, and no certificate splits its total that way.
+        rule_id="exogena.rendimientos_pagados",
+        label="Rendimientos e intereses pagados",
+    ),
+    _pair("dian:saldo-cuentas-bancarias", "bank:cert_saldo_cuentas_ahorro"),
+    _pair("dian:saldo-inversion-fic", "bank:cert_saldo_inversion", per_account=True),
+    _pair("dian:inversiones-fic", "bank:cert_inversiones_fic", per_account=True),
+    # Cards are disclosed as a four-digit mask, so pairing here leans on the
+    # amounts corroborating the account (see `core.matching.pair_accounts`).
+    _pair("dian:consumos-tarjeta", "bank:cert_consumos_tarjeta", per_account=True),
+    _pair("dian:movimientos-cuentas", "bank:cert_movimientos_cuentas", per_account=True),
+    _pair(
+        {"dian:aporte-afc", "dian:aportes-afc-empleador"},
+        {"bank:cert_aporte_afc", "payroll:cert_aportes_afc"},
+        # The same deposit is reported by the bank that received it and by the
+        # employer that withheld it, and certified by whichever of the two
+        # issued a document. Scoped per reporter, so the two never add up.
+        rule_id="exogena.aporte_afc",
+        label="Aportes a cuentas AFC",
+    ),
+    _pair(
+        {"dian:cesantias-abonadas", "dian:cesantias-consignadas"},
+        {"bank:cert_cesantias_abonadas", "payroll:cert_cesantias_consignadas"},
+        rule_id="exogena.cesantias_abonadas",
+        label="Cesantías abonadas en el periodo",
+    ),
+    _pair(
+        "dian:cuentas-por-pagar",
+        "bank:cert_cartera_capital",
+        note="No party-specific rule applies; compared against the certified loan capital.",
+    ),
+    # --- The employer's certificado de ingresos y retenciones (form 220) ---
+    # Box for box. These rows dominate a salaried taxpayer's exogena and not
+    # one of them was being checked before this table existed.
+    _pair("dian:pagos-salarios", "payroll:cert_pagos_salarios"),
+    _pair("dian:otros-pagos-rentas-trabajo", "payroll:cert_otros_pagos"),
+    _pair("dian:prestaciones-sociales", "payroll:cert_prestaciones_sociales"),
+    _pair("dian:cesantias-pagadas", "payroll:cert_cesantias_pagadas"),
+    _pair("dian:aportes-salud", "payroll:cert_aportes_salud"),
+    _pair("dian:aportes-pension", "payroll:cert_aportes_pension"),
+    _pair("dian:retencion-rentas-trabajo", "payroll:cert_retencion_rentas_trabajo"),
+    # --- Certificates not onboarded yet, declared so the row gets requested ---
+    _pair("dian:ahorro-voluntario-saldo", "fund:cert_saldo_ahorro_voluntario"),
+    _pair("dian:inversion-aporte-social", "equity:cert_valor_aporte_social"),
+)
+
+#: Spine concepts left deliberately unchecked, and why. They surface as
+#: OUT_OF_SCOPE, which is not a defect: "stated, not validated" is an answer
+#: the accountant can act on, whereas inventing a correspondence to make the
+#: line disappear would trade it for a comparison nobody can trust. Every
+#: reason below is either "no single party certifies this figure" or "the
+#: exogena does not say enough to know which certified figure it is".
+_UNVALIDATED: tuple[tuple[str, str], ...] = (
+    (
+        "dian:cuentas-por-cobrar",
+        "The exogena does not say which side of the relationship the balance "
+        "sits on, so pairing it with a certified loan capital could compare a "
+        "debt against a credit.",
+    ),
+    (
+        "dian:avaluo-catastral",
+        "Assessed by the municipality on the property tax bill, not certified "
+        "to the taxpayer by the party that reported it.",
+    ),
+    (
+        "dian:avaluo-vehiculo",
+        "Assessed by the transit authority, not certified to the taxpayer by "
+        "the party that reported it.",
+    ),
+    (
+        "dian:facturacion-electronica",
+        "Aggregated by the DIAN across every issuer, so no one document certifies the total.",
+    ),
+    (
+        "dian:facturas-ajustadas",
+        "The same aggregate after credit and debit notes; still no single issuer to certify it.",
+    ),
+    (
+        "dian:ingreso-laboral-promedio",
+        "Computed by the DIAN from the payroll it received; no issuer certifies an average.",
+    ),
+    (
+        "dian:patrimonio-bruto-anterior",
+        "Carried over from the taxpayer's own prior return, which is not third-party evidence.",
+    ),
+    (
+        "dian:saldo-a-favor",
+        "Determined in the taxpayer's own prior return, which is not third-party evidence.",
+    ),
+)
+
+
+def correspondences() -> tuple[Correspondence, ...]:
+    """The declared spine → evidence pairings, in reporting order."""
+    return _CORRESPONDENCES
+
+
+def unvalidated_spine_concepts() -> tuple[tuple[str, str], ...]:
+    """Spine concepts with no correspondence, each with the reason it has none."""
+    return _UNVALIDATED
+
 
 UNCURATED_PREFIX = "dian:x-"
 
