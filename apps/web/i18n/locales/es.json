@@ -97,6 +97,13 @@
     "signInRequired": "Inicia sesión con Google para ver este documento.",
     "notFound": "No se encontró el documento",
     "otherFields": "Otros campos",
+    "mapped": {
+      "crossed": "Cruza con la exógena",
+      "uncrossed": "Otros conceptos mapeados",
+      "absent": "El documento no lo dice",
+      "account": "Cuenta {account}",
+      "inverted": "signo invertido"
+    },
     "unknownType": "Tipo de documento desconocido",
     "headerConfidence": "Confianza promedio",
     "averageConfidence": "Confianza promedio",

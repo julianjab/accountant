@@ -2,6 +2,8 @@
 import type { ClientDocument } from '~/domain/entities/document'
 import type { DocumentType } from '~/domain/entities/document-type'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
+import type { ConceptMapping } from '~/domain/entities/concept-mapping'
+import type { ReconciliationKind } from '~/domain/entities/reconciliation-kind'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
 import ExtractionCard from '~/components/documents/ExtractionCard.vue'
 
@@ -12,6 +14,8 @@ const documentId = route.params.id as string
 const getDocument = useGetDocumentUseCase()
 const getExtractedData = useGetDocumentExtractedDataUseCase()
 const getDocumentType = useGetDocumentTypeUseCase()
+const listReconciliationKinds = useListReconciliationKindsUseCase()
+const getConceptMapping = useGetConceptMappingUseCase()
 const approveDocument = useApproveDocumentUseCase()
 const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
 const { setLabel: setBreadcrumbLabel, clearLabel: clearBreadcrumbLabel } = useBreadcrumbLabels()
@@ -45,17 +49,50 @@ const { data: documentType, refresh: refreshDocumentType } = await useAsyncData<
   { immediate: false, server: false, default: () => null }
 )
 
+/**
+ * What this document's type contributes to the cross-check.
+ *
+ * Read here rather than in the card so the card stays a renderer: the page
+ * already owns every other fetch this screen makes. Both are absent for a
+ * document with no type and for a type nobody mapped, which is the same thing
+ * on screen — the transcription on its own.
+ *
+ * The kind is taken as the first one published rather than named: only one
+ * reconciliation model exists today, and hard-coding its id in a second place
+ * would make adding the next one a hunt.
+ */
+const { data: kinds, refresh: refreshKinds } = await useAsyncData<ReconciliationKind[]>(
+  'reconciliation-kinds',
+  () => listReconciliationKinds.execute(),
+  { immediate: false, server: false, default: () => [] }
+)
+
+const kind = computed<ReconciliationKind | null>(() => kinds.value?.[0] ?? null)
+
+const { data: conceptMapping, refresh: refreshConceptMapping } = await useAsyncData<ConceptMapping | null>(
+  `document-${documentId}-mapping`,
+  () =>
+    kind.value && document.value?.documentTypeId
+      ? getConceptMapping.execute(kind.value.id, document.value.documentTypeId)
+      : Promise.resolve(null),
+  { immediate: false, server: false, default: () => null }
+)
+
 watch(
   isAuthenticated,
   async (authenticated) => {
     if (!authenticated) return
-    // `refreshExtractedData` has no dependency on `document`, so it fires
-    // alongside it instead of waiting behind it — only `refreshDocumentType`
-    // needs `document.value.documentTypeId` and must wait for it to resolve.
+    // `refreshExtractedData` and `refreshKinds` have no dependency on
+    // `document`, so they fire alongside it instead of waiting behind it —
+    // only `refreshDocumentType` and `refreshConceptMapping` need
+    // `document.value.documentTypeId` and must wait for it to resolve.
     const documentPromise = refreshDocument()
     refreshExtractedData()
+    const kindsPromise = refreshKinds()
     await documentPromise
     refreshDocumentType()
+    await kindsPromise
+    refreshConceptMapping()
   },
   { immediate: true }
 )
@@ -69,9 +106,10 @@ async function onApprove() {
   try {
     await approveDocument.execute(documentId)
     // Approving is what produced the extraction, so both changed; the type may
-    // have changed too, since an ordinary document is reclassified on the way.
+    // have changed too, since an ordinary document is reclassified on the way
+    // — and with it the mapping that says what the new type contributes.
     await refreshDocument()
-    await Promise.all([refreshExtractedData(), refreshDocumentType()])
+    await Promise.all([refreshExtractedData(), refreshDocumentType(), refreshConceptMapping()])
   } catch (error) {
     actionError.value = errorMessage(error, t('documents.approveFailed'))
   } finally {
@@ -183,6 +221,8 @@ onUnmounted(() => {
           :document="document"
           :document-type="documentType ?? null"
           :extracted-data="extractedData ?? null"
+          :concept-mapping="conceptMapping ?? null"
+          :reconciliation-kind="kind"
           :extracted-data-error="!!extractedDataError"
           :approving="approving"
           :action-error="actionError"
