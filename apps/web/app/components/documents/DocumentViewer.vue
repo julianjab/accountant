@@ -20,13 +20,23 @@ const previewKind = computed<'pdf' | 'image' | 'unsupported'>(() => {
 })
 
 const driveViewUrl = computed(() => `https://drive.google.com/file/d/${props.driveFileId}/view`)
+
+/**
+ * The page itself, with the reader's own PDF chrome turned off.
+ *
+ * Chrome's viewer opens with a toolbar and a thumbnail rail, which here are
+ * controls for a document nobody is editing — they take a third of the width
+ * and put a page-number box and a print button on a screen about choosing
+ * fields. `#toolbar=0&navpanes=0` leaves the page and the scroll.
+ */
+const PDF_VIEW = '#toolbar=0&navpanes=0&scrollbar=0&view=FitH'
 </script>
 
 <template>
   <div class="w-full">
     <iframe
       v-if="previewKind === 'pdf'"
-      :src="`https://drive.google.com/file/d/${driveFileId}/preview`"
+      :src="`https://drive.google.com/file/d/${driveFileId}/preview${PDF_VIEW}`"
       class="w-full aspect-[3/4] rounded-lg border border-default"
       allow="autoplay"
     />

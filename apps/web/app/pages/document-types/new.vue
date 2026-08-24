@@ -402,7 +402,7 @@ async function save() {
       -->
       <div
         v-if="sampleDocument || uploadedPreview"
-        class="lg:sticky lg:top-4"
+        class="lg:sticky lg:top-4 lg:order-2"
         data-testid="sample-document"
       >
         <DocumentViewer
@@ -413,7 +413,7 @@ async function save() {
         />
         <iframe
           v-else-if="uploadedIsPdf"
-          :src="uploadedPreview!"
+          :src="`${uploadedPreview}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`"
           class="border-default aspect-[3/4] w-full rounded-lg border"
         />
         <img
@@ -431,7 +431,7 @@ async function save() {
       </div>
 
       <div
-        class="flex flex-col gap-6"
+        class="flex flex-col gap-6 lg:order-1"
         :class="sampleDocument || uploadedPreview ? '' : 'lg:col-span-2'"
       >
         <!--
