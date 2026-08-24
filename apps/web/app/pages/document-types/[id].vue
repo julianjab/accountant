@@ -24,23 +24,27 @@ const listReconciliationKinds = useListReconciliationKindsUseCase()
 const getConceptMapping = useGetConceptMappingUseCase()
 const saveConceptMapping = useSaveConceptMappingUseCase()
 const { setLabel: setBreadcrumbLabel } = useBreadcrumbLabels()
+const { isAuthenticated } = useGoogleAuth()
 
 // A select cannot hold null, so "no concept" travels as a sentinel and is
 // translated back at the edge — an unmapped field is a normal answer here.
 const UNMAPPED = '__unmapped__'
 
-// Client-only: these endpoints need the session cookie, which SSR does not
-// carry (see clients/index.vue).
-const { data: documentType, pending } = await useAsyncData<DocumentType | null>(
+// Deferred and client-only on purpose: these endpoints need the session
+// cookie, which SSR does not carry (see clients/index.vue). Fired together
+// from the isAuthenticated watcher below rather than awaited here in sequence
+// — three awaited useAsyncData calls in <script setup> would otherwise chain
+// into a waterfall that Suspense holds the whole route transition on.
+const { data: documentType, pending, refresh: refreshDocumentType } = await useAsyncData<DocumentType | null>(
   `document-type-${documentTypeId}`,
   () => getDocumentType.execute(documentTypeId),
-  { server: false, default: () => null }
+  { immediate: false, server: false, default: () => null }
 )
 
-const { data: kinds } = await useAsyncData<ReconciliationKind[]>(
+const { data: kinds, refresh: refreshKinds } = await useAsyncData<ReconciliationKind[]>(
   'reconciliation-kinds',
   () => listReconciliationKinds.execute(),
-  { server: false, default: () => [] }
+  { immediate: false, server: false, default: () => [] }
 )
 
 const selectedKindId = ref<string | null>(null)
@@ -56,13 +60,27 @@ const selectedKind = computed(
   () => kinds.value.find(kind => kind.id === selectedKindId.value) ?? null
 )
 
+// `watch: [selectedKindId]` keeps refetching this whenever the selected kind
+// changes (e.g. once `kinds` resolves and picks a default) independently of
+// `immediate`, which only governs the very first call.
 const { data: mapping, refresh: refreshMapping } = await useAsyncData<ConceptMapping | null>(
   `concept-mapping-${documentTypeId}`,
   () =>
     selectedKindId.value
       ? getConceptMapping.execute(selectedKindId.value, documentTypeId)
       : Promise.resolve(null),
-  { server: false, default: () => null, watch: [selectedKindId] }
+  { immediate: false, server: false, default: () => null, watch: [selectedKindId] }
+)
+
+watch(
+  isAuthenticated,
+  (authenticated) => {
+    if (!authenticated) return
+    refreshDocumentType()
+    refreshKinds()
+    refreshMapping()
+  },
+  { immediate: true }
 )
 
 const name = ref('')

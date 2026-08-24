@@ -3,10 +3,20 @@ import type { DocumentType } from '~/domain/entities/document-type'
 
 const { t } = useI18n()
 const listDocumentTypes = useListDocumentTypesUseCase()
+const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
 
-const { data: documentTypes, pending } = await useAsyncData<DocumentType[]>('document-types', () =>
-  listDocumentTypes.execute()
+// Deferred and client-only on purpose: the endpoint needs the session cookie,
+// which SSR does not carry (see clients/index.vue).
+const { data: documentTypes, pending, refresh } = await useAsyncData<DocumentType[]>(
+  'document-types',
+  () => listDocumentTypes.execute(),
+  { immediate: false, server: false, default: () => [] }
 )
+
+watch(isAuthenticated, authenticated => authenticated && refresh(), { immediate: true })
+
+// Same gap as clients/index.vue: still loading once signed in, before `documentTypes` has resolved.
+const showSkeleton = computed(() => isAuthLoading.value || (isAuthenticated.value && pending.value && !documentTypes.value?.length))
 
 function schemaKeys(documentType: DocumentType): string[] {
   const schema = documentType.extractionSchema as { properties?: Record<string, unknown> } | null | undefined
@@ -36,7 +46,7 @@ function fieldsCount(documentType: DocumentType): number {
     </div>
 
     <div
-      v-if="pending"
+      v-if="showSkeleton"
       class="grid grid-cols-1 gap-4 md:grid-cols-2"
     >
       <SkeletonCard
@@ -45,6 +55,14 @@ function fieldsCount(documentType: DocumentType): number {
         :lines="3"
       />
     </div>
+
+    <p
+      v-else-if="!isAuthenticated"
+      class="text-muted"
+      data-testid="document-types-signed-out"
+    >
+      {{ t('documentTypes.signInRequired') }}
+    </p>
 
     <p
       v-else-if="!documentTypes?.length"

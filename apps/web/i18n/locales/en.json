@@ -129,6 +129,7 @@
     "title": "Document types",
     "empty": "No document types defined yet.",
     "define": "Define type",
+    "signInRequired": "Sign in with Google to see document types.",
     "status": {
       "active": "Active",
       "draft": "Draft"

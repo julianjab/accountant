@@ -129,6 +129,7 @@
     "title": "Tipos de documento",
     "empty": "Aún no hay tipos de documento definidos.",
     "define": "Definir tipo",
+    "signInRequired": "Inicia sesión con Google para ver los tipos de documento.",
     "status": {
       "active": "Activo",
       "draft": "Borrador"
