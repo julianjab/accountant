@@ -1,16 +1,28 @@
 <script setup lang="ts">
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
+import type { DocumentType } from '~/domain/entities/document-type'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
 import ExtractionFieldRow from '~/components/documents/ExtractionFieldRow.vue'
 import ProcessingTimeline from '~/components/documents/ProcessingTimeline.vue'
 
 const props = defineProps<{
   document: ClientDocument
+  documentType: DocumentType | null
   extractedData: ExtractedData | null
   extractedDataError?: boolean
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+// A non-technical accountant should never see `documentTypeId` (a raw uuid) as this card's
+// title — the classified type's name is what tells them what they are looking at, falling
+// back to the id only when the type could not be resolved (e.g. it was deleted since).
+const title = computed(() => props.documentType?.name ?? props.document.documentTypeId ?? t('documents.unknownType'))
+
+const formattedDate = computed(() => {
+  const isoDate = props.document.processedAt ?? props.document.createdAt
+  return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(isoDate))
+})
 
 const STATUS_COLORS: Record<DocumentStatus, 'info' | 'success' | 'error'> = {
   pending: 'info',
@@ -108,9 +120,14 @@ const isMissingExtraction = computed(() =>
     <template #header>
       <div class="flex flex-col gap-3">
         <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-          <h2 class="min-w-0 break-words text-lg font-semibold">
-            {{ document.documentTypeId ?? t('documents.unknownType') }}
-          </h2>
+          <div class="min-w-0">
+            <h2 class="break-words text-lg font-semibold">
+              {{ title }}
+            </h2>
+            <p class="truncate text-sm text-muted">
+              {{ document.fileName }} · {{ formattedDate }}
+            </p>
+          </div>
           <UBadge
             :color="STATUS_COLORS[document.status]"
             variant="subtle"

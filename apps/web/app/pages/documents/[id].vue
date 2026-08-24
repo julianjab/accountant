@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ClientDocument } from '~/domain/entities/document'
+import type { DocumentType } from '~/domain/entities/document-type'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
 import ExtractionCard from '~/components/documents/ExtractionCard.vue'
@@ -10,7 +11,9 @@ const documentId = route.params.id as string
 
 const getDocument = useGetDocumentUseCase()
 const getExtractedData = useGetDocumentExtractedDataUseCase()
+const getDocumentType = useGetDocumentTypeUseCase()
 const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
+const { setLabel: setBreadcrumbLabel, clearLabel: clearBreadcrumbLabel } = useBreadcrumbLabels()
 const showSignedOut = computed(() => !isAuthLoading.value && !isAuthenticated.value)
 
 // Deferred and client-only on purpose: these endpoints need the session
@@ -29,15 +32,45 @@ const { data: extractedData, error: extractedDataError, refresh: refreshExtracte
   { immediate: false, server: false }
 )
 
+// Depends on `document` having loaded (needs its `documentTypeId`), so it is only refreshed
+// after `refreshDocument` resolves rather than alongside it.
+const { data: documentType, refresh: refreshDocumentType } = await useAsyncData<DocumentType | null>(
+  `document-${documentId}-type`,
+  () => (document.value?.documentTypeId ? getDocumentType.execute(document.value.documentTypeId) : Promise.resolve(null)),
+  { immediate: false, server: false, default: () => null }
+)
+
 watch(
   isAuthenticated,
-  (authenticated) => {
+  async (authenticated) => {
     if (!authenticated) return
-    refreshDocument()
+    await refreshDocument()
     refreshExtractedData()
+    refreshDocumentType()
   },
   { immediate: true }
 )
+
+// The breadcrumb only knows the URL (`/documents/<id>`); this is the one place that also has
+// the file name, so it hands over a readable label rather than leaving the crumb as a raw id.
+//
+// Pinned at setup rather than read from `route` each time: `route` is the global reactive
+// object, so by the time this page unmounts it already points at wherever we navigated to.
+// Clearing that path would wipe the label the *next* page just set for itself, and leave
+// this one's behind forever.
+const ownPath = route.path
+
+watch(
+  document,
+  (loadedDocument) => {
+    if (loadedDocument) {
+      setBreadcrumbLabel(ownPath, loadedDocument.fileName)
+    }
+  },
+  { immediate: true }
+)
+
+onUnmounted(() => clearBreadcrumbLabel(ownPath))
 </script>
 
 <template>
@@ -75,6 +108,7 @@ watch(
         />
         <ExtractionCard
           :document="document"
+          :document-type="documentType ?? null"
           :extracted-data="extractedData ?? null"
           :extracted-data-error="!!extractedDataError"
         />
