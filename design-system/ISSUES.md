@@ -134,6 +134,13 @@ Ruta `/documents/[id]`. Consume `GET /documents/{id}` y `GET /documents/{id}/ext
 - [x] Las reglas viven en `app/domain/mapped-extraction.ts` (`conceptsByPath`, `childPath`) con tests; los componentes sólo pintan.
 - **Por qué no estaba en el diseño**: el diseño es anterior a la conciliación. La tarjeta mostraba sólo lo que leyó el OCR, y qué figuras sostienen el cruce únicamente se veía en la pantalla de configuración del tipo — que no es donde se revisa el certificado de un cliente.
 
+**Implementado — botón "Reprocesar" en el pie de la tarjeta** (desvío del diseño, `ExtractionCard.vue` → `POST /documents/{id}/reprocess`):
+
+- [x] Segundo botón, de contorno, junto a "Aprobar y enviar a hoja" y **sólo** cuando el documento está `approved`: en cualquier otro estado aprobar *es* la relectura, así que ofrecer los dos sería el mismo botón dos veces.
+- [x] Vuelve a leer el archivo con la configuración actual del tipo — por su parser propio o por OCR contra los tipos configurados, lo mismo que decide aprobar — y deja el documento en `processed`, sin aprobación. Una leyenda bajo los botones lo dice antes de presionar.
+- [x] Una lectura que falla vuelve como documento `failed` con su error, no como error de la petición: la relectura ya reemplazó lo que el documento tenía.
+- **Por qué no estaba en el diseño**: el diseño da la aprobación por final. En la práctica el tipo se corrige *después* de aprobar (se configura desde el propio documento, "Configurar el tipo con este documento"), y sin esto la única forma de que el documento aporte los campos nuevos era editar Firestore a mano — la sincronización de Drive salta a propósito lo aprobado para no deshacer una revisión.
+
 ---
 
 ## E. Tipos de documento y "Definir tipo"
