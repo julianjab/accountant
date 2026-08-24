@@ -176,7 +176,11 @@
       "count": "{kept} de {total} marcados",
       "all": "Marcar todo",
       "none": "Ninguno",
-      "sampleValue": "En la muestra: {value}"
+      "sampleValue": "En la muestra: {value}",
+      "annotate": "Agregar información",
+      "annotateLabel": "Qué tener en cuenta en este bloque",
+      "annotateHint": "Se envía junto con los campos de este bloque en la próxima lectura.",
+      "annotatePlaceholder": "Ej.: esta tabla tiene una fila por obligación; extraé cada fila con su nombre."
     },
     "new": {
       "title": "Definir tipo de documento",

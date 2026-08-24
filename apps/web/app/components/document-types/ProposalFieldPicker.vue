@@ -15,6 +15,8 @@
  */
 import type { ProposalFieldRow } from '~/domain/document-type-configuration'
 import { groupBySection, rowLabel } from '~/domain/document-type-configuration'
+import type { SectionNotes } from '~/domain/proposal-loop'
+import { sectionKey } from '~/domain/proposal-loop'
 import { matchesFieldQuery } from '~/domain/field-search'
 import { formatSampleAmount } from '~/utils/extraction-field-display'
 
@@ -30,7 +32,23 @@ const props = defineProps<{
    * on the row itself: a count above a list is not an answer to "which ones",
    * which is the only question worth asking about a field about to be lost. */
   removedPaths?: readonly string[]
+  /**
+   * What the reader has said about each block of the document.
+   *
+   * Read-only here and written through `annotate`: unlike the rows — whose
+   * ticks are the screen's own state — these are the parent's, and a note
+   * about a block outlives the rows of any one round.
+   *
+   * Per block rather than only per field because that is the grain most
+   * corrections come in: "this table has one row per obligation" governs every
+   * field under that heading, and saying it once against the heading beats
+   * repeating it on each row or burying it in the general guidance, where the
+   * model has to work out which part of the page was meant.
+   */
+  sectionNotes?: SectionNotes
 }>()
+
+const emit = defineEmits<{ annotate: [section: string, note: string] }>()
 
 const { t } = useI18n()
 
@@ -93,6 +111,31 @@ function isEditing(row: ProposalFieldRow): boolean {
  * one thing here nobody can check at a glance. */
 function sampleValueOf(row: ProposalFieldRow): string {
   return row.role === 'amount' ? formatSampleAmount(row.sampleValue) : row.sampleValue
+}
+
+/** Which blocks have their instruction box open. A block that already carries
+ * one stays open: what was written is why the reading below looks as it does. */
+const annotating = ref(new Set<string>())
+
+function toggleAnnotating(section: string | null) {
+  const key = sectionKey(section)
+  const next = new Set(annotating.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  annotating.value = next
+}
+
+function isAnnotating(section: string | null): boolean {
+  const key = sectionKey(section)
+  return annotating.value.has(key) || !!props.sectionNotes?.[key]?.trim()
+}
+
+function sectionNote(section: string | null): string {
+  return props.sectionNotes?.[sectionKey(section)] ?? ''
+}
+
+function setSectionNote(section: string | null, value: string) {
+  emit('annotate', sectionKey(section), value)
 }
 
 function setRenamed(row: ProposalFieldRow, value: string) {
@@ -173,8 +216,40 @@ function setRenamed(row: ProposalFieldRow, value: string) {
             >
               {{ t('documentTypes.sections.none') }}
             </UButton>
+            <UButton
+              v-if="sectionNotes"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-message-square-plus"
+              :data-testid="`section-annotate-${section.section ?? '__headless__'}`"
+              @click="toggleAnnotating(section.section)"
+            >
+              {{ t('documentTypes.sections.annotate') }}
+            </UButton>
           </div>
         </div>
+
+        <!--
+          Aimed at the whole block, and sent with it: the fields under one
+          heading are read together, and the correction that matters most —
+          what the table actually is — is a statement about the heading rather
+          than about any one row beneath it.
+        -->
+        <UFormField
+          v-if="sectionNotes && isAnnotating(section.section)"
+          :label="t('documentTypes.sections.annotateLabel')"
+          :help="t('documentTypes.sections.annotateHint')"
+        >
+          <UTextarea
+            :model-value="sectionNote(section.section)"
+            :rows="2"
+            class="w-full"
+            :data-testid="`section-note-${section.section ?? '__headless__'}`"
+            :placeholder="t('documentTypes.sections.annotatePlaceholder')"
+            @update:model-value="setSectionNote(section.section, String($event))"
+          />
+        </UFormField>
 
         <div
           v-for="row in section.rows"

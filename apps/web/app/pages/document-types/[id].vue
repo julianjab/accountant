@@ -26,6 +26,7 @@ import { changesNothing, compareSchemaPaths } from '~/domain/schema-revision'
 import type { SchemaRevision } from '~/domain/schema-revision'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
 import ProposalFieldPicker from '~/components/document-types/ProposalFieldPicker.vue'
+import type { SectionNotes } from '~/domain/proposal-loop'
 import { carryChoices, rowsForRemovedPaths, toFieldSelection } from '~/domain/proposal-loop'
 import { matchesFieldQuery } from '~/domain/field-search'
 import {
@@ -280,6 +281,14 @@ const regenerationChangesNothing = computed(
  */
 const regeneratedRows = ref<ProposalFieldRow[]>([])
 
+/** What the reader said about whole blocks of the page, kept across rounds:
+ * a block outlives the fields any one reading proposes under it. */
+const sectionNotes = ref<SectionNotes>({})
+
+function annotateSection(section: string, note: string) {
+  sectionNotes.value = { ...sectionNotes.value, [section]: note }
+}
+
 /**
  * The fields this regeneration would stop extracting, named.
  *
@@ -325,7 +334,7 @@ async function regenerate() {
       guidance: regenerationGuidance.value,
       // The answer to the last round, which is this round's instruction. Empty
       // on the first press, where there is no answer behind it yet.
-      selection: previous.length ? toFieldSelection(previous) : null
+      selection: previous.length ? toFieldSelection(previous, sectionNotes.value) : null
     })
     regenerated.value = proposal
     readRows(
@@ -346,6 +355,7 @@ async function regenerate() {
 function discardRegeneration() {
   regenerated.value = null
   regeneratedRows.value = []
+  sectionNotes.value = {}
   regenerationFailed.value = false
 }
 
@@ -383,6 +393,7 @@ async function applyRegeneration() {
     mappingChanges.value = updated.mappingChanges
     regenerated.value = null
     regeneratedRows.value = []
+    sectionNotes.value = {}
     regenerationGuidance.value = ''
     await refreshDocumentType()
   } catch {
@@ -1156,6 +1167,8 @@ watch(
                 :rows="regeneratedRows"
                 :added-paths="regeneratedRevision.added"
                 :removed-paths="regeneratedRevision.removed"
+                :section-notes="sectionNotes"
+                @annotate="annotateSection"
               />
 
               <!--

@@ -16,6 +16,7 @@ import {
   toProposedFieldMappings,
   writeSource
 } from '~/domain/document-type-configuration'
+import type { SectionNotes } from '~/domain/proposal-loop'
 import { carryChoices, toFieldSelection } from '~/domain/proposal-loop'
 import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
@@ -155,6 +156,19 @@ const canAnalyze = computed(() => Boolean(sampleDocumentId.value || sampleFile.v
 
 /** What the person says this reading got wrong, for the next one. */
 const guidance = ref('')
+
+/**
+ * What they said about whole blocks of the page.
+ *
+ * Kept on the screen rather than on the rows: a block outlives the fields any
+ * one reading proposes under it, so an instruction about the obligations table
+ * survives a round that read that table differently.
+ */
+const sectionNotes = ref<SectionNotes>({})
+
+function annotateSection(section: string, note: string) {
+  sectionNotes.value = { ...sectionNotes.value, [section]: note }
+}
 const rereading = ref(false)
 
 async function analyze() {
@@ -208,7 +222,7 @@ async function read() {
     sampleFile: sampleFile.value,
     guidance: guidance.value,
     // Empty on the first reading, which has no answer behind it yet.
-    selection: previous.length ? toFieldSelection(previous) : null
+    selection: previous.length ? toFieldSelection(previous, sectionNotes.value) : null
   })
   proposal.value = proposed
   rows.value = carryChoices(
@@ -224,6 +238,7 @@ function startOver() {
   proposal.value = null
   rows.value = []
   guidance.value = ''
+  sectionNotes.value = {}
   step.value = 'form'
 }
 
@@ -547,6 +562,8 @@ async function save() {
             <ProposalFieldPicker
               v-else
               :rows="rows"
+              :section-notes="sectionNotes"
+              @annotate="annotateSection"
             />
 
             <!--

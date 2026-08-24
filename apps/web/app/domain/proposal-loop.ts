@@ -22,13 +22,38 @@ export interface KeptField {
   note: string
 }
 
+/**
+ * What to watch for in one block of the document.
+ *
+ * A certificate is already divided into blocks on paper, and a correction is
+ * usually about a whole block rather than one field: "this table has one row
+ * per obligation", "these figures are monthly, not accumulated". Said against
+ * the block it reaches the model attached to the fields it governs; said in
+ * the general guidance, the model has to work out which part of the page was
+ * meant.
+ */
+export interface SectionNote {
+  section: string
+  note: string
+}
+
 /** The answer to a proposal, as the server takes it. */
 export interface FieldSelection {
   kept: KeptField[]
   /** Paths that were offered, read, and refused — which the model is told not
    * to propose again. Distinct from a path nobody ever mentioned. */
   dropped: string[]
+  sections: SectionNote[]
 }
+
+/**
+ * What the reader wrote about each block, keyed the way the rows carry it.
+ *
+ * The empty string is the block a proposal filed nothing under, which is a
+ * real part of the page like any other — the leftovers are exactly where a
+ * reader is most likely to have something to say.
+ */
+export type SectionNotes = Record<string, string>
 
 /**
  * The rows as an answer the next reading can be steered by.
@@ -37,7 +62,10 @@ export interface FieldSelection {
  * field the model merely does not see mentioned is one it offers again next
  * round as a helpful addition, which is how a loop fails to converge.
  */
-export function toFieldSelection(rows: readonly ProposalFieldRow[]): FieldSelection {
+export function toFieldSelection(
+  rows: readonly ProposalFieldRow[],
+  sectionNotes: SectionNotes = {}
+): FieldSelection {
   return {
     kept: rows
       .filter(row => row.kept)
@@ -46,13 +74,41 @@ export function toFieldSelection(rows: readonly ProposalFieldRow[]): FieldSelect
         label: rowLabel(row),
         note: row.note?.trim() ?? ''
       })),
-    dropped: rows.filter(row => !row.kept).map(row => row.path)
+    dropped: rows.filter(row => !row.kept).map(row => row.path),
+    sections: toSectionNotes(rows, sectionNotes)
   }
+}
+
+/**
+ * The block instructions worth sending: the ones that were written, about
+ * blocks this reading actually has.
+ *
+ * A note about a block the new reading no longer produces would ask the model
+ * to watch a part of the page it no longer believes exists — and an empty one
+ * is a box the reader opened and left alone.
+ */
+function toSectionNotes(
+  rows: readonly ProposalFieldRow[],
+  notes: SectionNotes
+): SectionNote[] {
+  const present = new Set(rows.map(row => sectionKey(row.section)))
+  return Object.entries(notes)
+    .filter(([section, note]) => note.trim() && present.has(section))
+    .map(([section, note]) => ({ section, note: note.trim() }))
+}
+
+/** How a row's block is keyed in `SectionNotes`. */
+export function sectionKey(section: string | null): string {
+  return section ?? ''
 }
 
 /** Whether there is anything in the selection worth sending. */
 export function isEmptySelection(selection: FieldSelection): boolean {
-  return selection.kept.length === 0 && selection.dropped.length === 0
+  return (
+    selection.kept.length === 0
+    && selection.dropped.length === 0
+    && selection.sections.length === 0
+  )
 }
 
 /**

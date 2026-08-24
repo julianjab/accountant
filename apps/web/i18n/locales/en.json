@@ -176,7 +176,11 @@
       "count": "{kept} of {total} kept",
       "all": "Keep all",
       "none": "None",
-      "sampleValue": "On the sample: {value}"
+      "sampleValue": "On the sample: {value}",
+      "annotate": "Add information",
+      "annotateLabel": "What to watch for in this block",
+      "annotateHint": "Sent with this block's fields on the next reading.",
+      "annotatePlaceholder": "e.g. this table has one row per obligation; extract each row with its name."
     },
     "new": {
       "title": "Define document type",
