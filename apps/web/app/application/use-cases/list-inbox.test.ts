@@ -16,6 +16,10 @@ import type {
 } from '~/application/ports/document-type-repository'
 import { ListInbox } from '~/application/use-cases/list-inbox'
 
+const SOURCES: DocumentSource[] = [
+  { id: 'exogena_report', label: 'Reporte de información exógena (DIAN)', mediaTypes: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'] }
+]
+
 class FakeClientRepository implements ClientRepository {
   constructor(private readonly clients: Client[]) {}
 
@@ -60,7 +64,7 @@ class FakeDocumentRepository implements DocumentRepository {
   }
 
   listSources(): Promise<DocumentSource[]> {
-    throw new Error('not implemented')
+    return Promise.resolve(SOURCES)
   }
 
   recognizeSource(_id: string, _sourceId: string): Promise<ClientDocument> {
@@ -372,5 +376,19 @@ describe('ListInbox', () => {
     const view = await useCase.execute()
 
     expect(view.documentTypesById['t1']).toEqual(types[0])
+  })
+
+  it('reports the parsable sources, so a document read by one can be named', async () => {
+    // Such a document has no type by design; without this the inbox would call
+    // the exogena "unclassified", which is exactly what it is not.
+    const useCase = new ListInbox(
+      new FakeDocumentRepository([document({ id: 'd1', clientId: 'c1', sourceId: 'exogena_report' })]),
+      new FakeClientRepository([client({ id: 'c1' })]),
+      new FakeDocumentTypeRepository([])
+    )
+
+    const view = await useCase.execute()
+
+    expect(view.documentSourcesById.exogena_report).toEqual(SOURCES[0])
   })
 })
