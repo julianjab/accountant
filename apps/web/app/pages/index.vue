@@ -27,6 +27,11 @@ const { data: inbox, error: inboxError, refresh: refreshInbox } = await useAsync
 
 watch(isAuthenticated, authenticated => authenticated && refreshInbox(), { immediate: true })
 
+// Covers the gap between auth resolving and the inbox request resolving, where nothing
+// would otherwise render: still show the skeleton once signed in until `inbox` (or an
+// error) lands.
+const showSkeleton = computed(() => isAuthLoading.value || (isAuthenticated.value && !inbox.value && !inboxError.value))
+
 const totals = computed(() => inbox.value?.totals)
 const groups = computed(() => inbox.value?.groups ?? [])
 const totalDocuments = computed(() => inbox.value?.totalDocuments ?? 0)
@@ -67,12 +72,29 @@ const avgProcessingLabel = computed(() => {
       hydration warning.
     -->
     <ClientOnly>
-      <p
-        v-if="isAuthLoading"
-        class="mt-5 text-muted sm:mt-[26px]"
+      <div
+        v-if="showSkeleton"
+        class="mt-5 sm:mt-[26px]"
       >
-        {{ t('auth.loading') }}
-      </p>
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <SkeletonCard
+            v-for="n in 4"
+            :key="n"
+            :lines="1"
+          />
+        </div>
+
+        <div class="mt-5 overflow-hidden rounded-xl border border-default bg-default sm:mt-[26px]">
+          <div class="border-b border-default px-4 py-3">
+            <USkeleton class="h-4 w-32" />
+          </div>
+          <SkeletonRow
+            v-for="n in 4"
+            :key="n"
+            indent
+          />
+        </div>
+      </div>
 
       <p
         v-else-if="showSignedOut"

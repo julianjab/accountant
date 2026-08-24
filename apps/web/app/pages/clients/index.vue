@@ -10,13 +10,16 @@ const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
 // Deferred and client-only on purpose: the endpoint needs the session cookie,
 // which SSR does not carry, and fetching before sign-in would answer 401 and
 // render as "no clients yet" — which is a different statement entirely.
-const { data: clients, refresh } = await useAsyncData<Client[]>(
+const { data: clients, pending: clientsPending, refresh } = await useAsyncData<Client[]>(
   'clients',
   () => listClients.execute(),
   { immediate: false, server: false, default: () => [] }
 )
 
 watch(isAuthenticated, authenticated => authenticated && refresh(), { immediate: true })
+
+// Same gap as index.vue: still loading once signed in, before `clients` has resolved.
+const showSkeleton = computed(() => isAuthLoading.value || (isAuthenticated.value && clientsPending.value && !clients.value?.length))
 
 const importClients = useImportClientsUseCase()
 const isImporting = ref(false)
@@ -93,12 +96,16 @@ function onTableKeydown(event: KeyboardEvent) {
       {{ t('clients.importFailed') }}
     </p>
 
-    <p
-      v-if="isAuthLoading"
-      class="text-muted"
+    <div
+      v-if="showSkeleton"
+      class="overflow-hidden rounded-lg border border-default bg-default"
     >
-      {{ t('auth.loading') }}
-    </p>
+      <SkeletonRow
+        v-for="n in 5"
+        :key="n"
+        :trailing="false"
+      />
+    </div>
 
     <p
       v-else-if="!isAuthenticated"

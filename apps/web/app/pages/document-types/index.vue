@@ -4,7 +4,7 @@ import type { DocumentType } from '~/domain/entities/document-type'
 const { t } = useI18n()
 const listDocumentTypes = useListDocumentTypesUseCase()
 
-const { data: documentTypes } = await useAsyncData<DocumentType[]>('document-types', () =>
+const { data: documentTypes, pending } = await useAsyncData<DocumentType[]>('document-types', () =>
   listDocumentTypes.execute()
 )
 
@@ -35,8 +35,19 @@ function fieldsCount(documentType: DocumentType): number {
       </UButton>
     </div>
 
+    <div
+      v-if="pending"
+      class="grid grid-cols-1 gap-4 md:grid-cols-2"
+    >
+      <SkeletonCard
+        v-for="n in 4"
+        :key="n"
+        :lines="3"
+      />
+    </div>
+
     <p
-      v-if="!documentTypes?.length"
+      v-else-if="!documentTypes?.length"
       class="text-muted"
     >
       {{ t('documentTypes.empty') }}

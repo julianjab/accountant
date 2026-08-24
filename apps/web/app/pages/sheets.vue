@@ -150,10 +150,22 @@ const hasError = computed(() => Boolean(clientsError.value))
       {{ t('sheets.title') }}
     </h1>
 
-    <USkeleton
+    <div
       v-if="isLoading"
-      class="mt-6 h-40 w-full"
-    />
+      class="mt-5 sm:mt-6"
+    >
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SkeletonCard
+          v-for="n in 4"
+          :key="n"
+          :lines="2"
+        />
+      </div>
+      <SkeletonCard
+        class="mt-4 sm:mt-5"
+        :lines="5"
+      />
+    </div>
 
     <p
       v-else-if="hasError"

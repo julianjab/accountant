@@ -91,11 +91,23 @@ const tabItems = computed(() => [
 
 <template>
   <UContainer class="py-6 sm:py-8">
-    <div
-      v-if="isAuthLoading || clientPending"
-      class="text-[13px] text-toned"
-    >
-      {{ t('auth.loading') }}
+    <div v-if="isAuthLoading || clientPending">
+      <SkeletonCard :lines="2" />
+
+      <div class="mt-4 grid grid-cols-1 items-start gap-4 sm:gap-5 lg:grid-cols-[1fr_296px]">
+        <div class="overflow-hidden rounded-xl border border-default bg-default">
+          <SkeletonRow
+            v-for="n in 4"
+            :key="n"
+            indent
+          />
+        </div>
+
+        <div class="flex flex-col gap-3.5">
+          <SkeletonCard :lines="2" />
+          <SkeletonCard :lines="2" />
+        </div>
+      </div>
     </div>
 
     <p

@@ -57,34 +57,43 @@ watch(
 
 // The breadcrumb only knows the URL (`/documents/<id>`); this is the one place that also has
 // the file name, so it hands over a readable label rather than leaving the crumb as a raw id.
+// It's also the only place that knows which client owns this document, so it points the
+// parent "documents" crumb at that client's page — `/documents` has no index of its own to
+// link to otherwise, and a dead crumb is worse than a slightly indirect one.
 //
 // Pinned at setup rather than read from `route` each time: `route` is the global reactive
 // object, so by the time this page unmounts it already points at wherever we navigated to.
 // Clearing that path would wipe the label the *next* page just set for itself, and leave
 // this one's behind forever.
 const ownPath = route.path
+const documentsPath = ownPath.replace(/\/[^/]+$/, '')
 
 watch(
   document,
   (loadedDocument) => {
     if (loadedDocument) {
       setBreadcrumbLabel(ownPath, loadedDocument.fileName)
+      setBreadcrumbLabel(documentsPath, t('nav.documents'), `/clients/${loadedDocument.clientId}`)
     }
   },
   { immediate: true }
 )
 
-onUnmounted(() => clearBreadcrumbLabel(ownPath))
+onUnmounted(() => {
+  clearBreadcrumbLabel(ownPath)
+  clearBreadcrumbLabel(documentsPath)
+})
 </script>
 
 <template>
   <UContainer class="py-6 sm:py-8">
-    <p
-      v-if="isAuthLoading"
-      class="text-muted"
-    >
-      {{ t('auth.loading') }}
-    </p>
+    <div v-if="showSkeleton">
+      <USkeleton class="mb-4 h-6 w-48 sm:mb-6" />
+      <div class="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+        <SkeletonCard :lines="6" />
+        <SkeletonCard :lines="6" />
+      </div>
+    </div>
 
     <p
       v-else-if="showSignedOut"
