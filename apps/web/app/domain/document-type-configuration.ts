@@ -26,7 +26,27 @@ export interface FieldSelection {
   /** Null is a legitimate answer: the field is still extracted, it just takes
    * no part in reconciliation. */
   conceptId: string | null
+  /** Which line of the base report this figure answers; null means it is
+   * extracted but compared against nothing. */
+  spineConceptId: string | null
+  /** True when the document details each account, so the comparison is made
+   * account by account instead of on the reporting party's total. */
+  perAccount: boolean
+  /** The field carrying the account number, without which there is no account
+   * to pair against. */
+  accountPath: string | null
 }
+
+/**
+ * A row as the screen may hand it back before every choice has been made.
+ *
+ * The three reconciliation-specific choices are optional because leaving one
+ * out has to mean "unchanged", not "cleared": a caller that only edits the
+ * concept must not silently drop curation it never showed.
+ */
+export type FieldSelectionInput
+  = Pick<FieldSelection, 'path' | 'kept' | 'conceptId'>
+    & Partial<Omit<FieldSelection, 'path' | 'kept' | 'conceptId'>>
 
 /** The three paths that are about the document as a whole rather than about
  * one figure it states. */
@@ -51,30 +71,41 @@ export function buildFieldSelections(
   fields: SchemaField[],
   mapping: ConceptMapping | null
 ): FieldSelection[] {
-  const conceptByPath = new Map(
-    (mapping?.entries ?? []).map(entry => [entry.fieldPath, entry.conceptId])
-  )
-  return fields.map(field => ({
-    path: field.path,
-    kept: true,
-    conceptId: conceptByPath.get(field.path) ?? null
-  }))
+  const entryByPath = new Map((mapping?.entries ?? []).map(entry => [entry.fieldPath, entry]))
+  return fields.map((field) => {
+    const entry = entryByPath.get(field.path)
+    return {
+      path: field.path,
+      kept: true,
+      conceptId: entry?.conceptId ?? null,
+      spineConceptId: entry?.spineConceptId ?? null,
+      perAccount: entry?.perAccount ?? false,
+      accountPath: entry?.accountPath ?? null
+    }
+  })
 }
 
-export function keptPaths(selections: readonly FieldSelection[]): Set<string> {
+export function keptPaths(selections: readonly FieldSelectionInput[]): Set<string> {
   return new Set(selections.filter(selection => selection.kept).map(selection => selection.path))
+}
+
+/** An answer the screen did not give falls back to what was already stored, so
+ * a control the screen never showed cannot clear curation behind the user. */
+function chosen<T>(explicit: T | undefined, previous: T | undefined, fallback: T): T {
+  if (explicit !== undefined) return explicit
+  return previous ?? fallback
 }
 
 /**
  * The mapping to store for the selections as they stand.
  *
- * `accountPath` and `sign` are carried over from the entry that already
- * described the same field: they are curation this screen has no control for,
- * and rebuilding an entry from scratch would quietly flip a certificate that
- * was configured to state its figures with the opposite sign.
+ * `sign` is carried over from the entry that already described the same field:
+ * it is curation this screen has no control for, and rebuilding an entry from
+ * scratch would quietly flip a certificate configured to state its figures with
+ * the opposite sign.
  */
 export function toMappingDraft(
-  selections: readonly FieldSelection[],
+  selections: readonly FieldSelectionInput[],
   roles: MappingRoles,
   existing: ConceptMapping | null
 ): ConceptMappingDraft {
@@ -85,15 +116,21 @@ export function toMappingDraft(
     .filter(selection => selection.kept && selection.conceptId)
     .map((selection) => {
       const previous = previousByPath.get(selection.path)
+      const claimed = chosen(selection.accountPath, previous?.accountPath, null)
+      // A trimmed field cannot name an account any more than it can carry an
+      // amount, so a stale account path is dropped rather than sent back.
+      const accountPath = claimed && kept.has(claimed) ? claimed : null
       return {
         fieldPath: selection.path,
         conceptId: selection.conceptId as string,
-        // A trimmed field cannot name an account any more than it can carry an
-        // amount, so a stale account path is dropped rather than sent back.
-        accountPath: previous?.accountPath && kept.has(previous.accountPath)
-          ? previous.accountPath
-          : null,
-        sign: previous?.sign ?? 1
+        accountPath,
+        sign: previous?.sign ?? 1,
+        spineConceptId: chosen(selection.spineConceptId, previous?.spineConceptId, null),
+        // Comparing account by account when this side names no account pairs
+        // every certified figure against nothing, which reports a figure the
+        // document does state as missing. A total is the answer that at least
+        // compares something.
+        perAccount: chosen(selection.perAccount, previous?.perAccount, false) && accountPath !== null
       }
     })
 
@@ -145,4 +182,86 @@ export function mappingChangeSeverity(change: MappingChange): MappingChangeSever
   return change.change === 'mapping_cleared' || change.change === 'prune_failed'
     ? 'critical'
     : 'notice'
+}
+
+/**
+ * The fields answering one line of the base report.
+ *
+ * Grouping is the whole point of the spine choice: the engine adds up every
+ * amount mapped to the same line before comparing it, which is how a debt the
+ * base report states once and the certificate splits into capital, interest and
+ * charges is expressed without anyone writing a formula. A screen that listed
+ * these four fields separately would never let that be discovered.
+ */
+export interface SpineGroup {
+  /** Null gathers everything that answers no line: dropped fields, fields with
+   * no concept, and concepts left uncompared on purpose. */
+  spineConceptId: string | null
+  paths: string[]
+  /** More than one field feeds this line, so the comparison is made on a sum. */
+  summed: boolean
+  /** Part of the sum is stated account by account and part as a total, so the
+   * two halves cannot be added up into one comparable figure. */
+  mixedComparison: boolean
+}
+
+/** The line a selection actually feeds, or null when it feeds none. */
+function answeredSpine(selection: FieldSelectionInput): string | null {
+  if (!selection.kept || !selection.conceptId) return null
+  return selection.spineConceptId ?? null
+}
+
+/**
+ * The field table arranged the way the comparison will read it.
+ *
+ * Groups keep the order in which their first field appears, so rearranging the
+ * table never reorders under the reader; the unanswered group goes last because
+ * it is the leftovers, not a line of the report.
+ */
+export function groupBySpineConcept(selections: readonly FieldSelectionInput[]): SpineGroup[] {
+  const groups = new Map<string | null, FieldSelectionInput[]>()
+
+  for (const selection of selections) {
+    const key = answeredSpine(selection)
+    const members = groups.get(key)
+    if (members) members.push(selection)
+    else groups.set(key, [selection])
+  }
+
+  const unanswered = groups.get(null)
+  groups.delete(null)
+  if (unanswered) groups.set(null, unanswered)
+
+  return [...groups].map(([spineConceptId, members]) => ({
+    spineConceptId,
+    paths: members.map(member => member.path),
+    summed: spineConceptId !== null && members.length > 1,
+    mixedComparison:
+      spineConceptId !== null
+      && members.some(member => member.perAccount === true)
+      && members.some(member => member.perAccount !== true)
+  }))
+}
+
+/**
+ * The fields claiming an account-by-account comparison without naming the
+ * account.
+ *
+ * `toMappingDraft` downgrades these to a total rather than storing a comparison
+ * that can only ever fail, and the screen has to say so: from the user's side
+ * the difference is between a certificate that lists each account and one that
+ * states a single figure, and only they can see which one they are holding.
+ */
+export function fieldsMissingAccountPath(
+  selections: readonly FieldSelectionInput[]
+): string[] {
+  return selections
+    .filter(
+      selection =>
+        selection.kept
+        && selection.conceptId
+        && selection.perAccount === true
+        && !selection.accountPath
+    )
+    .map(selection => selection.path)
 }
