@@ -120,6 +120,27 @@ export function hasUsefulSections(fields: readonly DocumentTypeField[]): boolean
 }
 
 /**
+ * Stored descriptions, plus recovered ones for the fields that had none.
+ *
+ * Additive on purpose. A stored description was written when the type was
+ * configured and may well have been corrected by hand since; a recovered one
+ * comes from re-reading the paper today. Where both exist the stored one is
+ * the curated answer and wins.
+ *
+ * This matters because the server replaces descriptions wholesale: sending
+ * only what a re-read matched would delete every label it failed to match,
+ * which on a well-described type is a straight loss of curated data caused by
+ * an action offering to add to it.
+ */
+export function mergeDescriptions(
+  stored: readonly DocumentTypeField[],
+  recovered: readonly DocumentTypeField[]
+): DocumentTypeField[] {
+  const described = new Set(stored.map(field => field.path))
+  return [...stored, ...recovered.filter(field => !described.has(field.path))]
+}
+
+/**
  * The descriptions from a fresh proposal that a stored schema can actually use.
  *
  * Types configured before descriptions were stored have none, which leaves

@@ -281,8 +281,8 @@
         "hint": "This type was configured before they were stored, which is why the list below shows paths instead of the paper's own words. «{file}» can be read again to recover them. The prompt, the schema and the mappings are left alone.",
         "action": "Read the document again",
         "failed": "The document could not be read. Try again.",
-        "done": "Named {named} of {total} fields. The document was saved with the type.",
-        "nothing": "No field could be named: re-reading the document, the model used different field names than the ones this type has stored. The document was saved with the type anyway."
+        "done": "Named {named} new fields, out of {total}. The document was saved with the type.",
+        "nothing": "No new field could be named: re-reading the document, the model used different field names than the ones this type has stored. Nothing was deleted; the document was saved with the type."
       }
     }
   },

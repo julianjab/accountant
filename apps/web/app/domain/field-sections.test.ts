@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { DocumentTypeField } from '~/domain/entities/document-type'
 import {
   descriptionsForKnownPaths,
+  mergeDescriptions,
   groupBySection,
   hasUsefulSections,
   labelFor,
@@ -138,5 +139,31 @@ describe('descriptionsForKnownPaths', () => {
 
   it('can legitimately recover nothing, which the caller has to be able to see', () => {
     expect(descriptionsForKnownPaths(FIELDS, [])).toEqual([])
+  })
+})
+
+describe('mergeDescriptions', () => {
+  it('adds a recovered description for a field that had none', () => {
+    const merged = mergeDescriptions([field('nit', 'Emisor')], [field('gmf', 'GMF')])
+
+    expect(merged.map(f => f.path)).toEqual(['nit', 'gmf'])
+  })
+
+  it('keeps the stored description when both describe the same field', () => {
+    // The stored one was curated; the recovered one is today's guess.
+    const merged = mergeDescriptions(
+      [field('nit', 'Emisor', 'NIT corregido a mano')],
+      [field('nit', 'Otro bloque', 'NIT')]
+    )
+
+    expect(merged).toEqual([field('nit', 'Emisor', 'NIT corregido a mano')])
+  })
+
+  it('never drops a stored description the recovery did not match', () => {
+    // The server replaces descriptions wholesale, so anything missing here is
+    // deleted — an action offering to add labels would be destroying them.
+    const merged = mergeDescriptions(FIELDS, [])
+
+    expect(merged).toEqual([...FIELDS])
   })
 })

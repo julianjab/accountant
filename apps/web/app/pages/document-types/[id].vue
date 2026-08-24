@@ -19,6 +19,7 @@ import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
 import {
   descriptionsForKnownPaths,
   labelFor,
+  mergeDescriptions,
   orderedSectionNames,
   sectionFor
 } from '~/domain/field-sections'
@@ -96,6 +97,13 @@ const { data: offeredDocument, refresh: refreshOfferedDocument } = await useAsyn
   { immediate: false, server: false, default: () => null }
 )
 
+/** Fields the type extracts but cannot name. Zero means there is nothing to
+ * recover, and the action is not offered. */
+const missingDescriptions = computed(() => {
+  const described = new Set((documentType.value?.fields ?? []).map(field => field.path))
+  return schemaFields.value.filter(field => !described.has(field.path)).length
+})
+
 const recovering = ref(false)
 const recoveryFailed = ref(false)
 /** How many of the type's fields the re-read managed to name, and out of how
@@ -121,13 +129,19 @@ async function recoverDescriptions() {
       documentId: offeredDocumentId.value
     })
     const known = schemaFields.value.map(field => field.path)
-    const named: DocumentTypeField[] = descriptionsForKnownPaths(proposal.fields, known)
+    const stored = documentType.value.fields
+    // Merged, never replaced: the server stores `fields` wholesale, so sending
+    // only what this run matched would delete every label it missed.
+    const merged: DocumentTypeField[] = mergeDescriptions(
+      stored,
+      descriptionsForKnownPaths(proposal.fields, known)
+    )
 
     await updateDocumentType.execute(documentTypeId, {
-      fields: named,
+      fields: merged,
       sampleDocumentId: offeredDocumentId.value
     })
-    recovered.value = { named: named.length, total: known.length }
+    recovered.value = { named: merged.length - stored.length, total: known.length }
     await refreshDocumentType()
   } catch {
     recoveryFailed.value = true
@@ -636,7 +650,7 @@ watch(
           reopening the prompt, the schema or the mappings.
         -->
         <section
-          v-if="offeredDocument && !recovered"
+          v-if="offeredDocument && !recovered && missingDescriptions > 0"
           class="border-default mb-6 flex flex-col gap-3 rounded-lg border p-3"
           data-testid="recover-descriptions"
         >
