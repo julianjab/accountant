@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import type { FindingStatus, ReconciliationReport } from '~/domain/entities/reconciliation'
+import { formatAccountingNumber } from '~/utils/extraction-field-display'
 
 const props = defineProps<{ clientId: string }>()
+
+// Every amount here is genuinely a currency figure (unlike extraction-field-display's
+// heuristic-by-key-name detection) — the domain carries them as decimal strings (server-side
+// precision), so this just parses and reuses the same accounting format.
+function amount(value: string): string {
+  return formatAccountingNumber(Number(value))
+}
 
 const { t } = useI18n()
 const getReport = useGetReconciliationReportUseCase()
@@ -198,7 +206,7 @@ const ROW_TONE: Record<FindingStatus, string> = {
                 <td
                   class="border-b border-r border-default px-2 py-1 text-right align-top tabular-nums text-highlighted"
                 >
-                  {{ detail.amount }}
+                  {{ amount(detail.amount) }}
                 </td>
                 <td
                   class="border-b border-r border-default px-2 py-1 text-right align-top tabular-nums"
@@ -208,11 +216,11 @@ const ROW_TONE: Record<FindingStatus, string> = {
                       v-if="row.hasEvidence && row.evidenceDocumentId"
                       :to="`/documents/${row.evidenceDocumentId}`"
                       class="text-highlighted underline decoration-dotted underline-offset-2"
-                    >{{ row.evidenceAmount }}</NuxtLink>
+                    >{{ amount(row.evidenceAmount) }}</NuxtLink>
                     <span
                       v-else-if="row.hasEvidence"
                       class="text-highlighted"
-                    >{{ row.evidenceAmount }}</span>
+                    >{{ amount(row.evidenceAmount) }}</span>
                     <span
                       v-else
                       class="text-muted"
@@ -222,7 +230,7 @@ const ROW_TONE: Record<FindingStatus, string> = {
                 </td>
                 <td class="border-b border-default px-2 py-1 text-right align-top tabular-nums text-toned">
                   <span v-if="index === 0 && row.details.length === 1">
-                    {{ row.hasEvidence ? row.delta : '—' }}
+                    {{ row.hasEvidence ? amount(row.delta) : '—' }}
                   </span>
                 </td>
               </tr>
@@ -240,25 +248,25 @@ const ROW_TONE: Record<FindingStatus, string> = {
                 <td
                   class="border-b border-r border-default px-2 py-1 text-right tabular-nums text-highlighted"
                 >
-                  {{ row.spineAmount }}
+                  {{ amount(row.spineAmount) }}
                 </td>
                 <td class="border-b border-r border-default px-2 py-1 text-right tabular-nums">
                   <NuxtLink
                     v-if="row.hasEvidence && row.evidenceDocumentId"
                     :to="`/documents/${row.evidenceDocumentId}`"
                     class="text-highlighted underline decoration-dotted underline-offset-2"
-                  >{{ row.evidenceAmount }}</NuxtLink>
+                  >{{ amount(row.evidenceAmount) }}</NuxtLink>
                   <span
                     v-else-if="row.hasEvidence"
                     class="text-highlighted"
-                  >{{ row.evidenceAmount }}</span>
+                  >{{ amount(row.evidenceAmount) }}</span>
                   <span
                     v-else
                     class="text-muted"
                   >{{ t('reconciliation.columns.notFound') }}</span>
                 </td>
                 <td class="border-b border-default px-2 py-1 text-right tabular-nums text-toned">
-                  {{ row.hasEvidence ? row.delta : '—' }}
+                  {{ row.hasEvidence ? amount(row.delta) : '—' }}
                 </td>
               </tr>
             </template>
@@ -294,7 +302,7 @@ const ROW_TONE: Record<FindingStatus, string> = {
                     v-if="finding.evidenceFacts[0]"
                     :to="`/documents/${finding.evidenceFacts[0].sourceId}`"
                     class="text-highlighted underline decoration-dotted underline-offset-2"
-                  >{{ finding.evidenceAmount }}</NuxtLink>
+                  >{{ amount(finding.evidenceAmount) }}</NuxtLink>
                 </td>
               </tr>
             </tbody>
