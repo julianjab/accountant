@@ -80,7 +80,16 @@ Padding `22px 30px 40px`.
 (En el prototipo `Contador.dc.html`; ver `design/` — el UI kit no los incluye.)
 
 - **Lista**: grid de 2 columnas, gap 14px. Cada tarjeta: nombre 15px/600, badge Activo/Borrador, conteo de documentos en mono; descripción 13px `#6B7770`; y un bloque hundido `#FAFAF8` borde `#EDEDE8` radio 8px con la etiqueta `extraction_schema` en mono 10.5px y las claves como etiquetas mono 11.5px sobre blanco, radio 5px.
-- **Definir tipo** (`/document-types/new`): dos pasos, una sola columna.
+- **El papel a la derecha** (`/document-types/new` y `/document-types/{id}`): las dos pantallas
+  comparten un mismo armazón de dos columnas, `lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]`,
+  porque en las dos cada campo se decide leyéndolo contra el documento. Izquierda (3fr) el
+  trabajo, derecha (2fr) el documento de muestra, `lg:sticky lg:top-4` — la lista de campos
+  llega a decenas de filas y el papel tiene que seguir ahí al final de ella. La proporción no
+  es mitad y mitad: las filas cargan dos selects cada una y se vuelven ilegibles apretadas.
+  En `new` la columna sostiene su lugar con un recuadro punteado antes de que se elija la
+  muestra, para que aparecer no empuje el formulario de lado; en la de edición, donde ya no
+  se puede cambiar la muestra, sin documento la izquierda pasa a `lg:col-span-2`.
+- **Definir tipo** (`/document-types/new`): dos pasos.
   1. Formulario (Nombre, Descripción, documento de muestra) → `POST /document-types/proposals`
      (multipart: `name`, `sample_file`, `kind_id?`). No guarda nada, y la pantalla lo dice
      bajo el título. Estado de carga honesto: la llamada a Claude tarda ~1 min.
