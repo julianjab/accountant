@@ -243,3 +243,49 @@ def test_losing_the_account_field_downgrades_to_comparing_totals():
     assert kept.entries[0].account_path is None
     assert kept.entries[0].per_account is False
     assert kept.entries[0].spine_concept_id == "dian:saldo-cuentas-bancarias"
+
+
+def test_a_type_that_declares_its_reporting_party_survives_losing_the_field():
+    """The whole point of declaring it is that the document never says. Clearing
+    the mapping because the schema stopped extracting a field it was not relying
+    on would delete a working configuration."""
+    mappings = InMemoryConceptMappingRepository()
+    mappings.save(
+        _mapping(
+            reporter_path="nit",
+            reporter_tax_id="890903938",
+            entries=(ConceptMappingEntry("gmf", GMF),),
+        )
+    )
+
+    changes = PruneConceptMappings(KindRegistry([ExogenaReconciliation()]), mappings).execute(
+        PruneConceptMappingsInput(
+            document_type_id="type-1", extraction_schema=_schema_without("nit")
+        )
+    )
+
+    kept = mappings.get("type-1", KIND_ID)
+    assert [e.field_path for e in kept.entries] == ["gmf"]
+    assert kept.reporter_tax_id == "890903938"
+    assert MappingChangeKind.MAPPING_CLEARED not in [c.change for c in changes]
+
+
+def test_pruning_keeps_the_values_a_type_declares_for_itself():
+    """Pruning owns what a schema edit invalidated. A constant is not read from
+    the schema at all, so no edit can invalidate it."""
+    mappings = InMemoryConceptMappingRepository()
+    mappings.save(
+        _mapping(
+            reporter_tax_id="890903938",
+            reporter_name="JFK Cooperativa Financiera",
+            period="2025",
+        )
+    )
+
+    PruneConceptMappings(KindRegistry([ExogenaReconciliation()]), mappings).execute(
+        PruneConceptMappingsInput(document_type_id="type-1", extraction_schema=FULL_SCHEMA)
+    )
+
+    kept = mappings.get("type-1", KIND_ID)
+    assert kept.reporter_name == "JFK Cooperativa Financiera"
+    assert kept.period == "2025"

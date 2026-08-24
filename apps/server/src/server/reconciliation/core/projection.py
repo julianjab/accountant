@@ -78,6 +78,39 @@ class ConceptMapping:
     #: certificate uploaded into a 2025 reconciliation would be taken at the
     #: caller's word and quietly reconcile against the wrong year.
     period_path: str | None = None
+    #: Who reports, when the document never prints it.
+    #:
+    #: Plenty of certificates identify the taxpayer and never their own issuer
+    #: — the letterhead says who they are and the text does not repeat it. The
+    #: figures are still that issuer's, but nothing on the page says so, and
+    #: without a reporting party every fact is discarded and every claim the
+    #: certificate backs comes back as missing evidence.
+    #:
+    #: Stated per document type, which is the level where it is actually
+    #: knowable: every document of this type comes from the same entity.
+    #: What the document says always wins — this only fills a silence.
+    reporter_tax_id: str | None = None
+    reporter_name: str | None = None
+    #: The period every document of this type covers, when the paper omits it.
+    #: Use with care: it makes a certificate reconcile into that year whatever
+    #: year it was issued for, so it belongs on types that are re-created per
+    #: year, tagged with `tax_years` to match.
+    period: str | None = None
+
+    def __post_init__(self) -> None:
+        # Refused here rather than at projection time: a tax id that does not
+        # parse resolves to nothing, the mapping falls back to the caller's
+        # party, and the type looks configured while attributing its figures
+        # to somebody else.
+        if self.reporter_tax_id is not None and TaxId.parse(self.reporter_tax_id) is None:
+            raise ValueError(
+                f"{self.document_type_id}: {self.reporter_tax_id!r} is not a tax id. "
+                "It must be the NUMBER the party reports under, not its name."
+            )
+        # Same reasoning: a period nobody can read is a period that silently
+        # does nothing, leaving the caller's year in place.
+        if self.period is not None and _year_in(self.period) is None:
+            raise ValueError(f"{self.document_type_id}: {self.period!r} does not contain a year")
 
 
 def project_facts(
@@ -91,14 +124,28 @@ def project_facts(
     reporter_name: str = "",
     locator: str = "",
 ) -> tuple[FinancialFact, ...]:
-    resolved_reporter = _first_tax_id(fields, mapping.reporter_path) or reporter_tax_id
+    # The document first, then what the type declares about itself, then the
+    # caller. A constant only ever fills a silence: a certificate that does
+    # print its issuer is describing reality, and configuration must not
+    # overrule it — that is how figures get attributed to the wrong party.
+    resolved_reporter = (
+        _first_tax_id(fields, mapping.reporter_path)
+        or TaxId.parse(mapping.reporter_tax_id)
+        or reporter_tax_id
+    )
     if resolved_reporter is None:
         raise ValueError(
             f"Cannot project {mapping.document_type_id}: no reporting party on the document "
             "and none supplied by the caller"
         )
-    resolved_name = _first_text(fields, mapping.reporter_name_path) or reporter_name
-    resolved_period = _period_from(fields, mapping.period_path, period) or period
+    resolved_name = (
+        _first_text(fields, mapping.reporter_name_path) or (mapping.reporter_name or "")
+    ) or reporter_name
+    resolved_period = (
+        _period_from(fields, mapping.period_path, period)
+        or _period_of(mapping.period, period)
+        or period
+    )
 
     facts: list[FinancialFact] = []
     for entry in mapping.entries:
@@ -233,8 +280,21 @@ def _period_from(fields: Mapping[str, Any], path: str | None, fallback: Period) 
     raw = _lookup(fields, path)
     if raw is None:
         return None
-    match = re.search(r"\b(19|20)\d{2}\b", str(raw))
-    return Period.of_year(int(match.group(0))) if match else None
+    year = _year_in(str(raw))
+    return Period.of_year(year) if year is not None else None
+
+
+def _year_in(text: str) -> int | None:
+    match = re.search(r"\b(19|20)\d{2}\b", text)
+    return int(match.group(0)) if match else None
+
+
+def _period_of(declared: str | None, fallback: Period) -> Period | None:
+    """The period the type declares it always covers, when it declares one."""
+    if declared is None or fallback.granularity is not PeriodGranularity.YEAR:
+        return None
+    year = _year_in(declared)
+    return Period.of_year(year) if year is not None else None
 
 
 def _first_tax_id(fields: Mapping[str, Any], path: str | None) -> TaxId | None:

@@ -79,7 +79,14 @@ def _prune(
 ) -> tuple[ConceptMapping, list[MappingChange]]:
     changes: list[MappingChange] = []
 
-    if mapping.reporter_path is not None and not path_resolves_in(mapping.reporter_path, schema):
+    if (
+        mapping.reporter_path is not None
+        and not path_resolves_in(mapping.reporter_path, schema)
+        # A type that declares who reports still knows it after the field is
+        # trimmed away, so there is nothing to clear: the constant is exactly
+        # the answer to "the document never says".
+        and mapping.reporter_tax_id is None
+    ):
         # Without a reporting party no fact can be attributed to anyone, so the
         # projection discards this mapping whole however many entries survive.
         # Keeping the entries would leave the type looking mapped while nothing
@@ -177,6 +184,9 @@ def _prune(
         kind_id=mapping.kind_id,
         entries=tuple(entries),
         reporter_path=mapping.reporter_path,
+        reporter_tax_id=mapping.reporter_tax_id,
+        reporter_name=mapping.reporter_name,
+        period=mapping.period,
         reporter_name_path=document_paths["reporter_name_path"],
         period_path=document_paths["period_path"],
     )

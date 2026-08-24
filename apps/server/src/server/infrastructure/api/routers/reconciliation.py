@@ -167,14 +167,23 @@ def save_concept_mapping(
     payload: ConceptMappingRequest,
     use_case: SaveConceptMapping = Depends(get_save_concept_mapping_use_case),
 ) -> ConceptMappingResponse:
-    mapping = ConceptMapping(
-        document_type_id=document_type_id,
-        kind_id=kind_id,
-        reporter_path=payload.reporter_path,
-        reporter_name_path=payload.reporter_name_path,
-        period_path=payload.period_path,
-        entries=tuple(_entry_from_payload(e) for e in payload.entries),
-    )
+    try:
+        mapping = ConceptMapping(
+            document_type_id=document_type_id,
+            kind_id=kind_id,
+            reporter_path=payload.reporter_path,
+            reporter_name_path=payload.reporter_name_path,
+            period_path=payload.period_path,
+            reporter_tax_id=payload.reporter_tax_id,
+            reporter_name=payload.reporter_name,
+            period=payload.period,
+            entries=tuple(_entry_from_payload(e) for e in payload.entries),
+        )
+    except ValueError as exc:
+        # A constant that does not read as a tax id or a year. Reported as the
+        # caller's mistake, which it is and which they can fix, rather than as
+        # a 500 they can do nothing about.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
         saved = use_case.execute(SaveConceptMappingInput(mapping=mapping))
     except UnknownReconciliationKind as exc:
@@ -283,6 +292,9 @@ def _to_mapping_response(mapping: ConceptMapping) -> ConceptMappingResponse:
         reporter_path=mapping.reporter_path,
         reporter_name_path=mapping.reporter_name_path,
         period_path=mapping.period_path,
+        reporter_tax_id=mapping.reporter_tax_id,
+        reporter_name=mapping.reporter_name,
+        period=mapping.period,
         entries=[
             ConceptMappingEntryPayload(
                 field_path=e.field_path,

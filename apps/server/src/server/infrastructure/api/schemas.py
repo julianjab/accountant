@@ -263,6 +263,12 @@ class ConceptMappingRequest(BaseModel):
     reporter_path: str | None = None
     reporter_name_path: str | None = None
     period_path: str | None = None
+    #: Who reports, when the document never prints its own issuer. What the
+    #: document says always wins; this only fills a silence.
+    reporter_tax_id: str | None = None
+    reporter_name: str | None = None
+    #: The period every document of this type covers, when the paper omits it.
+    period: str | None = None
 
 
 class ConceptMappingResponse(BaseModel):
@@ -272,6 +278,9 @@ class ConceptMappingResponse(BaseModel):
     reporter_path: str | None
     reporter_name_path: str | None
     period_path: str | None
+    reporter_tax_id: str | None = None
+    reporter_name: str | None = None
+    period: str | None = None
 
 
 class DocumentTypeCreateRequest(BaseModel):
@@ -291,6 +300,12 @@ class DocumentTypeCreateRequest(BaseModel):
     reporter_path: str | None = None
     reporter_name_path: str | None = None
     period_path: str | None = None
+    #: Who reports, when the document never prints its own issuer. What the
+    #: document says always wins; this only fills a silence.
+    reporter_tax_id: str | None = None
+    reporter_name: str | None = None
+    #: The period every document of this type covers, when the paper omits it.
+    period: str | None = None
     tax_years: list[int] = []
     kind_id: str | None = None
     #: The document the configuration was derived from, when it came from one

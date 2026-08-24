@@ -184,7 +184,7 @@ def create_document_type(
     stored_mappings = defined.field_mappings
     unmapped = list(defined.unmapped_fields)
 
-    if defined.field_mappings and defined.reporter_path is None:
+    if defined.field_mappings and defined.reporter_path is None and not payload.reporter_tax_id:
         # Every fact needs a party to attribute it to, so a mapping without
         # one is discarded whole by the projection. Storing it anyway would
         # leave the type looking configured, its mappings visible in the UI,
@@ -210,6 +210,9 @@ def create_document_type(
                         document_type_id=defined.document_type.id,
                         kind_id=kind.id,
                         reporter_path=defined.reporter_path,
+                        reporter_tax_id=payload.reporter_tax_id,
+                        reporter_name=payload.reporter_name,
+                        period=payload.period,
                         reporter_name_path=defined.reporter_name_path,
                         period_path=defined.period_path,
                         entries=tuple(

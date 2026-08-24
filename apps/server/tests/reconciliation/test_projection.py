@@ -226,3 +226,101 @@ def test_comparing_per_account_requires_a_field_holding_the_account():
     # With one, the same entry is fine.
     entry = ConceptMappingEntry("saldo", "ev:x", account_path="cuenta", per_account=True)
     assert entry.per_account
+
+
+class TestValuesTheDocumentNeverStates:
+    """A certificate that never prints its own issuer.
+
+    Plenty of them identify the taxpayer and never themselves: the letterhead
+    says who they are and the text does not repeat it. The figures are still
+    that issuer's, but with nothing on the page saying so every fact was
+    discarded and every claim the certificate backed came back as missing
+    evidence — a real certificate reported as absent.
+    """
+
+    def test_a_type_can_declare_who_reports_when_the_paper_does_not(self):
+        facts = _project(
+            _mapping(
+                [ConceptMappingEntry("saldo", "ev:saldo")],
+                reporter_tax_id="890.903.938-8",
+            ),
+            {"saldo": "1000"},
+        )
+
+        assert facts[0].reporter_tax_id == TaxId("890903938")
+
+    def test_what_the_document_says_beats_what_the_type_declares(self):
+        """Configuration fills a silence; it must never overrule a paper that
+        does state its issuer, or figures get attributed to the wrong party."""
+        facts = _project(
+            _mapping(
+                [ConceptMappingEntry("saldo", "ev:saldo")],
+                reporter_path="nit",
+                reporter_tax_id="800170494",
+            ),
+            {"nit": "890903938-8", "saldo": "1000"},
+        )
+
+        assert facts[0].reporter_tax_id == TaxId("890903938")
+
+    def test_the_declared_party_covers_a_document_whose_field_came_back_empty(self):
+        """The field exists and the OCR read nothing into it — which is the
+        same silence, and the reason to declare the party in the first place."""
+        facts = _project(
+            _mapping(
+                [ConceptMappingEntry("saldo", "ev:saldo")],
+                reporter_path="nit",
+                reporter_tax_id="800170494",
+            ),
+            {"nit": "", "saldo": "1000"},
+        )
+
+        assert facts[0].reporter_tax_id == TaxId("800170494")
+
+    def test_a_declared_name_is_used_when_the_paper_does_not_name_the_issuer(self):
+        facts = _project(
+            _mapping(
+                [ConceptMappingEntry("saldo", "ev:saldo")],
+                reporter_tax_id="890903938",
+                reporter_name="JFK Cooperativa Financiera",
+            ),
+            {"saldo": "1000"},
+        )
+
+        assert facts[0].reporter_name == "JFK Cooperativa Financiera"
+
+    def test_a_declared_period_places_a_certificate_that_states_no_year(self):
+        facts = _project(
+            _mapping(
+                [ConceptMappingEntry("saldo", "ev:saldo")],
+                reporter_tax_id="890903938",
+                period="2024",
+            ),
+            {"saldo": "1000"},
+        )
+
+        assert facts[0].period == Period.of_year(2024)
+
+    def test_the_year_on_the_paper_beats_the_declared_one(self):
+        facts = _project(
+            _mapping(
+                [ConceptMappingEntry("saldo", "ev:saldo")],
+                reporter_tax_id="890903938",
+                period_path="anio",
+                period="2024",
+            ),
+            {"anio": "2025", "saldo": "1000"},
+        )
+
+        assert facts[0].period == Period.of_year(2025)
+
+    def test_a_declared_party_that_is_not_a_number_is_refused_at_configuration(self):
+        """Left to projection it resolves to nothing, the mapping falls back to
+        the caller's party, and the type reads as configured while attributing
+        its figures to somebody else."""
+        with pytest.raises(ValueError, match="not a tax id"):
+            _mapping([], reporter_tax_id="JFK Cooperativa Financiera")
+
+    def test_a_declared_period_with_no_year_in_it_is_refused(self):
+        with pytest.raises(ValueError, match="does not contain a year"):
+            _mapping([], reporter_tax_id="890903938", period="vigencia actual")
