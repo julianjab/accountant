@@ -294,3 +294,27 @@ def test_the_spine_is_parsed_even_though_intake_could_not_classify_it(wiring):
 
     assert report.summary.total_findings > 0
     assert any(f.spine_facts for f in report.findings)
+
+
+def test_a_spine_whose_bytes_cannot_be_read_does_not_sink_the_run(wiring):
+    """Parsers are tried whatever intake made of a document, and a FAILED one
+    often got there because the file was unreadable, moved or deleted."""
+    use_case, _, documents, _, _, _ = wiring
+
+    class _Unreadable:
+        def list_files(self, folder_reference):
+            return []
+
+        def download(self, file_reference):
+            raise RuntimeError("410 gone")
+
+    documents.save(_document("desaparecido", XLSX, status=DocumentStatus.FAILED))
+    provider = _provider_of(use_case)
+    provider._storage = _Unreadable()
+
+    report = use_case.execute(ReconcileClientPeriodInput("client-1", KIND_ID, Period.of_year(2025)))
+    assert report.summary.total_findings >= 0
+
+
+def _provider_of(use_case):
+    return use_case._facts

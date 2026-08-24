@@ -68,7 +68,23 @@ def create_document_type(
 
     stored_mappings = defined.field_mappings
     unmapped = list(defined.unmapped_fields)
-    if kind is not None and defined.field_mappings:
+
+    if defined.field_mappings and defined.reporter_path is None:
+        # Every fact needs a party to attribute it to, so a mapping without
+        # one is discarded whole by the projection. Storing it anyway would
+        # leave the type looking configured, its mappings visible in the UI,
+        # and every claim reported as missing evidence with nothing pointing
+        # at the cause — which is what happened the first time this ran.
+        logger.warning(
+            "The proposal named no reporting party, so its mappings cannot be used",
+            extra={"document_type_id": defined.document_type.id},
+        )
+        unmapped.extend(
+            (m.field_path, "the document does not say who reports these amounts")
+            for m in defined.field_mappings
+        )
+        stored_mappings = ()
+    elif kind is not None and defined.field_mappings:
         # Stored right away rather than left for a second call: a type saved
         # without its mapping extracts fields that reconcile against nothing,
         # and nothing in the UI would show that it is half-configured.

@@ -98,6 +98,7 @@ def test_a_mapping_that_cannot_be_stored_is_reported_not_raised() -> None:
                 document_type=document_type,
                 field_mappings=(ProposedFieldMapping("saldo", "bank:cert_saldo_cuentas_ahorro"),),
                 unmapped_fields=(),
+                reporter_path="nit",
             )
 
     app.dependency_overrides[require_session] = lambda: None
@@ -123,3 +124,58 @@ def test_a_mapping_that_cannot_be_stored_is_reported_not_raised() -> None:
         ]
     finally:
         app.dependency_overrides.clear()
+
+
+def test_a_mapping_with_no_reporting_party_is_not_stored() -> None:
+    """Every fact needs a party to attribute it to, so the projection discards
+    such a mapping whole. Storing it would leave the type looking configured
+    and every claim reported as missing with nothing pointing at the cause."""
+    from server.application.use_cases import DefinedDocumentType, DefineDocumentType
+    from server.domain.ports import ProposedFieldMapping
+    from server.infrastructure.api import deps
+
+    document_type = DocumentType(
+        id="t-2",
+        name="Certificado",
+        description="d",
+        extraction_prompt="p",
+        extraction_schema={"type": "object"},
+        active=True,
+        created_at=datetime.now(UTC),
+    )
+
+    class _UseCase(DefineDocumentType):
+        def __init__(self):
+            pass
+
+        def execute(self, data):
+            return DefinedDocumentType(
+                document_type=document_type,
+                field_mappings=(ProposedFieldMapping("saldo", "bank:cert_saldo_cuentas_ahorro"),),
+                unmapped_fields=(),
+                reporter_path=None,
+            )
+
+    deps.get_concept_mapping_repository.cache_clear()
+    mappings = deps.get_concept_mapping_repository()
+    app.dependency_overrides[require_session] = lambda: None
+    app.dependency_overrides[deps.get_define_document_type_use_case] = lambda: _UseCase()
+    try:
+        response = TestClient(app).post(
+            "/document-types",
+            data={"name": "Certificado", "description": "d"},
+            files={"sample_file": ("s.pdf", b"%PDF-", "application/pdf")},
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["field_mappings"] == []
+        assert body["unmapped_fields"] == [
+            {
+                "field_path": "saldo",
+                "reason": "the document does not say who reports these amounts",
+            }
+        ]
+        assert mappings.get("t-2", "exogena_dian") is None
+    finally:
+        app.dependency_overrides.clear()
+        deps.get_concept_mapping_repository.cache_clear()

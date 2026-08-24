@@ -92,7 +92,18 @@ class DocumentFactProvider:
         for source in sources:
             if document.mime_type not in source.media_types:
                 continue
-            content = self._storage.download(document.drive_file_id)
+            try:
+                content = self._storage.download(document.drive_file_id)
+            except Exception:
+                # Parsers are now tried whatever intake made of the document,
+                # and a FAILED one often got there because the file was
+                # unreadable, moved or deleted. One unreachable file must not
+                # take the whole reconciliation down with it.
+                logger.warning(
+                    "Could not read a document the kind parses itself",
+                    extra={"document_id": document.id, "source_id": source.id},
+                )
+                continue
             try:
                 return source.extractor.extract(
                     SourceContent(
