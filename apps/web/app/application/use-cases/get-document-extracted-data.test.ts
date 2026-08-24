@@ -32,6 +32,10 @@ class FakeDocumentRepository implements DocumentRepository {
   approve(_id: string, _approvedBy?: string): Promise<ClientDocument> {
     throw new Error('not implemented')
   }
+
+  reprocess(_id: string): Promise<ClientDocument> {
+    throw new Error('not implemented')
+  }
 }
 
 describe('GetDocumentExtractedData', () => {

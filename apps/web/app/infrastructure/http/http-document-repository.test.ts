@@ -156,4 +156,33 @@ describe('HttpDocumentRepository.importForClient', () => {
       body: { approved_by: null }
     })
   })
+
+  it('reprocesses a document, which comes back unapproved', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      id: 'doc-1',
+      client_id: 'client-1',
+      document_type_id: 'type-1',
+      drive_file_id: 'drive-1',
+      file_name: 'Bancolombia_cuenta.pdf',
+      mime_type: 'application/pdf',
+      status: 'processed',
+      error: null,
+      created_at: '2026-01-01',
+      processed_at: '2026-01-03',
+      approved_by: null
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const repository = new HttpDocumentRepository('http://localhost:8000')
+    const result = await repository.reprocess('doc-1')
+
+    // The reading is fresh and nobody has looked at it yet, so the screen has
+    // to offer approving it again rather than keep reporting it approved.
+    expect(result.status).toBe('processed')
+    expect(fetchMock).toHaveBeenCalledWith('/documents/doc-1/reprocess', {
+      baseURL: 'http://localhost:8000',
+      credentials: 'include',
+      method: 'POST'
+    })
+  })
 })
