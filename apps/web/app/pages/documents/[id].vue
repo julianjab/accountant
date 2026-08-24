@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { ClientDocument } from '~/domain/entities/document'
-import type { DocumentSource } from '~/domain/entities/document-source'
 import type { DocumentType } from '~/domain/entities/document-type'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
@@ -13,10 +12,7 @@ const documentId = route.params.id as string
 const getDocument = useGetDocumentUseCase()
 const getExtractedData = useGetDocumentExtractedDataUseCase()
 const getDocumentType = useGetDocumentTypeUseCase()
-const listDocumentSources = useListDocumentSourcesUseCase()
-const recognizeDocumentSource = useRecognizeDocumentSourceUseCase()
 const approveDocument = useApproveDocumentUseCase()
-const reopenDocument = useReopenDocumentUseCase()
 const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
 const { setLabel: setBreadcrumbLabel, clearLabel: clearBreadcrumbLabel } = useBreadcrumbLabels()
 const showSignedOut = computed(() => !isAuthLoading.value && !isAuthenticated.value)
@@ -49,79 +45,37 @@ const { data: documentType, refresh: refreshDocumentType } = await useAsyncData<
   { immediate: false, server: false, default: () => null }
 )
 
-// Narrowed to the sources whose parser accepts this file, so the reader is
-// never offered one that would refuse it — a refusal they would only see after
-// choosing. Depends on `document` for its media type, so it waits behind it.
-const { data: sources, refresh: refreshSources } = await useAsyncData<DocumentSource[]>(
-  `document-${documentId}-sources`,
-  () => (document.value ? listDocumentSources.execute(document.value.mimeType) : Promise.resolve([])),
-  { immediate: false, server: false, default: () => [] }
-)
-
 watch(
   isAuthenticated,
   async (authenticated) => {
     if (!authenticated) return
     // `refreshExtractedData` has no dependency on `document`, so it fires
     // alongside it instead of waiting behind it — only `refreshDocumentType`
-    // and `refreshSources` need `document` to have resolved.
+    // needs `document.value.documentTypeId` and must wait for it to resolve.
     const documentPromise = refreshDocument()
     refreshExtractedData()
     await documentPromise
     refreshDocumentType()
-    refreshSources()
   },
   { immediate: true }
 )
 
-const recognizing = ref(false)
 const approving = ref(false)
-const reopening = ref(false)
 const actionError = ref<string | null>(null)
-
-async function onRecognize(sourceId: string) {
-  recognizing.value = true
-  actionError.value = null
-  try {
-    await recognizeDocumentSource.execute(documentId, sourceId)
-    // The document and its extraction both changed; the type did not, since a
-    // document read this way deliberately never gets one.
-    await Promise.all([refreshDocument(), refreshExtractedData()])
-  } catch (error) {
-    // 422 is the expected one: the file is not the source it was said to be.
-    // Nothing was written, so the reader can simply pick again.
-    actionError.value = errorMessage(error, t('documents.declareSource.failed'))
-  } finally {
-    recognizing.value = false
-  }
-}
 
 async function onApprove() {
   approving.value = true
   actionError.value = null
   try {
     await approveDocument.execute(documentId)
+    // Approving is what produced the extraction, so both changed; the type may
+    // have changed too, since an ordinary document is reclassified on the way.
     await refreshDocument()
+    await Promise.all([refreshExtractedData(), refreshDocumentType()])
   } catch (error) {
     actionError.value = errorMessage(error, t('documents.approveFailed'))
   } finally {
     approving.value = false
-  }
-}
-
-// Withdrawing an approval is the only way back to changing anything about a
-// document: while it stands, the file cannot be re-read as another format and
-// a re-import will not reprocess it.
-async function onReopen() {
-  reopening.value = true
-  actionError.value = null
-  try {
-    await reopenDocument.execute(documentId)
-    await refreshDocument()
-  } catch (error) {
-    actionError.value = errorMessage(error, t('documents.reopenFailed'))
-  } finally {
-    reopening.value = false
   }
 }
 
@@ -230,14 +184,9 @@ onUnmounted(() => {
           :document-type="documentType ?? null"
           :extracted-data="extractedData ?? null"
           :extracted-data-error="!!extractedDataError"
-          :sources="sources ?? []"
-          :recognizing="recognizing"
           :approving="approving"
-          :reopening="reopening"
           :action-error="actionError"
-          @recognize="onRecognize"
           @approve="onApprove"
-          @reopen="onReopen"
         />
       </div>
     </template>

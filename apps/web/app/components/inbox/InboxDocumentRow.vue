@@ -1,18 +1,15 @@
 <script setup lang="ts">
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
-import type { DocumentSource } from '~/domain/entities/document-source'
 import type { DocumentType } from '~/domain/entities/document-type'
+
+import { documentSourceLabelKey } from '~/domain/document-source'
 
 const props = defineProps<{
   document: ClientDocument
   documentType: DocumentType | undefined
-  /** Set when someone declared this file's format. Such a document has no type
-   * by design, so without this it reads as unclassified — which is exactly
-   * what it is not. */
-  documentSource?: DocumentSource | undefined
 }>()
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 // TODO(design-system): the inbox spec (design-system/README.md § 2) only defines a badge
 // per Document.status pending|classifying|running_ocr|processed|failed. "approved" is a
@@ -36,9 +33,17 @@ function iconForFile(fileName: string): string {
 
 const icon = computed(() => iconForFile(props.document.fileName))
 const statusColor = computed(() => STATUS_COLOR[props.document.status])
-const typeLabel = computed(() =>
-  props.documentType?.name ?? props.documentSource?.label ?? t('inbox.unclassified')
-)
+// A document read by a parser has no type by design, so its source is the only
+// thing that can name it — without this it reads as unclassified, which is
+// exactly what it is not.
+const typeLabel = computed(() => {
+  if (props.documentType) return props.documentType.name
+  if (props.document.sourceId) {
+    const key = documentSourceLabelKey(props.document.sourceId)
+    return te(key) ? t(key) : props.document.sourceId
+  }
+  return t('inbox.unclassified')
+})
 
 const time = computed(() =>
   new Date(props.document.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

@@ -101,7 +101,6 @@
     "headerConfidence": "Average confidence",
     "averageConfidence": "Average confidence",
     "approveAndSend": "Approve and send to sheet",
-    "approveDisabledHint": "Only a processed document can be approved",
     "errorTitle": "Could not process this document",
     "errorFallback": "An error occurred while processing this document",
     "extractionMissing": "The document was processed but no extracted data was found",
@@ -127,20 +126,10 @@
     },
     "defineTypeFromThis": "Define a type from this document",
     "configureTypeFromThis": "Configure the type from this document",
-    "declareSource": {
-      "title": "Do you know what this document is?",
-      "description": "The classifier only recognises the configured document types. If this file is one of the formats the server reads directly, say so here and it will be read with its own parser.",
-      "placeholder": "Choose a format",
-      "action": "Read with this format",
-      "failed": "This file could not be read with that format.",
-      "changeTitle": "Read as a known format",
-      "changeDescription": "If that is not the right format, pick another one and the file is read again.",
-      "reread": "Read again"
-    },
     "approveFailed": "The document could not be approved.",
-    "approvedNote": "Approved. It is now part of the client's spreadsheet.",
-    "reopen": "Reopen for review",
-    "reopenFailed": "The document could not be reopened."
+    "sources": {
+      "exogena_report": "Third-party information report (DIAN)"
+    }
   },
   "documentTypes": {
     "title": "Document types",

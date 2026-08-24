@@ -101,7 +101,6 @@
     "headerConfidence": "Confianza promedio",
     "averageConfidence": "Confianza promedio",
     "approveAndSend": "Aprobar y enviar a hoja",
-    "approveDisabledHint": "Solo se puede aprobar un documento ya procesado",
     "errorTitle": "No se pudo procesar el documento",
     "errorFallback": "Ocurrió un error al procesar este documento",
     "extractionMissing": "El documento fue procesado pero no se encontraron datos extraídos",
@@ -127,20 +126,10 @@
     },
     "defineTypeFromThis": "Definir un tipo con este documento",
     "configureTypeFromThis": "Configurar el tipo con este documento",
-    "declareSource": {
-      "title": "¿Sabes qué es este documento?",
-      "description": "El clasificador solo reconoce los tipos de documento configurados. Si este archivo es uno de los formatos que el servidor lee directamente, indícalo aquí y se leerá con su lector propio.",
-      "placeholder": "Elegir formato",
-      "action": "Leer con este formato",
-      "failed": "No se pudo leer el archivo con ese formato.",
-      "changeTitle": "Leído como un formato conocido",
-      "changeDescription": "Si no es el formato correcto, elegí otro y el archivo se vuelve a leer.",
-      "reread": "Volver a leer"
-    },
     "approveFailed": "No se pudo aprobar el documento.",
-    "approvedNote": "Aprobado. Ya entra en la hoja de cálculo del cliente.",
-    "reopen": "Reabrir para revisar",
-    "reopenFailed": "No se pudo reabrir el documento."
+    "sources": {
+      "exogena_report": "Reporte de información exógena (DIAN)"
+    }
   },
   "documentTypes": {
     "title": "Tipos de documento",

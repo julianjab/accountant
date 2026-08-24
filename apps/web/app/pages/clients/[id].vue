@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Client } from '~/domain/entities/client'
 import type { ClientDocument } from '~/domain/entities/document'
-import type { DocumentSource } from '~/domain/entities/document-source'
 import type { DocumentType } from '~/domain/entities/document-type'
 import type { ReconciliationReport } from '~/domain/entities/reconciliation'
 import ClientHeader from '~/infrastructure/components/clients/ClientHeader.vue'
@@ -18,7 +17,6 @@ const id = String(route.params.id)
 const getClient = useGetClientUseCase()
 const listClientDocuments = useListClientDocumentsUseCase()
 const listActiveDocumentTypes = useListActiveDocumentTypesUseCase()
-const listDocumentSources = useListDocumentSourcesUseCase()
 const getReconciliationReport = useGetReconciliationReportUseCase()
 
 // One reconciliation model and one tax year for now.
@@ -43,14 +41,6 @@ const { data: types, refresh: refreshTypes } = await useAsyncData<DocumentType[]
   { immediate: false, server: false, default: () => [] }
 )
 
-// The formats a document can be declared to be. Shared by every row, so it is
-// read once here rather than per document.
-const { data: sources, refresh: refreshSources } = await useAsyncData<DocumentSource[]>(
-  'document-sources',
-  () => listDocumentSources.execute(),
-  { immediate: false, server: false, default: () => [] }
-)
-
 // Read here rather than only inside the reconciliation tab: the document list
 // needs it too, to show which certificates the exogena is still waiting for.
 const { data: report, refresh: refreshReport } = await useAsyncData<ReconciliationReport | null>(
@@ -66,7 +56,6 @@ watch(
     refreshClient()
     refreshDocuments()
     refreshTypes()
-    refreshSources()
     refreshReport()
   },
   { immediate: true }
@@ -172,7 +161,6 @@ const tabItems = computed(() => [
                 :documents="documents ?? []"
                 :types="types ?? []"
                 :report="report"
-                :sources="sources ?? []"
               />
             </template>
             <template #reconciliation>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
-import type { DocumentSource } from '~/domain/entities/document-source'
+import { documentSourceLabelKey } from '~/domain/document-source'
 import type { DocumentType } from '~/domain/entities/document-type'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
 import ExtractionFieldRow from '~/components/documents/ExtractionFieldRow.vue'
@@ -12,30 +12,13 @@ const props = defineProps<{
   documentType: DocumentType | null
   extractedData: ExtractedData | null
   extractedDataError?: boolean
-  /** The formats this file could be declared to be, already narrowed to ones
-   * whose parser accepts its media type. Empty means there is nothing to
-   * offer, and the picker stays hidden rather than showing an empty select. */
-  sources?: DocumentSource[]
-  recognizing?: boolean
   approving?: boolean
-  reopening?: boolean
   actionError?: string | null
 }>()
 
-const emit = defineEmits<{
-  recognize: [sourceId: string]
-  approve: []
-  reopen: []
-}>()
+const emit = defineEmits<{ approve: [] }>()
 
-// Preselected with whatever the document was already read as, so the control
-// states the current answer rather than asking again from blank.
-const chosenSource = ref<string | undefined>(props.document.sourceId ?? undefined)
-watch(() => props.document.sourceId, (sourceId) => {
-  chosenSource.value = sourceId ?? undefined
-})
-
-const { t, locale } = useI18n()
+const { t, te, locale } = useI18n()
 
 // A non-technical accountant should never see `documentTypeId` (a raw uuid) as this card's
 // title — the classified type's name is what tells them what they are looking at, falling
@@ -43,9 +26,11 @@ const { t, locale } = useI18n()
 // A document read by a parser has no type to name it, so its source label is
 // what tells the reader what they are looking at. Falling through to the raw
 // uuid stays the last resort, for a type that was deleted since.
-const sourceLabel = computed(() =>
-  props.sources?.find(source => source.id === props.document.sourceId)?.label ?? null
-)
+const sourceLabel = computed(() => {
+  if (!props.document.sourceId) return null
+  const key = documentSourceLabelKey(props.document.sourceId)
+  return te(key) ? t(key) : props.document.sourceId
+})
 
 const title = computed(() =>
   props.documentType?.name
@@ -158,30 +143,13 @@ const hasExtractionError = computed(() =>
   )
 )
 
-const sourceOptions = computed(() =>
-  (props.sources ?? []).map(source => ({ label: source.label, value: source.id }))
-)
-
 const isApproved = computed(() => props.document.status === 'approved')
 
-// Offered on a document that already has a source too, not only on a failed
-// one: someone who picked the wrong format has no other way back, and the
-// picker is the only place that answer lives. Withheld while an approval
-// stands — the server refuses it, and offering a control that cannot work
-// reads as a bug.
-const canDeclareSource = computed(() =>
-  sourceOptions.value.length > 0
-  && !isApproved.value
-  && (hasExtractionError.value || props.document.sourceId !== null)
-)
-
-// Already the current answer, so acting on it would rewrite the document with
-// what it already says.
-const wouldChangeSource = computed(() =>
-  !!chosenSource.value && (hasExtractionError.value || chosenSource.value !== props.document.sourceId)
-)
-
-const canApprove = computed(() => props.document.status === 'processed')
+// Offered whatever state the document is in, because approving is what does
+// the work: a document reaches this screen precisely when the pipeline could
+// make nothing of it, so "not processed yet" is the normal case rather than a
+// reason to withhold the button.
+const canApprove = computed(() => !isApproved.value)
 
 const isProcessing = computed(() =>
   (['pending', 'classifying', 'running_ocr'] as DocumentStatus[]).includes(props.document.status)
@@ -233,58 +201,12 @@ const isMissingExtraction = computed(() =>
       </div>
     </template>
 
-    <div
-      v-if="hasExtractionError || canDeclareSource"
-      class="flex flex-col gap-4"
-    >
-      <UAlert
-        v-if="hasExtractionError"
-        color="error"
-        :title="t('documents.errorTitle')"
-        :description="document.error ?? t('documents.errorFallback')"
-      />
-
-      <!--
-        Offered because the classifier structurally cannot reach these: they
-        are read by a parser instead of being configured as document types, so
-        a file of one of those formats always lands here. Naming it by hand is
-        the only way it ever gets read — and the only way a wrong answer gets
-        corrected.
-      -->
-      <section
-        v-if="canDeclareSource"
-        class="rounded-lg border border-default p-4"
-      >
-        <h3 class="text-sm font-semibold">
-          {{ document.sourceId ? t('documents.declareSource.changeTitle') : t('documents.declareSource.title') }}
-        </h3>
-        <p class="mt-1 text-sm text-muted">
-          {{ document.sourceId ? t('documents.declareSource.changeDescription') : t('documents.declareSource.description') }}
-        </p>
-        <div class="mt-3 flex flex-col gap-2 sm:flex-row">
-          <USelectMenu
-            v-model="chosenSource"
-            :items="sourceOptions"
-            value-key="value"
-            :placeholder="t('documents.declareSource.placeholder')"
-            class="sm:flex-1"
-          />
-          <UButton
-            :disabled="!wouldChangeSource"
-            :loading="recognizing"
-            @click="chosenSource && emit('recognize', chosenSource)"
-          >
-            {{ document.sourceId ? t('documents.declareSource.reread') : t('documents.declareSource.action') }}
-          </UButton>
-        </div>
-        <p
-          v-if="actionError"
-          class="mt-2 text-sm text-error"
-        >
-          {{ actionError }}
-        </p>
-      </section>
-    </div>
+    <UAlert
+      v-if="hasExtractionError"
+      color="error"
+      :title="t('documents.errorTitle')"
+      :description="document.error ?? t('documents.errorFallback')"
+    />
 
     <div
       v-if="isProcessing"
@@ -350,40 +272,23 @@ const isMissingExtraction = computed(() =>
 
     <template #footer>
       <!--
-        Approval is what puts the document in the spreadsheet export, and what
-        stops a re-import from reprocessing it. Withdrawing it therefore sits
-        right beside it rather than somewhere else: it is the only way back to
-        changing anything about this document.
+        The only control on this screen. It reads the document — by its own
+        parser or by OCR against the configured types, whichever the file calls
+        for — signs off on the result, and rebuilds the client's cross-check
+        from it. Pressing it again redoes all of that, which is how a document
+        gets re-read once a type has been configured for it.
       -->
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <UButton
-          v-if="!isApproved"
-          :disabled="!canApprove"
-          :loading="approving"
-          block
-          class="sm:w-auto"
-          :title="canApprove ? undefined : t('documents.approveDisabledHint')"
-          @click="emit('approve')"
-        >
-          {{ t('documents.approveAndSend') }}
-        </UButton>
-        <template v-else>
-          <p class="text-sm text-muted">
-            {{ t('documents.approvedNote') }}
-          </p>
-          <UButton
-            variant="outline"
-            size="sm"
-            :loading="reopening"
-            class="sm:ml-auto"
-            @click="emit('reopen')"
-          >
-            {{ t('documents.reopen') }}
-          </UButton>
-        </template>
-      </div>
+      <UButton
+        :disabled="!canApprove"
+        :loading="approving"
+        block
+        class="sm:w-auto"
+        @click="emit('approve')"
+      >
+        {{ isApproved ? t('documents.status.approved') : t('documents.approveAndSend') }}
+      </UButton>
       <p
-        v-if="actionError && !canDeclareSource"
+        v-if="actionError"
         class="mt-2 text-sm text-error"
       >
         {{ actionError }}

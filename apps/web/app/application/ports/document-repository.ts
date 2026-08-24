@@ -1,5 +1,4 @@
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
-import type { DocumentSource } from '~/domain/entities/document-source'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
 
 export interface DocumentListFilter {
@@ -25,23 +24,11 @@ export interface DocumentRepository {
    * anything already in the folder — or anything that arrived while no watch
    * was active — can enter no other way. */
   importForClient: (clientId: string) => Promise<ClientDocumentsImport>
-  /** The formats a reviewer can declare a document to be.
+  /** Reads the document and signs off on the result, in one call.
    *
-   * Needed because the classifier can never propose these: they are read by a
-   * parser instead of being configured as document types, so such a file always
-   * fails classification and only a person can name it. */
-  listSources: () => Promise<DocumentSource[]>
-  /** Reads the document with the named source's parser.
-   *
-   * Rejects when the file turns out not to be that source, leaving the document
-   * exactly as it was — so picking the wrong one costs nothing. */
-  recognizeSource: (id: string, sourceId: string) => Promise<ClientDocument>
+   * A document only reaches the review screen because the pipeline could make
+   * nothing of it, so this extracts first — by a dedicated parser or by OCR
+   * against the configured types, whichever the file calls for — and rebuilds
+   * the client's cross-check from what it read. */
   approve: (id: string, approvedBy?: string) => Promise<ClientDocument>
-  /** Withdraws an approval, returning the document to review.
-   *
-   * Its own call rather than a flag on approve: while an approval stands, the
-   * document cannot be re-read as a different format and a re-import will not
-   * reprocess it, so taking it back has to be something the reviewer asked
-   * for outright. */
-  reopen: (id: string) => Promise<ClientDocument>
 }

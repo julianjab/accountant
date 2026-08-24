@@ -1,6 +1,5 @@
 import type { Client } from '~/domain/entities/client'
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
-import type { DocumentSource } from '~/domain/entities/document-source'
 import type { DocumentType } from '~/domain/entities/document-type'
 import type { ClientRepository } from '~/application/ports/client-repository'
 import type { DocumentRepository } from '~/application/ports/document-repository'
@@ -29,9 +28,6 @@ export interface InboxView {
   totalDocuments: number
   filteredDocuments: number
   documentTypesById: Record<string, DocumentType>
-  /** Keyed by `Document.sourceId`. A document read by a parser has no type, so
-   * this is the only thing that can name it. */
-  documentSourcesById: Record<string, DocumentSource>
 }
 
 const UNPROCESSED_STATUSES: DocumentStatus[] = ['pending', 'classifying', 'running_ocr']
@@ -83,11 +79,10 @@ export class ListInbox {
   ) {}
 
   async execute(input?: ListInboxInput): Promise<InboxView> {
-    const [documents, clients, types, sources] = await Promise.all([
+    const [documents, clients, types] = await Promise.all([
       this.documents.list(),
       this.clients.list(),
-      this.types.list(),
-      this.documents.listSources()
+      this.types.list()
     ])
     const now = input?.now ?? new Date()
 
@@ -118,15 +113,13 @@ export class ListInbox {
       .sort((a, b) => a.client.name.localeCompare(b.client.name) || a.client.id.localeCompare(b.client.id))
 
     const documentTypesById = Object.fromEntries(types.map(t => [t.id, t]))
-    const documentSourcesById = Object.fromEntries(sources.map(s => [s.id, s]))
 
     return {
       totals,
       groups,
       totalDocuments: documents.length,
       filteredDocuments: filtered.length,
-      documentTypesById,
-      documentSourcesById
+      documentTypesById
     }
   }
 }

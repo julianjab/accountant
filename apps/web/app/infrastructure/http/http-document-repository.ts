@@ -1,5 +1,4 @@
 import type { ClientDocument, DocumentStatus } from '~/domain/entities/document'
-import type { DocumentSource } from '~/domain/entities/document-source'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
 import type {
   ClientDocumentsImport,
@@ -19,12 +18,6 @@ interface DocumentDto {
   created_at: string
   processed_at: string | null
   source_id: string | null
-}
-
-interface DocumentSourceDto {
-  id: string
-  label: string
-  media_types: string[]
 }
 
 interface ExtractedDataDto {
@@ -120,39 +113,12 @@ export class HttpDocumentRepository implements DocumentRepository {
     }
   }
 
-  async listSources(): Promise<DocumentSource[]> {
-    const dtos = await $fetch<DocumentSourceDto[]>('/documents/sources', {
-      baseURL: this.baseUrl,
-      credentials: 'include'
-    })
-    return dtos.map(dto => ({ id: dto.id, label: dto.label, mediaTypes: dto.media_types }))
-  }
-
-  async recognizeSource(id: string, sourceId: string): Promise<ClientDocument> {
-    const dto = await $fetch<DocumentDto>(`/documents/${id}/recognize`, {
-      baseURL: this.baseUrl,
-      credentials: 'include',
-      method: 'POST',
-      body: { source_id: sourceId }
-    })
-    return toClientDocument(dto)
-  }
-
   async approve(id: string, approvedBy?: string): Promise<ClientDocument> {
     const dto = await $fetch<DocumentDto>(`/documents/${id}/approve`, {
       baseURL: this.baseUrl,
       credentials: 'include',
       method: 'POST',
       body: { approved_by: approvedBy ?? null }
-    })
-    return toClientDocument(dto)
-  }
-
-  async reopen(id: string): Promise<ClientDocument> {
-    const dto = await $fetch<DocumentDto>(`/documents/${id}/reopen`, {
-      baseURL: this.baseUrl,
-      credentials: 'include',
-      method: 'POST'
     })
     return toClientDocument(dto)
   }
