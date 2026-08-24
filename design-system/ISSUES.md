@@ -126,6 +126,14 @@ Ruta `/documents/[id]`. Consume `GET /documents/{id}` y `GET /documents/{id}/ext
 - [ ] Trazabilidad con las transiciones reales de `process_uploaded_document.py` (detectado → clasificado → OCR → listo).
 - [ ] Botón "Aprobar y enviar a hoja" (deshabilitado hasta F).
 
+**Implementado — conceptos mapeados encima de la transcripción** (desvío del diseño, `ExtractionCard.vue` + `MappedConceptList.vue`):
+
+- [x] Bloque enmarcado al inicio de la tarjeta con los campos que el tipo mapeó a conceptos: primero "Cruza con la exógena" (los que responden un renglón de la base), después "Otros conceptos mapeados".
+- [x] Cada fila: etiqueta del documento, `concepto → renglón de la exógena` en `text-muted`, valor a la derecha y, cuando el certificado detalla cuentas, el número de cuenta en mono debajo de cada cifra.
+- [x] Un campo mapeado que el documento no trae conserva su fila diciéndolo: esa ausencia es justamente el hallazgo del cruce.
+- [x] Las reglas viven en `app/domain/mapped-extraction.ts` (`resolvePath`, `mappedFieldGroups`) con tests; los componentes sólo pintan.
+- **Por qué no estaba en el diseño**: el diseño es anterior a la conciliación. La tarjeta mostraba sólo lo que leyó el OCR, y qué figuras sostienen el cruce únicamente se veía en la pantalla de configuración del tipo — que no es donde se revisa el certificado de un cliente.
+
 ---
 
 ## E. Tipos de documento y "Definir tipo"
