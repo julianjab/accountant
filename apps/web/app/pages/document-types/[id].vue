@@ -24,7 +24,7 @@ const listReconciliationKinds = useListReconciliationKindsUseCase()
 const getConceptMapping = useGetConceptMappingUseCase()
 const saveConceptMapping = useSaveConceptMappingUseCase()
 const { setLabel: setBreadcrumbLabel } = useBreadcrumbLabels()
-const { isAuthenticated } = useGoogleAuth()
+const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
 
 // A select cannot hold null, so "no concept" travels as a sentinel and is
 // translated back at the edge — an unmapped field is a normal answer here.
@@ -82,6 +82,12 @@ watch(
   },
   { immediate: true }
 )
+
+// Same gap as document-types/index.vue: with `immediate: false`, `pending` starts `false`
+// and `documentType` starts `null`, so without this the first render (and the permanently
+// signed-out case, since the watcher above never fires) falls straight into "not found"
+// instead of a loading or sign-in state.
+const showSkeleton = computed(() => isAuthLoading.value || (isAuthenticated.value && pending.value && !documentType.value))
 
 const name = ref('')
 const description = ref('')
@@ -266,9 +272,16 @@ watch(
 <template>
   <UContainer class="py-6 sm:py-8">
     <SkeletonCard
-      v-if="pending && !documentType"
+      v-if="showSkeleton"
       :lines="4"
     />
+
+    <p
+      v-else-if="!isAuthenticated"
+      class="text-muted"
+    >
+      {{ t('documentTypes.signInRequired') }}
+    </p>
 
     <p
       v-else-if="!documentType"
