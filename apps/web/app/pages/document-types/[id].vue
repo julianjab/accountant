@@ -211,8 +211,16 @@ const declaredPeriod = ref<string | null>(null)
 /**
  * Every path this document offers, for the one box that answers "where does
  * this come from" — pick a field, or type the value yourself.
+ *
+ * Built from the kept fields themselves, not from the select items: those
+ * lead with a "no field" sentinel, which as a suggestion reads like a field
+ * of the document and, chosen, stores a path nothing can ever resolve. On the
+ * reporting party that is worse than leaving it blank — the screen counts it
+ * as answered and the type is created attributing its figures to nobody.
  */
-const pathSuggestions = computed(() => keptFieldItems.value.map(item => item.value))
+const pathSuggestions = computed(() =>
+  selections.value.filter(selection => selection.kept).map(selection => selection.path)
+)
 
 function applySource(
   answer: string,

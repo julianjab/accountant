@@ -41,3 +41,12 @@ describe('writeSource', () => {
     expect(writeSource(null, null)).toBe('')
   })
 })
+
+describe('the sentinel that means "no field"', () => {
+  it('is a declared value, not a path, if it ever reaches this', () => {
+    // Belt to the braces: the suggestion lists exclude it, but read as a path
+    // it would store one nothing can resolve, and the reporting party would
+    // count as answered while attributing the figures to nobody.
+    expect(readSource('__unset__', PATHS)).toEqual({ path: null, value: '__unset__' })
+  })
+})

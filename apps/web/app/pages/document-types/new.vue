@@ -26,10 +26,6 @@ const proposeDocumentType = useProposeDocumentTypeUseCase()
 const getDocument = useGetDocumentUseCase()
 const createDocumentType = useCreateDocumentTypeUseCase()
 
-// A select cannot hold null, so "no field" travels as a sentinel and is
-// translated back at the edge — the same convention the edit screen uses.
-const UNSET = '__unset__'
-
 // Prefilled when arriving from a client's missing-document row, which already
 // knows who issues the certificate — the part hardest to type correctly.
 const route = useRoute()
@@ -73,8 +69,16 @@ const declaredPeriod = ref<string | null>(null)
 /**
  * Every path this document offers, for the one box that answers "where does
  * this come from" — pick a field, or type the value yourself.
+ *
+ * Built from the kept fields themselves, not from the select items: those
+ * lead with a "no field" sentinel, which as a suggestion reads like a field
+ * of the document and, chosen, stores a path nothing can ever resolve. On the
+ * reporting party that is worse than leaving it blank — the screen counts it
+ * as answered and the type is created attributing its figures to nobody.
  */
-const pathSuggestions = computed(() => keptFieldItems.value.map(item => item.value))
+const pathSuggestions = computed(() =>
+  rows.value.filter(row => row.kept).map(row => row.path)
+)
 
 function applySource(
   answer: string,
@@ -221,12 +225,6 @@ function setSection(paths: readonly string[], kept: boolean) {
 /** Only fields that survive the trimming can play a role: pointing the
  * reporting party at a field about to be dropped is the failure, not a
  * choice. */
-const keptFieldItems = computed(() => [
-  { label: t('documentTypes.edit.fields.unsetField'), value: UNSET },
-  ...rows.value
-    .filter(row => row.kept)
-    .map(row => ({ label: row.label, value: row.path, description: row.path }))
-])
 
 const proposedReporterRow = computed(() =>
   proposal.value?.reporterPath ? rowByPath.value.get(proposal.value.reporterPath) ?? null : null
