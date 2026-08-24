@@ -147,10 +147,10 @@ def _mapping_properties(concepts: Sequence[ConceptOption]) -> dict:
         },
         "reporter_path": {
             "type": "string",
-            "description": "Path to the identifier of the party issuing this document — "
-            "the bank or employer whose figures these are. Required for any of the "
-            "mappings to be usable: an amount that cannot be attributed to a reporting "
-            "party cannot be checked against what that party declared elsewhere.",
+            "description": "Path to the NIT or tax identification NUMBER of the party "
+            "issuing this document — never its name. A name cannot be matched against "
+            "what other documents report, so a field holding one makes every mapping "
+            "below unusable. If the document states both, this must point at the digits.",
         },
         "reporter_name_path": {
             "type": "string",
@@ -184,10 +184,10 @@ def _mapping_instructions(concepts: Sequence[ConceptOption]) -> str:
         f"- {c.id}: {c.label}" + (f" — {c.description}" if c.description else "") for c in concepts
     )
     return (
-        "\n\nAlso give reporter_path: where the document identifies the party "
-        "issuing it. Without it none of the mappings below can be used, because "
-        "an amount that cannot be attributed to a party cannot be checked "
-        "against what that party declared elsewhere."
+        "\n\nAlso give reporter_path: the field holding the issuing party's NIT "
+        "or tax identification number — the digits, never the name. Amounts are "
+        "matched to what a party declared elsewhere by that number, so pointing "
+        "this at a name makes every mapping below unusable."
         "\n\nThen map the fields you just defined onto these concepts, so the "
         "amounts can be reconciled against what other documents report:\n"
         f"{catalog}\n"
