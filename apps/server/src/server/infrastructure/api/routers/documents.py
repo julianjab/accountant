@@ -5,11 +5,14 @@ from server.application.use_cases import (
     ApproveDocumentInput,
     DocumentAlreadyApproved,
     DocumentNotApprovable,
+    DocumentNotApproved,
     DocumentNotFound,
     DocumentNotRecognized,
     GetDocumentMetrics,
     GetExtractedData,
     RecognizeDocumentSourceInput,
+    ReopenDocument,
+    ReopenDocumentInput,
 )
 from server.domain.entities import DocumentStatus
 from server.infrastructure.api.auth_dependency import require_session
@@ -19,6 +22,7 @@ from server.infrastructure.api.deps import (
     get_document_repository,
     get_extracted_data_use_case,
     get_recognize_document_source_use_case,
+    get_reopen_document_use_case,
     get_source_parsers,
 )
 from server.infrastructure.api.schemas import (
@@ -126,3 +130,23 @@ def recognize_document_source(
         # to make it — the file simply turned out not to be what they said.
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return DocumentResponse.model_validate(recognized.document, from_attributes=True)
+
+
+@router.post("/{document_id}/reopen", response_model=DocumentResponse)
+def reopen_document(
+    document_id: str,
+    use_case: ReopenDocument = Depends(get_reopen_document_use_case),
+) -> DocumentResponse:
+    """Withdraws an approval so the document can be reviewed again.
+
+    Its own endpoint rather than a flag on approve: every other path treats an
+    approval as protected, so undoing one has to be something a person asked
+    for outright.
+    """
+    try:
+        document = use_case.execute(ReopenDocumentInput(document_id=document_id))
+    except DocumentNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DocumentNotApproved as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return DocumentResponse.model_validate(document, from_attributes=True)

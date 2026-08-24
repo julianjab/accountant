@@ -63,6 +63,11 @@ from server.application.use_cases.register_client import (
     RegisterClient,
     RegisterClientInput,
 )
+from server.application.use_cases.reopen_document import (
+    DocumentNotApproved,
+    ReopenDocument,
+    ReopenDocumentInput,
+)
 from server.application.use_cases.sign_out_google import SignOutGoogle
 from server.application.use_cases.start_google_sign_in import (
     SignInRedirect,
@@ -114,6 +119,9 @@ __all__ = [
     "RecognizedDocument",
     "RecognizeDocumentSource",
     "RecognizeDocumentSourceInput",
+    "DocumentNotApproved",
+    "ReopenDocument",
+    "ReopenDocumentInput",
     "RegisterClient",
     "RegisterClientInput",
     "SignInNotAllowed",

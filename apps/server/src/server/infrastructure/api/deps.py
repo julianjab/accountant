@@ -20,6 +20,7 @@ from server.application.use_cases import (
     ReadStoredDocument,
     RecognizeDocumentSource,
     RegisterClient,
+    ReopenDocument,
     SignOutGoogle,
     StartGoogleSignIn,
     SubscribeDriveWebhook,
@@ -232,6 +233,10 @@ def get_extracted_data_use_case() -> GetExtractedData:
 
 def get_approve_document_use_case() -> ApproveDocument:
     return ApproveDocument(get_document_repository())
+
+
+def get_reopen_document_use_case() -> ReopenDocument:
+    return ReopenDocument(get_document_repository())
 
 
 def get_document_metrics_use_case() -> GetDocumentMetrics:
