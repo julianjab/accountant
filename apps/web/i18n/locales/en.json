@@ -196,15 +196,36 @@
         "missing": "Without a period, a certificate for one year can be reconciled against another."
       },
       "fields": {
-        "title": "Fields the AI extracts",
-        "hint": "Untick the ones you do not need: they stop being asked for during extraction. Each remaining field can be assigned a concept so it can be reconciled; a field with no concept is still extracted, it just takes no part in reconciliation.",
+        "title": "What each field of the document says",
+        "hint": "For every field answer two things: what that value is, and which line of the base report it should back. Untick the fields you do not need: they stop being asked for during extraction. A field with no concept is still extracted, it just takes no part in reconciliation.",
         "keep": "Extract this field",
         "concept": "Concept",
         "unmapped": "No concept",
         "removed": "Will be removed from the schema on save",
         "removedCount": "{count} field will be removed from the schema on save. | {count} fields will be removed from the schema on save.",
         "empty": "This type does not declare any field yet.",
-        "unsetField": "No field selected"
+        "unsetField": "No field selected",
+        "conceptQuestion": "What is this value?",
+        "conceptHint": "What the paper calls it: balance, interest, withholding…",
+        "spineQuestion": "Which line of the base report does it answer?",
+        "spineHint": "The line this value has to back. Leave several fields on the same line and they are added together.",
+        "noSpine": "Not compared against the base report",
+        "noSpineGroup": "Extracted, but compared against nothing",
+        "noSpineGroupHint": "These fields are still extracted and stored; there is simply no line of the base report they have to back.",
+        "summed": "This document contributes {count} values to this line: they are added together and the total is what gets compared against the base report.",
+        "single": "This value is compared against this line of the base report.",
+        "mixedComparison": "Careful: this line mixes values compared account by account with values compared as a total. They cannot be added together, so they should all use the same comparison.",
+        "comparison": {
+          "question": "How does the system compare it?",
+          "total": "The certificate states a total",
+          "totalHint": "The paper shows a single figure for the whole entity. That total is what gets compared.",
+          "perAccount": "The certificate details each account",
+          "perAccountHint": "The paper lists one row per account, with its number. The comparison is made account by account."
+        },
+        "accountPath": "Field holding the account number",
+        "accountPathHint": "The field the AI reads each figure’s account from. Without it there is no account to pair against.",
+        "accountPathMissing": "You said the certificate details each account, but no field holds the account number. Until one does, the total is compared instead, so a figure the certificate does state is not reported as missing.",
+        "accountPathMissingCount": "{count} field is marked as detailing each account with no account-number field: it will be compared as a total. | {count} fields are marked as detailing each account with no account-number field: they will be compared as totals."
       },
       "mappingChanges": {
         "title": "What happened to the mappings",

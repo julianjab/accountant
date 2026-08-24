@@ -26,6 +26,8 @@ interface MappingEntryDto {
   concept_id: string
   account_path: string | null
   sign: number
+  spine_concept_id?: string | null
+  per_account?: boolean
 }
 
 interface MappingDto {
@@ -58,7 +60,11 @@ function toEntry(dto: MappingEntryDto): ConceptMappingEntry {
     accountPath: dto.account_path,
     // The server only ever stores +1 or -1; anything else would be a bug there
     // rather than a value the UI should invent a meaning for.
-    sign: dto.sign === -1 ? -1 : 1
+    sign: dto.sign === -1 ? -1 : 1,
+    // A mapping stored before the server knew about these reads as "extracted
+    // but compared against nothing", which is what it did back then.
+    spineConceptId: dto.spine_concept_id ?? null,
+    perAccount: dto.per_account === true
   }
 }
 
@@ -122,7 +128,9 @@ export class HttpConceptMappingRepository implements ConceptMappingRepository {
           field_path: entry.fieldPath,
           concept_id: entry.conceptId,
           account_path: entry.accountPath,
-          sign: entry.sign
+          sign: entry.sign,
+          spine_concept_id: entry.spineConceptId,
+          per_account: entry.perAccount
         })),
         reporter_path: draft.reporterPath,
         reporter_name_path: draft.reporterNamePath,

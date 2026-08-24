@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { ConceptMapping, MappingChange } from '~/domain/entities/concept-mapping'
+import type { FieldSelection } from '~/domain/document-type-configuration'
 import type { SchemaField } from '~/domain/extraction-schema'
 import {
   buildFieldSelections,
   configurationStatus,
   isDraftSavable,
   keptPaths,
+  fieldsMissingAccountPath,
+  groupBySpineConcept,
   mappingChangeSeverity,
   shouldSaveDraft,
   toMappingDraft
@@ -20,7 +23,16 @@ const FIELDS: SchemaField[] = [field('nit'), field('razon_social'), field('anio'
 const MAPPING: ConceptMapping = {
   documentTypeId: 'dt-1',
   kindId: 'exogena_dian',
-  entries: [{ fieldPath: 'gmf', conceptId: 'bank:cert_gmf_valor', accountPath: 'nit', sign: -1 }],
+  entries: [
+    {
+      fieldPath: 'gmf',
+      conceptId: 'bank:cert_gmf_valor',
+      accountPath: 'nit',
+      sign: -1,
+      spineConceptId: 'dian:gmf',
+      perAccount: true
+    }
+  ],
   reporterPath: 'nit',
   reporterNamePath: 'razon_social',
   periodPath: 'anio'
@@ -54,7 +66,14 @@ describe('toMappingDraft', () => {
     const draft = toMappingDraft(selections, { ...NO_ROLES, reporterPath: 'nit' }, null)
 
     expect(draft.entries).toEqual([
-      { fieldPath: 'gmf', conceptId: 'bank:cert_gmf_valor', accountPath: null, sign: 1 }
+      {
+        fieldPath: 'gmf',
+        conceptId: 'bank:cert_gmf_valor',
+        accountPath: null,
+        sign: 1,
+        spineConceptId: null,
+        perAccount: false
+      }
     ])
   })
 
@@ -180,5 +199,156 @@ describe('mappingChangeSeverity', () => {
   it('treats a single dropped entry as an expected consequence', () => {
     expect(mappingChangeSeverity(change('entry_dropped'))).toBe('notice')
     expect(mappingChangeSeverity(change('path_cleared'))).toBe('notice')
+  })
+})
+
+describe('toMappingDraft, spine line and comparison', () => {
+  function selection(overrides: Partial<FieldSelection> & { path: string }): FieldSelection {
+    return {
+      kept: true,
+      conceptId: 'bank:cert_gmf_valor',
+      spineConceptId: null,
+      perAccount: false,
+      accountPath: null,
+      ...overrides
+    }
+  }
+
+  it('stores the line of the base report the field answers', () => {
+    const draft = toMappingDraft(
+      [selection({ path: 'gmf', spineConceptId: 'dian:gmf' })],
+      { ...NO_ROLES, reporterPath: 'nit' },
+      null
+    )
+
+    expect(draft.entries[0]).toMatchObject({ spineConceptId: 'dian:gmf' })
+  })
+
+  it('lets several fields answer the same line, so the engine sums them', () => {
+    const draft = toMappingDraft(
+      [
+        selection({ path: 'capital', spineConceptId: 'dian:deuda' }),
+        selection({ path: 'intereses', spineConceptId: 'dian:deuda' })
+      ],
+      { ...NO_ROLES, reporterPath: 'nit' },
+      null
+    )
+
+    expect(draft.entries.map(entry => entry.spineConceptId)).toEqual([
+      'dian:deuda',
+      'dian:deuda'
+    ])
+  })
+
+  it('compares account by account when the document names the account', () => {
+    const draft = toMappingDraft(
+      [
+        selection({ path: 'cuentas[].saldo', perAccount: true, accountPath: 'cuentas[].numero' }),
+        selection({ path: 'cuentas[].numero', conceptId: null })
+      ],
+      { ...NO_ROLES, reporterPath: 'nit' },
+      null
+    )
+
+    expect(draft.entries[0]).toMatchObject({
+      perAccount: true,
+      accountPath: 'cuentas[].numero'
+    })
+  })
+
+  it('falls back to a total when no field names the account', () => {
+    const draft = toMappingDraft(
+      [selection({ path: 'saldo', perAccount: true })],
+      { ...NO_ROLES, reporterPath: 'nit' },
+      null
+    )
+
+    // Comparing per account with nothing to pair against would report a figure
+    // the certificate does state as missing.
+    expect(draft.entries[0]).toMatchObject({ perAccount: false, accountPath: null })
+  })
+
+  it('drops the per-account comparison when the account field is trimmed away', () => {
+    const draft = toMappingDraft(
+      [
+        selection({ path: 'cuentas[].saldo', perAccount: true, accountPath: 'cuentas[].numero' }),
+        selection({ path: 'cuentas[].numero', kept: false, conceptId: null })
+      ],
+      { ...NO_ROLES, reporterPath: 'nit' },
+      null
+    )
+
+    expect(draft.entries[0]).toMatchObject({ perAccount: false, accountPath: null })
+  })
+
+  it('keeps stored curation a caller did not touch', () => {
+    const draft = toMappingDraft(
+      [
+        { path: 'gmf', kept: true, conceptId: 'bank:cert_gmf_valor' },
+        { path: 'nit', kept: true, conceptId: null }
+      ],
+      MAPPING,
+      MAPPING
+    )
+
+    expect(draft.entries[0]).toMatchObject({
+      spineConceptId: 'dian:gmf',
+      perAccount: true,
+      accountPath: 'nit',
+      sign: -1
+    })
+  })
+
+  it('lets the user clear the line a field used to answer', () => {
+    const draft = toMappingDraft(
+      [selection({ path: 'gmf', spineConceptId: null }), selection({ path: 'nit', conceptId: null })],
+      MAPPING,
+      MAPPING
+    )
+
+    expect(draft.entries[0]).toMatchObject({ spineConceptId: null })
+  })
+})
+
+describe('groupBySpineConcept', () => {
+  const CAPITAL = { path: 'capital', kept: true, conceptId: 'c', spineConceptId: 'dian:deuda' }
+  const INTERES = { path: 'intereses', kept: true, conceptId: 'c', spineConceptId: 'dian:deuda' }
+  const GMF = { path: 'gmf', kept: true, conceptId: 'c', spineConceptId: 'dian:gmf' }
+
+  it('flags the line several fields feed as a sum', () => {
+    const [deuda, gmf] = groupBySpineConcept([CAPITAL, INTERES, GMF])
+
+    expect(deuda).toMatchObject({ spineConceptId: 'dian:deuda', paths: ['capital', 'intereses'], summed: true })
+    expect(gmf).toMatchObject({ summed: false })
+  })
+
+  it('gathers everything that answers no line, last', () => {
+    const groups = groupBySpineConcept([
+      { path: 'nit', kept: true, conceptId: null },
+      CAPITAL,
+      { path: 'notas', kept: false, conceptId: 'c', spineConceptId: 'dian:deuda' }
+    ])
+
+    expect(groups.at(-1)).toMatchObject({ spineConceptId: null, paths: ['nit', 'notas'] })
+  })
+
+  it('flags a line summing a per-account figure with a total', () => {
+    const groups = groupBySpineConcept([
+      { ...CAPITAL, perAccount: true, accountPath: 'cuentas[].numero' },
+      { ...INTERES, perAccount: false }
+    ])
+
+    expect(groups[0]).toMatchObject({ mixedComparison: true })
+  })
+})
+
+describe('fieldsMissingAccountPath', () => {
+  it('names the field that claims a per-account comparison with no account', () => {
+    expect(
+      fieldsMissingAccountPath([
+        { path: 'saldo', kept: true, conceptId: 'c', perAccount: true, accountPath: null },
+        { path: 'gmf', kept: true, conceptId: 'c', perAccount: false, accountPath: null }
+      ])
+    ).toEqual(['saldo'])
   })
 })

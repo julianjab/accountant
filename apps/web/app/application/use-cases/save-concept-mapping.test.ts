@@ -11,7 +11,9 @@ const DRAFT: ConceptMappingDraft = {
       fieldPath: 'accounts[].balance',
       conceptId: 'dian:saldo-cuentas-bancarias',
       accountPath: 'accounts[].number',
-      sign: 1
+      sign: 1,
+      spineConceptId: 'dian:saldo-cuentas-bancarias',
+      perAccount: true
     }
   ],
   reporterPath: 'bank_tax_id',

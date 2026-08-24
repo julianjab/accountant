@@ -196,15 +196,36 @@
         "missing": "Sin período, un certificado de un año puede cruzarse contra otro."
       },
       "fields": {
-        "title": "Campos que extrae la IA",
-        "hint": "Destildá los que no necesites: dejan de pedirse en la extracción. A cada campo que quede podés asignarle un concepto para conciliarlo; un campo sin concepto se extrae igual, sólo que no participa de la conciliación.",
+        "title": "Qué dice cada campo del documento",
+        "hint": "Por cada campo respondé dos cosas: qué es ese valor y qué renglón de la exógena debería respaldar. Destildá los campos que no necesites: dejan de pedirse en la extracción. Un campo sin concepto se sigue extrayendo, sólo que no participa de la conciliación.",
         "keep": "Extraer este campo",
         "concept": "Concepto",
         "unmapped": "Sin concepto",
         "removed": "Se quita del esquema al guardar",
         "removedCount": "Se va a quitar {count} campo del esquema al guardar. | Se van a quitar {count} campos del esquema al guardar.",
         "empty": "Este tipo todavía no declara campos.",
-        "unsetField": "Sin campo asignado"
+        "unsetField": "Sin campo asignado",
+        "conceptQuestion": "¿Qué es este valor?",
+        "conceptHint": "Cómo lo llama el papel: saldo, intereses, retención…",
+        "spineQuestion": "¿Qué renglón de la exógena responde?",
+        "spineHint": "El renglón que este valor debe respaldar. Si dejás varios campos en el mismo renglón, se suman.",
+        "noSpine": "No se compara con la exógena",
+        "noSpineGroup": "Se extraen, pero no se comparan con nada",
+        "noSpineGroupHint": "Estos campos se siguen extrayendo y quedan guardados; simplemente no hay ningún renglón de la exógena que tengan que respaldar.",
+        "summed": "Este documento aporta {count} valores a este renglón: se suman entre sí y el total es lo que se compara contra la exógena.",
+        "single": "Este valor se compara contra este renglón de la exógena.",
+        "mixedComparison": "Ojo: en este renglón hay valores que van cuenta por cuenta y otros que son un total. No se pueden sumar entre sí, así que conviene que todos usen la misma forma de comparar.",
+        "comparison": {
+          "question": "¿Cómo lo compara el sistema?",
+          "total": "El certificado da un total",
+          "totalHint": "El papel muestra una sola cifra para toda la entidad. Se compara ese total contra el total de la exógena.",
+          "perAccount": "El certificado detalla cada cuenta",
+          "perAccountHint": "El papel lista una fila por cuenta, con su número. Se compara cuenta por cuenta."
+        },
+        "accountPath": "Campo con el número de cuenta",
+        "accountPathHint": "Es el campo del que la IA lee a qué cuenta pertenece cada cifra. Sin él no hay cuenta contra la cual parear.",
+        "accountPathMissing": "Dijiste que el certificado detalla cada cuenta, pero no elegiste el campo con el número de cuenta. Mientras siga así se compara el total, para no reportar como faltante una cifra que el certificado sí trae.",
+        "accountPathMissingCount": "Hay {count} campo marcado como \"detalla cada cuenta\" sin campo de número de cuenta: se va a comparar como total. | Hay {count} campos marcados como \"detalla cada cuenta\" sin campo de número de cuenta: se van a comparar como total."
       },
       "mappingChanges": {
         "title": "Qué pasó con las asignaciones",

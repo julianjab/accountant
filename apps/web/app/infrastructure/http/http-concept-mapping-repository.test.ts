@@ -31,7 +31,9 @@ const MAPPING_DTO = {
       field_path: 'accounts[].balance',
       concept_id: 'bank:cert_saldo',
       account_path: 'accounts[].number',
-      sign: -1
+      sign: -1,
+      spine_concept_id: 'dian:saldo-cuentas-bancarias',
+      per_account: true
     }
   ],
   reporter_path: 'bank_tax_id',
@@ -72,7 +74,9 @@ describe('HttpConceptMappingRepository', () => {
       fieldPath: 'accounts[].balance',
       conceptId: 'bank:cert_saldo',
       accountPath: 'accounts[].number',
-      sign: -1
+      sign: -1,
+      spineConceptId: 'dian:saldo-cuentas-bancarias',
+      perAccount: true
     })
   })
 
@@ -108,7 +112,9 @@ describe('HttpConceptMappingRepository', () => {
           fieldPath: 'accounts[].balance',
           conceptId: 'bank:cert_saldo',
           accountPath: null,
-          sign: 1
+          sign: 1,
+          spineConceptId: 'dian:saldo-cuentas-bancarias',
+          perAccount: false
         }
       ],
       reporterPath: 'bank_tax_id',
@@ -125,12 +131,37 @@ describe('HttpConceptMappingRepository', () => {
           field_path: 'accounts[].balance',
           concept_id: 'bank:cert_saldo',
           account_path: null,
-          sign: 1
+          sign: 1,
+          spine_concept_id: 'dian:saldo-cuentas-bancarias',
+          per_account: false
         }
       ],
       reporter_path: 'bank_tax_id',
       reporter_name_path: null,
       period_path: null
     })
+  })
+
+  it('reads an entry stored before the spine line existed as answering none', async () => {
+    stubFetch(() => ({
+      ...MAPPING_DTO,
+      entries: [
+        {
+          field_path: 'gmf',
+          concept_id: 'bank:cert_gmf_valor',
+          account_path: null,
+          sign: 1
+        }
+      ]
+    }))
+
+    const mapping = await new HttpConceptMappingRepository('http://api').get(
+      'exogena_dian',
+      'dt-1'
+    )
+
+    // Not a failure: that mapping did feed a fact, it simply had nothing to be
+    // compared against, and inventing a line here would fabricate a comparison.
+    expect(mapping!.entries[0]).toMatchObject({ spineConceptId: null, perAccount: false })
   })
 })

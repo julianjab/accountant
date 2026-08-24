@@ -6,6 +6,8 @@ import type { FieldSelection } from '~/domain/document-type-configuration'
 import {
   buildFieldSelections,
   configurationStatus,
+  fieldsMissingAccountPath,
+  groupBySpineConcept,
   isDraftSavable,
   keptPaths,
   mappingChangeSeverity,
@@ -179,12 +181,62 @@ const conceptItems = computed(() => [
   }))
 ])
 
+const spineItems = computed(() => [
+  { label: t('documentTypes.edit.fields.noSpine'), value: UNMAPPED },
+  ...(selectedKind.value?.spineConcepts ?? []).map(concept => ({
+    label: concept.label,
+    value: concept.id
+  }))
+])
+
 const kindItems = computed(() => kinds.value.map(kind => ({ label: kind.label, value: kind.id })))
+
+/** Both halves of the choice are spelled out as full sentences: the user has to
+ * decide it by looking at the paper, not by knowing what "per account" means. */
+const comparisonItems = computed(() => [
+  {
+    label: t('documentTypes.edit.fields.comparison.total'),
+    value: 'total',
+    description: t('documentTypes.edit.fields.comparison.totalHint')
+  },
+  {
+    label: t('documentTypes.edit.fields.comparison.perAccount'),
+    value: 'perAccount',
+    description: t('documentTypes.edit.fields.comparison.perAccountHint')
+  }
+])
 
 function conceptLabel(conceptId: string): string {
   const concept = selectedKind.value?.evidenceConcepts.find(candidate => candidate.id === conceptId)
   return concept?.label ?? conceptId
 }
+
+function spineConcept(conceptId: string) {
+  return selectedKind.value?.spineConcepts.find(candidate => candidate.id === conceptId) ?? null
+}
+
+// Rows are rendered grouped by the line they answer, but edited in place, so
+// the group only carries paths and the index is looked up here.
+const indexByPath = computed(
+  () => new Map(selections.value.map((selection, index) => [selection.path, index]))
+)
+
+// The group is a domain answer about paths; the row indices it is rendered
+// with are a rendering detail, resolved once here instead of in the template.
+const groups = computed(() =>
+  groupBySpineConcept(selections.value).map(group => ({
+    ...group,
+    indices: group.paths.map(path => indexByPath.value.get(path) ?? -1).filter(index => index >= 0)
+  }))
+)
+
+// Named per field below too; this only decides whether the summary line is
+// worth showing, so nobody has to scan every group to find the one at fault.
+const missingAccountPaths = computed(() => fieldsMissingAccountPath(selections.value))
+
+const nameByPath = computed(
+  () => new Map(schemaFields.value.map(field => [field.path, field.name]))
+)
 
 function selectValue(path: string | null): string {
   return path ?? UNMAPPED
@@ -448,55 +500,172 @@ watch(
           {{ t('documentTypes.edit.fields.empty') }}
         </p>
 
-        <ul
+        <div
           v-else
-          class="divide-default divide-y"
+          class="flex flex-col gap-6"
           data-testid="field-rows"
         >
-          <li
-            v-for="(selection, index) in selections"
-            :key="selection.path"
-            class="grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-2 py-3 sm:grid-cols-[auto_1fr_18rem]"
+          <section
+            v-for="group in groups"
+            :key="group.spineConceptId ?? '__unanswered__'"
+            class="flex flex-col gap-3"
           >
-            <UCheckbox
-              v-model="selections[index]!.kept"
-              :aria-label="t('documentTypes.edit.fields.keep')"
-              class="mt-1"
-            />
-
-            <div class="min-w-0">
-              <p
-                class="break-all font-mono text-sm"
-                :class="selection.kept ? 'text-highlighted' : 'text-muted line-through'"
-              >
-                {{ selection.path }}
+            <!--
+              The heading is the line of the exogena, not the document: every
+              field under it is added up before the comparison, and a flat list
+              of fields would never let that be discovered.
+            -->
+            <div class="bg-elevated/50 flex flex-col gap-1 rounded-lg px-3 py-2">
+              <p class="text-highlighted text-sm font-medium">
+                {{ group.spineConceptId
+                  ? spineConcept(group.spineConceptId)?.label ?? group.spineConceptId
+                  : t('documentTypes.edit.fields.noSpineGroup') }}
               </p>
               <p
-                v-if="descriptionByPath.get(selection.path)"
+                v-if="group.spineConceptId && spineConcept(group.spineConceptId)?.description"
                 class="text-muted text-xs"
               >
-                {{ descriptionByPath.get(selection.path) }}
+                {{ spineConcept(group.spineConceptId)?.description }}
               </p>
               <p
-                v-if="!selection.kept"
-                class="text-warning text-xs"
+                v-if="group.summed"
+                class="text-primary text-xs"
+                data-testid="summed-note"
               >
-                {{ t('documentTypes.edit.fields.removed') }}
+                {{ t('documentTypes.edit.fields.summed', { count: group.paths.length }) }}
+              </p>
+              <p
+                v-else
+                class="text-muted text-xs"
+              >
+                {{ group.spineConceptId
+                  ? t('documentTypes.edit.fields.single')
+                  : t('documentTypes.edit.fields.noSpineGroupHint') }}
+              </p>
+              <p
+                v-if="group.mixedComparison"
+                class="text-warning text-xs"
+                data-testid="mixed-comparison"
+              >
+                {{ t('documentTypes.edit.fields.mixedComparison') }}
               </p>
             </div>
 
-            <div class="col-span-2 sm:col-span-1">
-              <USelect
-                :model-value="selection.conceptId ?? UNMAPPED"
-                :items="conceptItems"
-                :disabled="!selection.kept"
-                class="w-full"
-                :aria-label="t('documentTypes.edit.fields.concept')"
-                @update:model-value="selections[index]!.conceptId = toPath($event as string)"
-              />
+            <div
+              v-for="index in group.indices"
+              :key="selections[index]!.path"
+              class="border-default flex flex-col gap-3 rounded-lg border p-3"
+              :class="selections[index]!.kept ? '' : 'opacity-60'"
+            >
+              <div class="flex items-start gap-3">
+                <UCheckbox
+                  v-model="selections[index]!.kept"
+                  :aria-label="t('documentTypes.edit.fields.keep')"
+                  class="mt-1"
+                />
+
+                <div class="min-w-0">
+                  <p
+                    class="text-sm font-medium"
+                    :class="selections[index]!.kept ? 'text-highlighted' : 'text-muted line-through'"
+                  >
+                    {{ nameByPath.get(selections[index]!.path) ?? selections[index]!.path }}
+                  </p>
+                  <p
+                    v-if="descriptionByPath.get(selections[index]!.path)"
+                    class="text-muted text-xs"
+                  >
+                    {{ descriptionByPath.get(selections[index]!.path) }}
+                  </p>
+                  <p class="text-dimmed break-all font-mono text-xs">
+                    {{ selections[index]!.path }}
+                  </p>
+                  <p
+                    v-if="!selections[index]!.kept"
+                    class="text-warning text-xs"
+                  >
+                    {{ t('documentTypes.edit.fields.removed') }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="grid gap-3 sm:grid-cols-2 sm:pl-8">
+                <UFormField
+                  :label="t('documentTypes.edit.fields.conceptQuestion')"
+                  :help="t('documentTypes.edit.fields.conceptHint')"
+                >
+                  <USelect
+                    :model-value="selections[index]!.conceptId ?? UNMAPPED"
+                    :items="conceptItems"
+                    :disabled="!selections[index]!.kept"
+                    class="w-full"
+                    @update:model-value="selections[index]!.conceptId = toPath($event as string)"
+                  />
+                </UFormField>
+
+                <UFormField
+                  :label="t('documentTypes.edit.fields.spineQuestion')"
+                  :help="t('documentTypes.edit.fields.spineHint')"
+                >
+                  <USelect
+                    :model-value="selections[index]!.spineConceptId ?? UNMAPPED"
+                    :items="spineItems"
+                    :disabled="!selections[index]!.kept || !selections[index]!.conceptId"
+                    class="w-full"
+                    @update:model-value="selections[index]!.spineConceptId = toPath($event as string)"
+                  />
+                </UFormField>
+              </div>
+
+              <div
+                v-if="selections[index]!.kept && selections[index]!.conceptId && selections[index]!.spineConceptId"
+                class="flex flex-col gap-3 sm:pl-8"
+              >
+                <UFormField :label="t('documentTypes.edit.fields.comparison.question')">
+                  <URadioGroup
+                    :model-value="selections[index]!.perAccount ? 'perAccount' : 'total'"
+                    :items="comparisonItems"
+                    @update:model-value="selections[index]!.perAccount = $event === 'perAccount'"
+                  />
+                </UFormField>
+
+                <UFormField
+                  v-if="selections[index]!.perAccount"
+                  :label="t('documentTypes.edit.fields.accountPath')"
+                  :help="t('documentTypes.edit.fields.accountPathHint')"
+                >
+                  <USelect
+                    :model-value="selectValue(selections[index]!.accountPath)"
+                    :items="optionalFieldItems"
+                    class="w-full sm:w-96"
+                    @update:model-value="selections[index]!.accountPath = toPath($event as string)"
+                  />
+                </UFormField>
+
+                <UAlert
+                  v-if="selections[index]!.perAccount && !selections[index]!.accountPath"
+                  color="warning"
+                  variant="soft"
+                  icon="i-lucide-triangle-alert"
+                  data-testid="account-path-missing"
+                  :title="t('documentTypes.edit.fields.accountPathMissing')"
+                />
+              </div>
             </div>
-          </li>
-        </ul>
+          </section>
+        </div>
+
+        <p
+          v-if="missingAccountPaths.length > 0"
+          class="text-warning mt-3 text-sm"
+          data-testid="account-path-warning"
+        >
+          {{ t(
+            'documentTypes.edit.fields.accountPathMissingCount',
+            { count: missingAccountPaths.length },
+            missingAccountPaths.length
+          ) }}
+        </p>
 
         <p
           v-if="removedCount > 0"
