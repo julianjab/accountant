@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import ValidationError
 
 from server.application.use_cases import (
     DefineDocumentType,
@@ -18,7 +19,13 @@ from server.application.use_cases import (
     UpdateDocumentTypeInput,
 )
 from server.domain.entities import DocumentType, DocumentTypeField, FieldRole
-from server.domain.ports import ConceptOption, DocumentContent, ProposedFieldMapping
+from server.domain.ports import (
+    ConceptOption,
+    DocumentContent,
+    FieldSelection,
+    KeptField,
+    ProposedFieldMapping,
+)
 from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
     get_define_document_type_use_case,
@@ -41,6 +48,7 @@ from server.infrastructure.api.schemas import (
     DocumentTypeResponse,
     DocumentTypeUpdatedResponse,
     DocumentTypeUpdateRequest,
+    FieldSelectionPayload,
     MappingChangeResponse,
     ProposedFieldMappingResponse,
     ProposedFieldResponse,
@@ -86,6 +94,7 @@ def propose_document_type(
     kind_id: str | None = Form(None),
     guidance: str | None = Form(None),
     document_type_id: str | None = Form(None),
+    selection: str | None = Form(None),
     use_case: ProposeDocumentType = Depends(get_propose_document_type_use_case),
     registry: KindRegistry = Depends(get_reconciliation_registry),
     read_document: ReadStoredDocument = Depends(get_read_stored_document_use_case),
@@ -121,6 +130,7 @@ def propose_document_type(
                 concepts=_concept_options(kind),
                 guidance=guidance or "",
                 document_type_id=document_type_id,
+                selection=_selection(selection),
             )
         )
     except DocumentTypeNotFound as exc:
@@ -514,6 +524,37 @@ def _edited_fields(
         return None
     kept = tuple(f for f in stored.fields if path_resolves_in(f.path, payload.extraction_schema))
     return kept if len(kept) != len(stored.fields) else None
+
+
+def _selection(raw: str | None) -> FieldSelection | None:
+    """What the caller kept and threw out of the last proposal.
+
+    Sent as a JSON string in the multipart body because multipart cannot nest
+    and a kept field is three values (path, the label the person gave it, a
+    note aimed at that field alone). Validated here rather than trusted: a
+    malformed selection would otherwise reach the prompt as a Python repr and
+    silently steer the reading.
+
+    Absent and empty both mean a first reading with nothing behind it, which
+    is the ordinary case for the first round of any type.
+    """
+    if not raw or not raw.strip():
+        return None
+    try:
+        payload = FieldSelectionPayload.model_validate_json(raw)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"selection is not a valid field selection: {exc.error_count()} error(s)",
+        ) from exc
+    if not payload.kept and not payload.dropped:
+        return None
+    return FieldSelection(
+        kept=tuple(
+            KeptField(path=f.path, label=f.label.strip(), note=f.note.strip()) for f in payload.kept
+        ),
+        dropped=tuple(payload.dropped),
+    )
 
 
 def _sample(

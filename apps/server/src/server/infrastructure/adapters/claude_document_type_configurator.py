@@ -7,6 +7,8 @@ from server.domain.ports import (
     DocumentContent,
     ExistingConfig,
     FieldRole,
+    FieldSelection,
+    KeptField,
     ProposedField,
     ProposedFieldMapping,
     ProposedOcrConfig,
@@ -42,6 +44,7 @@ class ClaudeDocumentTypeConfigurator:
         concepts: Sequence[ConceptOption] = (),
         guidance: str = "",
         base: ExistingConfig | None = None,
+        selection: FieldSelection | None = None,
     ) -> ProposedOcrConfig:
         response = self._provider.create_message(
             model=self._model,
@@ -141,7 +144,11 @@ class ClaudeDocumentTypeConfigurator:
                                 "{type_name}", type_name
                             )
                             .replace("{mapping_instructions}", _mapping_instructions(concepts))
-                            .replace("{revision_instructions}", _revision(guidance, base)),
+                            .replace(
+                                "{revision_instructions}",
+                                _revision(guidance, base, selection),
+                            )
+                            .replace("{selection_instructions}", _selection(selection)),
                         },
                     ],
                 }
@@ -390,7 +397,9 @@ def _mapping_properties(concepts: Sequence[ConceptOption]) -> dict:
     }
 
 
-def _revision(guidance: str, base: ExistingConfig | None) -> str:
+def _revision(
+    guidance: str, base: ExistingConfig | None, selection: FieldSelection | None = None
+) -> str:
     """What turns a fresh proposal into a revision of one that already exists.
 
     The current schema goes in whole and its paths are declared untouchable.
@@ -405,6 +414,16 @@ def _revision(guidance: str, base: ExistingConfig | None) -> str:
     if not guidance and base is None:
         return ""
 
+    # A person who removed a field is the one authority that outranks "keep
+    # every path". Without this exemption the two instructions contradict each
+    # other, and the model resolves the contradiction by proposing the removed
+    # field again — every round, forever.
+    removals = (
+        " — except the ones the person removed, listed below"
+        if selection is not None and selection.dropped
+        else ""
+    )
+
     parts = ["\n\nThis document type already exists and is being revised, not created."]
     if base is not None:
         parts.append(
@@ -413,7 +432,7 @@ def _revision(guidance: str, base: ExistingConfig | None) -> str:
             "And its current JSON Schema is:\n"
             f"{json.dumps(base.extraction_schema, ensure_ascii=False, indent=2)}\n\n"
             "Start from these. Every field path the current schema declares must "
-            "still be declared, spelled exactly the same way — concept mappings "
+            f"still be declared, spelled exactly the same way{removals} — concept mappings "
             "are keyed by those paths and renaming a field silently throws its "
             "mapping away. Add, deepen or correct fields; do not rename or drop "
             "what is already there."
@@ -427,6 +446,53 @@ def _revision(guidance: str, base: ExistingConfig | None) -> str:
             "capture what it asks for."
         )
     return "".join(parts)
+
+
+def _selection(selection: FieldSelection | None) -> str:
+    """The last round's answer, handed back as this round's instruction.
+
+    A proposal is an offer; what a person did with it says more about what
+    they want than any description of the document could. Kept fields carry
+    their words for them — a renamed label is what this field is called on
+    their desk, and the next reading should speak that language rather than
+    the heading the paper prints. A per-field note lands against the field it
+    concerns instead of in a paragraph the model has to match back to a path
+    on its own, which is what makes "this is a row, not the total" actually
+    fix a collapsed table.
+
+    Refusals are stated as refusals. A field that is merely absent invites the
+    model to propose it again as a helpful addition; one that is named as
+    removed does not.
+    """
+    if not selection:
+        return ""
+
+    parts = []
+    if selection.kept:
+        kept = "\n".join(_kept_line(field) for field in selection.kept)
+        parts.append(
+            "\n\nThe person configuring this type has already read a proposal and "
+            "chosen from it. These are the fields they kept — declare every one "
+            "of them, spelled exactly as given:\n"
+            f"{kept}\n"
+            "Where a label differs from what the document prints, that label is "
+            "what they call the field: use it when you describe the field, and "
+            "read the document with it in mind."
+        )
+    if selection.dropped:
+        dropped = "\n".join(f"- {path}" for path in selection.dropped)
+        parts.append(
+            "\n\nThese they removed on purpose. Do not propose them again, and do "
+            "not propose the same thing again under a different path or name:\n"
+            f"{dropped}"
+        )
+    return "".join(parts)
+
+
+def _kept_line(field: KeptField) -> str:
+    label = f" — {field.label}" if field.label else ""
+    note = f" (they say: {field.note})" if field.note else ""
+    return f"- {field.path}{label}{note}"
 
 
 def _mapping_instructions(concepts: Sequence[ConceptOption]) -> str:

@@ -18,6 +18,8 @@ from server.domain.ports.ocr import (
     DocumentTypeConfigurator,
     ExistingConfig,
     FieldRole,
+    FieldSelection,
+    KeptField,
     OcrEngine,
     ProposedField,
     ProposedFieldMapping,
@@ -36,6 +38,8 @@ from server.domain.ports.source_parser import DocumentSourceParsers, ParsedSourc
 
 __all__ = [
     "ExistingConfig",
+    "FieldSelection",
+    "KeptField",
     "ProposedField",
     "FieldRole",
     "ProposedFieldMapping",

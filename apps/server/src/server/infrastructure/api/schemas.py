@@ -102,6 +102,31 @@ class DocumentTypeFieldPayload(BaseModel):
     sample_value: str = ""
 
 
+class KeptFieldPayload(BaseModel):
+    """One field a person kept from the last proposal, in their words."""
+
+    path: str
+    #: What they call this field. Empty means "whatever the document prints" —
+    #: the label was never edited.
+    label: str = ""
+    #: A correction aimed at this field alone: "this is a row of the table,
+    #: not the total". Empty for the ordinary field nobody had to explain.
+    note: str = ""
+
+
+class FieldSelectionPayload(BaseModel):
+    """The answer to the last proposal, which is the next one's instruction.
+
+    Arrives as one JSON form field rather than as repeated parts because
+    multipart cannot nest, and a kept field is three values, not one.
+    """
+
+    kept: list[KeptFieldPayload] = []
+    #: Paths the person removed on purpose — offered, read, refused. Distinct
+    #: from a path nobody ever mentioned.
+    dropped: list[str] = []
+
+
 class DocumentTypeResponse(BaseModel):
     id: str
     name: str

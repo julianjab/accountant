@@ -8,6 +8,7 @@ from server.domain.ports import (
     DocumentTypeConfigurator,
     DocumentTypeRepository,
     ExistingConfig,
+    FieldSelection,
     ProposedOcrConfig,
 )
 
@@ -23,6 +24,11 @@ class ProposeDocumentTypeInput:
     #: The type being revised, when this is a regeneration rather than a first
     #: reading. Its current prompt and schema become the starting point.
     document_type_id: str | None = None
+    #: What the person kept and threw out of the last reading. The answer to a
+    #: proposal is the best instruction for the next one — without it every
+    #: round starts from the document alone and re-proposes what was just
+    #: refused.
+    selection: FieldSelection | None = None
 
 
 class ProposeDocumentType:
@@ -49,6 +55,7 @@ class ProposeDocumentType:
             data.concepts,
             guidance=data.guidance,
             base=self._base(data.document_type_id),
+            selection=data.selection,
         )
 
     def _base(self, document_type_id: str | None) -> ExistingConfig | None:

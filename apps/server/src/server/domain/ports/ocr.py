@@ -49,6 +49,47 @@ class ExistingConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class KeptField:
+    """A field a person kept from the last reading, in their words.
+
+    The label travels because it is the vocabulary the type is read in: a
+    person who renames "Valor GMF" to "GMF retenido" has told the model what
+    this field is called on their desk, which is worth more to the next
+    reading than the heading the paper happens to print. The note is the same
+    act at a finer grain — "this is a row of the table, not the total" is
+    exactly the correction a schema that collapsed a table needs, and saying
+    it against the field it concerns beats saying it in a paragraph the model
+    has to match back to a path on its own.
+    """
+
+    path: str
+    label: str = ""
+    note: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class FieldSelection:
+    """What a person kept from the last reading, and what they threw out.
+
+    The point of the loop: a proposal is an offer, and the answer to it is
+    itself the best instruction for the next one. Without this, each round
+    started from the document alone and re-proposed what had just been
+    rejected, so converging on the handful of fields an accountant actually
+    wants meant pruning the same twenty fields again every time.
+
+    Empty means a first reading, with nothing behind it to honour.
+    """
+
+    kept: tuple[KeptField, ...] = ()
+    #: Paths the person removed on purpose. Distinct from a path nobody
+    #: mentioned: this one was offered, looked at, and refused.
+    dropped: tuple[str, ...] = ()
+
+    def __bool__(self) -> bool:
+        return bool(self.kept or self.dropped)
+
+
+@dataclass(frozen=True, slots=True)
 class ProposedField:
     """One field of the proposed schema, with what it is and what it holds."""
 
@@ -117,6 +158,7 @@ class DocumentTypeConfigurator(Protocol):
         concepts: Sequence[ConceptOption] = (),
         guidance: str = "",
         base: ExistingConfig | None = None,
+        selection: FieldSelection | None = None,
     ) -> ProposedOcrConfig:
         """Proposes how to extract this kind of document, and — when a
         vocabulary is offered — what each extracted field means.

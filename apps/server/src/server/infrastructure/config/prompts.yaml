@@ -49,7 +49,7 @@ document_type_configuration:
     an account, a withholding — the schema must model it as a list, and must
     declare the column that names each row, not only the figures. Without that
     column the rows cannot be told apart and only one of them ever gets
-    extracted.{revision_instructions}{mapping_instructions}
+    extracted.{revision_instructions}{selection_instructions}{mapping_instructions}
 
 document_field_description:
   system: |
