@@ -1,11 +1,39 @@
+import re
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, HttpUrl, TypeAdapter, field_validator, model_validator
 
 from server.domain.entities import DocumentStatus
+from server.shared import TaxId
 
 _HTTPS_URL = TypeAdapter(HttpUrl)
+_YEAR = re.compile(r"\b(19|20)\d{2}\b")
+
+
+def _validate_declared_tax_id(value: str | None) -> str | None:
+    """A declared reporting party has to be a number, not a name.
+
+    Checked at the edge so it comes back as the caller's mistake, which they
+    can fix. Left to the projection it resolves to nothing, the mapping falls
+    back to whoever the caller supplied, and the type reads as configured
+    while attributing its figures to somebody else.
+    """
+    if value is None or not value.strip():
+        return None
+    if TaxId.parse(value) is None:
+        raise ValueError(
+            f"{value!r} is not a tax id: give the NUMBER the party reports under, not its name"
+        )
+    return value
+
+
+def _validate_declared_period(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    if _YEAR.search(value) is None:
+        raise ValueError(f"{value!r} does not contain a year")
+    return value
 
 
 def _validate_https_url(value: str | None) -> str | None:
@@ -270,6 +298,9 @@ class ConceptMappingRequest(BaseModel):
     #: The period every document of this type covers, when the paper omits it.
     period: str | None = None
 
+    _check_reporter_tax_id = field_validator("reporter_tax_id")(_validate_declared_tax_id)
+    _check_period = field_validator("period")(_validate_declared_period)
+
 
 class ConceptMappingResponse(BaseModel):
     document_type_id: str
@@ -314,6 +345,9 @@ class DocumentTypeCreateRequest(BaseModel):
     #: The fields that were kept, with the label and section the proposal gave
     #: them. Empty is allowed and means no screen can do better than paths.
     fields: list[DocumentTypeFieldPayload] = []
+
+    _check_reporter_tax_id = field_validator("reporter_tax_id")(_validate_declared_tax_id)
+    _check_period = field_validator("period")(_validate_declared_period)
 
 
 class DocumentTypeUpdateRequest(BaseModel):

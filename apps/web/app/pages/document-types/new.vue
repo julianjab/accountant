@@ -217,6 +217,12 @@ async function save() {
       reporterPath: draft.value.reporterPath,
       reporterNamePath: draft.value.reporterNamePath,
       periodPath: draft.value.periodPath,
+      // Taken from the draft, which already blanked the empty inputs. Left out,
+      // a type whose issuer is only declared reaches the server naming nobody
+      // and has every one of its mappings discarded.
+      reporterTaxId: draft.value.reporterTaxId,
+      reporterName: draft.value.reporterName,
+      period: draft.value.period,
       taxYears: parseTaxYears(taxYearsText.value),
       kindId: proposal.value.kindId,
       sampleDocumentId: sampleDocumentId.value || null

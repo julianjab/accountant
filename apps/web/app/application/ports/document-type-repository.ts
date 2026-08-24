@@ -40,6 +40,12 @@ export interface CreateDocumentTypeInput {
   extractionSchema: Record<string, unknown>
   fieldMappings: ProposedFieldMapping[]
   reporterPath: string | null
+  /** What the type declares about itself, for the papers that never say it.
+   * Without these the server discards every mapping of a type whose documents
+   * do not print their own issuer — the case they exist for. */
+  reporterTaxId: string | null
+  reporterName: string | null
+  period: string | null
   reporterNamePath: string | null
   periodPath: string | null
   /** Empty means the type applies to any year. Non-empty is for an issuer that

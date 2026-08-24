@@ -243,6 +243,9 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
           sign: mapping.sign
         })),
         reporter_path: input.reporterPath,
+        reporter_tax_id: input.reporterTaxId,
+        reporter_name: input.reporterName,
+        period: input.period,
         reporter_name_path: input.reporterNamePath,
         period_path: input.periodPath,
         tax_years: input.taxYears,

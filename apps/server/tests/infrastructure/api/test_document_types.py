@@ -189,6 +189,85 @@ def test_a_mapping_with_no_reporting_party_is_not_stored() -> None:
         deps.get_concept_mapping_repository.cache_clear()
 
 
+def test_a_type_that_declares_its_reporting_party_keeps_its_mappings() -> None:
+    """The proposal names no reporter path because the paper never prints one.
+    Discarding the mappings for that reason is the exact failure declaring the
+    party exists to prevent."""
+    from server.application.use_cases import DefinedDocumentType, DefineDocumentType
+    from server.domain.ports import ProposedFieldMapping
+    from server.infrastructure.api import deps
+
+    document_type = DocumentType(
+        id="t-3",
+        name="Certificado JFK",
+        description="d",
+        extraction_prompt="p",
+        extraction_schema={"type": "object"},
+        active=True,
+        created_at=datetime.now(UTC),
+    )
+
+    class _UseCase(DefineDocumentType):
+        def __init__(self):
+            pass
+
+        def execute(self, data):
+            return DefinedDocumentType(
+                document_type=document_type,
+                field_mappings=(ProposedFieldMapping("saldo", "bank:cert_saldo_cuentas_ahorro"),),
+                unmapped_fields=(),
+                reporter_path=None,
+            )
+
+    deps.get_concept_mapping_repository.cache_clear()
+    mappings = deps.get_concept_mapping_repository()
+    app.dependency_overrides[require_session] = lambda: None
+    app.dependency_overrides[deps.get_define_document_type_use_case] = lambda: _UseCase()
+    try:
+        response = TestClient(app).post(
+            "/document-types",
+            json={
+                "name": "Certificado JFK",
+                "description": "d",
+                "extraction_prompt": "p",
+                "extraction_schema": {"type": "object"},
+                "reporter_tax_id": "890903938",
+                "reporter_name": "JFK Cooperativa Financiera",
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["unmapped_fields"] == []
+        stored = mappings.get("t-3", "exogena_dian")
+        assert stored is not None
+        assert stored.reporter_tax_id == "890903938"
+        assert [e.field_path for e in stored.entries] == ["saldo"]
+    finally:
+        app.dependency_overrides.clear()
+        deps.get_concept_mapping_repository.cache_clear()
+
+
+def test_a_declared_party_that_is_a_name_is_refused_before_anything_is_saved(
+    client, document_types
+) -> None:
+    """Swallowed as a storage failure it read as "set it again to retry", which
+    names neither what is wrong nor what to type instead — and left the type
+    created with no mapping."""
+    response = client.post(
+        "/document-types",
+        json={
+            "name": "Certificado",
+            "description": "d",
+            "extraction_prompt": "p",
+            "extraction_schema": {"type": "object"},
+            "reporter_tax_id": "JFK Cooperativa Financiera",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "not a tax id" in response.text
+    assert document_types.list_all() == []
+
+
 @pytest.fixture
 def concept_mappings():
     from server.infrastructure.api import deps
