@@ -80,8 +80,42 @@ Padding `22px 30px 40px`.
 (En el prototipo `Contador.dc.html`; ver `design/` — el UI kit no los incluye.)
 
 - **Lista**: grid de 2 columnas, gap 14px. Cada tarjeta: nombre 15px/600, badge Activo/Borrador, conteo de documentos en mono; descripción 13px `#6B7770`; y un bloque hundido `#FAFAF8` borde `#EDEDE8` radio 8px con la etiqueta `extraction_schema` en mono 10.5px y las claves como etiquetas mono 11.5px sobre blanco, radio 5px.
-- **Definir tipo**: grid `1fr 1fr`. Izquierda, formulario (Nombre, Descripción, zona de documento de muestra con borde discontinuo) y botón sólido "Proponer configuración" → `POST /document-types` (multipart: `name`, `description`, `sample_file`). Derecha, **panel profundo `#0C1512`** con la propuesta de la IA: `extraction_prompt` en mono 12.5px/1.65 sobre `rgba(255,255,255,.05)` radio 8px, y `extraction_schema` como lista clave (verde `#75EDAE`) / tipo (`rgba(230,237,233,.55)`). Acciones: "Guardar tipo" (verde `#00DC82` sobre texto `#052E16`) y "Editar".
-  - **Convención**: el fondo profundo significa "esto lo generó el modelo, revísalo antes de guardar". No usarlo para contenido normal.
+- **Definir tipo** (`/document-types/new`): dos pasos, una sola columna.
+  1. Formulario (Nombre, Descripción, documento de muestra) → `POST /document-types/proposals`
+     (multipart: `name`, `sample_file`, `kind_id?`). No guarda nada, y la pantalla lo dice
+     bajo el título. Estado de carga honesto: la llamada a Claude tarda ~1 min.
+  2. **Selección de lo que se extrae**, en tarjetas: identificación de quien reporta (el
+     control más ruidoso, ver abajo), campos por sección, y años gravables. Guardar →
+     `POST /document-types` (JSON con el esquema ya podado, `field_mappings`, `fields`,
+     `tax_years`, `kind_id`, `sample_document_id`).
+  - **Convención**: la propuesta cruda de la IA (`extraction_prompt`, `extraction_schema`)
+    **ya no se muestra**. El lector es un contador con un certificado en la mano, no un
+    desarrollador: se le muestran los campos en las palabras del documento y el path como
+    texto secundario. El panel profundo `#0C1512` del prototipo queda sin uso en esta
+    pantalla; si vuelve a hacer falta, sigue significando "esto lo generó el modelo".
+  - **Bloqueo de guardado**: sin campo de NIT de quien reporta (o si el campo elegido se
+    destilda) no se puede guardar — el servidor descartaría todas las asignaciones y el tipo
+    reportaría como faltante cada cifra que debería respaldar. Mismo guard que el
+    configurador (`/document-types/[id]`), con las mismas cadenas i18n.
+
+#### Patrón: selección de campos por sección
+
+Se usa en el paso 2 de "Definir tipo" y está disponible para cualquier pantalla que haga
+elegir campos de un documento.
+
+- **Cabecera de sección**: `bg-elevated/50 rounded-lg px-3 py-2`, título 13–14px/500, contador
+  "{n} de {m} marcados" en `text-muted text-xs`, y a la derecha dos `UButton size="xs"
+  variant="ghost"`: "Marcar todo" / "Ninguno". La sección es el bloque del papel (viene del
+  documento, no del esquema); los campos sin bloque van al final bajo "Otros campos del
+  documento".
+- **Fila de campo**: `<label>` con `border border-default rounded-lg p-3`, hover
+  `bg-elevated/60`, `UCheckbox` a la izquierda. A la derecha: etiqueta del documento
+  (13–14px/500) + `UBadge` de rol (Identificación `success` · Valor `primary` · Contexto
+  `neutral`), el valor leído en la muestra en `text-toned text-[13px]`, y el path en
+  `font-mono text-xs text-dimmed`. Sin marcar, la fila baja a `opacity-60`.
+- **Selección por defecto**: `identifier` y `amount` marcados; `context` sin marcar. Es una
+  decisión de dominio (`isKeptByDefault`), no del componente: el contador casi siempre quiere
+  la identificación y los valores, así que el trabajo es corregir la selección, no armarla.
 
 ### 6. Hojas de cálculo (`SheetsScreen`)
 

@@ -137,9 +137,23 @@ Rutas `/document-types` y `/document-types/new`.
 **Tareas**
 
 - [ ] Lista en dos columnas: nombre, estado activo/borrador, conteo, descripción y las claves de `extraction_schema` como etiquetas mono.
-- [ ] Formulario de definición: nombre, descripción y documento de muestra → `POST /document-types` (multipart).
-- [ ] Panel profundo con la propuesta de la IA: `extraction_prompt` y `extraction_schema`, con acciones "Guardar tipo" y "Editar".
-- [ ] Estado de carga honesto: la llamada a Claude es lenta y bloqueante.
+- [x] Formulario de definición: nombre, descripción y documento de muestra → `POST /document-types/proposals` (multipart).
+- [x] ~~Panel profundo con la propuesta de la IA~~ → **reemplazado** por el paso 2 de selección (ver desvío abajo).
+- [x] Estado de carga honesto: la llamada a Claude es lenta y bloqueante.
+
+**Implementado — "Definir tipo" en dos pasos** (`apps/web/app/pages/document-types/new.vue`):
+
+- [x] Paso 1 propone (`POST /document-types/proposals`, no guarda nada y la pantalla lo dice); paso 2 crea (`POST /document-types`, JSON, sin archivo y sin llamada a la IA).
+- [x] Campos agrupados **por sección del documento**, con etiqueta, valor de la muestra y path como texto secundario, y "Marcar todo / Ninguno" por sección — patrón nuevo documentado en README → "§ 5 · Patrón: selección de campos por sección".
+- [x] Selección por defecto: `identifier` y `amount` marcados, `context` no. Vive en `app/domain/document-type-configuration.ts` (`isKeptByDefault`, `buildProposalRows`, `groupBySection`, `creationBlock`, `parseTaxYears`) con tests; la página es una cáscara.
+- [x] Guardado bloqueado sin NIT de quien reporta, con las mismas cadenas i18n que el configurador (`documentTypes.edit.reporter.*`).
+- [x] Años gravables opcionales (vacío = cualquier año) y `sample_document_id` heredado de la query.
+- [x] Al crear se envían también las descripciones de los campos marcados (`fields`: path/label/role/section), que el tipo persiste — sin eso las secciones por las que el usuario acaba de elegir se pierden al salir de la pantalla.
+
+**Desvíos respecto al enunciado original**:
+- **Se eliminó el panel profundo con `extraction_prompt` y `extraction_schema`**. El lector es un contador con un certificado en la mano: un JSON Schema no es algo que pueda aprobar. La propuesta se muestra como campos en las palabras del documento; el prompt y el esquema viajan sin verse.
+- **La lista de tipos sigue pendiente** en su forma de dos columnas del prototipo.
+- **El enlace "Definir tipo" desde un documento ya importado no pasa `?document=`** todavía: la página lo lee y lo manda como `sample_document_id`, pero el único generador del enlace (`ClientDocumentList.vue`, fila de documento esperado) no tiene un documento que nombrar.
 
 ---
 
