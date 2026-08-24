@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import type { DocumentTypeField } from '~/domain/entities/document-type'
 import {
   groupBySection,
   hasUsefulSections,
   labelFor,
   orderedSectionNames,
   rootKey,
-  sectionFor,
-  type DocumentTypeField
+  sectionFor
 } from '~/domain/field-sections'
 
 function field(path: string, section: string, label = path): DocumentTypeField {

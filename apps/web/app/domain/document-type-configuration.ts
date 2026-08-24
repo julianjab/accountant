@@ -15,6 +15,11 @@ import type {
   ConceptMappingEntry,
   MappingChange
 } from './entities/concept-mapping'
+import type { DocumentTypeField, FieldRole } from './entities/document-type'
+import type {
+  DocumentTypeProposal,
+  ProposedFieldMapping
+} from './entities/document-type-proposal'
 import type { SchemaField } from './extraction-schema'
 
 /** One row of the field table: what the schema declares, plus what the user
@@ -107,7 +112,9 @@ function chosen<T>(explicit: T | undefined, previous: T | undefined, fallback: T
 export function toMappingDraft(
   selections: readonly FieldSelectionInput[],
   roles: MappingRoles,
-  existing: ConceptMapping | null
+  // A draft, not only a stored mapping: the create flow has curation to carry
+  // over (the proposal's signs and account paths) that was never stored yet.
+  existing: ConceptMappingDraft | null
 ): ConceptMappingDraft {
   const kept = keptPaths(selections)
   const previousByPath = new Map((existing?.entries ?? []).map(entry => [entry.fieldPath, entry]))
@@ -270,4 +277,230 @@ export function fieldsMissingAccountPath(
         && !selection.accountPath
     )
     .map(selection => selection.path)
+}
+
+/* ------------------------------------------------------------------ *
+ * Creating a type from a proposal
+ *
+ * The same two questions as above — which fields to keep, and who reports
+ * them — asked before anything exists on the server. The rules are shared
+ * with the configuration screen on purpose: a type created here must not be
+ * able to reach a state that screen considers impossible.
+ * ------------------------------------------------------------------ */
+
+/** A proposed field with the user's decision on it, shaped so every helper
+ * above accepts it unchanged. */
+export interface ProposalFieldRow extends FieldSelection {
+  label: string
+  sampleValue: string
+  /** Null for a field the proposal filed under no heading. */
+  section: string | null
+  role: FieldRole
+}
+
+/**
+ * Whether a field starts selected.
+ *
+ * "Muchas veces de un documento sólo quiero obtener la identificación y los
+ * valores importantes o totales": the identification and the amounts are what
+ * the paper is kept for, so the starting selection is already close to the
+ * answer and the work left is correcting it, not building it.
+ */
+export function isKeptByDefault(role: FieldRole): boolean {
+  return role !== 'context'
+}
+
+/** The proposal's mappings read as a draft, so the curation it already did
+ * (which concept, which account, which sign) survives the trimming. */
+export function proposalMappingBaseline(proposal: DocumentTypeProposal): ConceptMappingDraft {
+  return {
+    entries: proposal.fieldMappings.map(mapping => ({
+      fieldPath: mapping.fieldPath,
+      conceptId: mapping.conceptId,
+      accountPath: mapping.accountPath,
+      sign: mapping.sign,
+      // Neither is proposed: which line of the base report a figure answers,
+      // and whether it is compared account by account, are decided on the
+      // configuration screen once the type exists.
+      spineConceptId: null,
+      perAccount: false
+    })),
+    reporterPath: proposal.reporterPath,
+    reporterNamePath: proposal.reporterNamePath,
+    periodPath: proposal.periodPath
+  }
+}
+
+/**
+ * The rows to put in front of the user.
+ *
+ * Fields the schema declares but the proposal forgot to describe are listed
+ * too, and start selected: the schema is already asking the OCR for them, and
+ * dropping data on the strength of a gap in the proposal's own list would be a
+ * silent loss. They carry no heading, so they gather at the end.
+ */
+export function buildProposalRows(
+  proposal: DocumentTypeProposal,
+  schemaFields: readonly SchemaField[]
+): ProposalFieldRow[] {
+  const mappingByPath = new Map(
+    proposal.fieldMappings.map(mapping => [mapping.fieldPath, mapping])
+  )
+
+  const buildRow = (
+    path: string,
+    label: string,
+    role: FieldRole,
+    sampleValue: string,
+    section: string | null,
+    kept: boolean
+  ): ProposalFieldRow => {
+    const mapping = mappingByPath.get(path)
+    return {
+      path,
+      label,
+      role,
+      sampleValue,
+      section,
+      kept,
+      conceptId: mapping?.conceptId ?? null,
+      accountPath: mapping?.accountPath ?? null,
+      spineConceptId: null,
+      perAccount: false
+    }
+  }
+
+  const described = new Set(proposal.fields.map(field => field.path))
+  const rows = proposal.fields.map(field =>
+    buildRow(
+      field.path,
+      field.label || field.path,
+      field.role,
+      field.sampleValue,
+      field.section || null,
+      isKeptByDefault(field.role)
+    )
+  )
+
+  for (const field of schemaFields) {
+    if (described.has(field.path)) continue
+    rows.push(buildRow(field.path, field.name, 'context', '', null, true))
+  }
+
+  return rows
+}
+
+/** The proposed fields under one heading of the document. */
+export interface SectionGroup {
+  /** Null gathers the fields that sit under no heading. */
+  section: string | null
+  paths: string[]
+  keptCount: number
+}
+
+/**
+ * The rows arranged the way the paper reads.
+ *
+ * Sections keep the order in which they first appear, so the list matches the
+ * document the user is holding rather than an alphabetical index; the headless
+ * group goes last because it is the leftovers, not a part of the document.
+ */
+export function groupBySection(rows: readonly ProposalFieldRow[]): SectionGroup[] {
+  const groups = new Map<string | null, ProposalFieldRow[]>()
+
+  for (const row of rows) {
+    const members = groups.get(row.section)
+    if (members) members.push(row)
+    else groups.set(row.section, [row])
+  }
+
+  const headless = groups.get(null)
+  groups.delete(null)
+  if (headless) groups.set(null, headless)
+
+  return [...groups].map(([section, members]) => ({
+    section,
+    paths: members.map(member => member.path),
+    keptCount: members.filter(member => member.kept).length
+  }))
+}
+
+/** What stops the type from being created. */
+export type CreationBlock = 'noFields' | 'noReporter'
+
+/**
+ * Whether the draft may be created at all.
+ *
+ * The reporter rule is the configuration screen's, restated before the type
+ * exists: mappings with nobody to attribute their amounts to are discarded by
+ * the server, and the type would then report every figure it should back as
+ * missing. A type with no fields is refused too — it would ask the OCR for
+ * nothing and file an empty answer for every document of its kind.
+ */
+export function creationBlock(
+  rows: readonly ProposalFieldRow[],
+  draft: ConceptMappingDraft
+): CreationBlock | null {
+  if (keptPaths(rows).size === 0) return 'noFields'
+  if (!isDraftSavable(draft)) return 'noReporter'
+  return null
+}
+
+/**
+ * The descriptions to store for the fields that were kept.
+ *
+ * Without them the type keeps only paths, and the sections the user just chose
+ * by would be gone the moment this screen is left — which would make the
+ * choosing itself pointless.
+ */
+export function toDocumentTypeFields(rows: readonly ProposalFieldRow[]): DocumentTypeField[] {
+  return rows
+    .filter(row => row.kept)
+    .map(row => ({
+      path: row.path,
+      label: row.label,
+      role: row.role,
+      section: row.section ?? ''
+    }))
+}
+
+/** The draft's entries as the create endpoint takes them: it stores what it is
+ * sent, and the two curated columns it has no place for are set later. */
+export function toProposedFieldMappings(draft: ConceptMappingDraft): ProposedFieldMapping[] {
+  return draft.entries.map(entry => ({
+    fieldPath: entry.fieldPath,
+    conceptId: entry.conceptId,
+    accountPath: entry.accountPath,
+    sign: entry.sign
+  }))
+}
+
+function tokenizeYears(text: string): string[] {
+  return text
+    .split(/[\s,;]+/)
+    .map(token => token.trim())
+    .filter(token => token.length > 0)
+}
+
+function isYear(token: string): boolean {
+  return /^\d{4}$/.test(token)
+}
+
+/**
+ * The years typed into the tax-year box.
+ *
+ * Free text rather than a picker because the useful answer is almost always
+ * "any year" — an empty list — and, when it is not, it is one or two years the
+ * user already knows.
+ */
+export function parseTaxYears(text: string): number[] {
+  const years = tokenizeYears(text).filter(isYear).map(Number)
+  return [...new Set(years)].sort((a, b) => a - b)
+}
+
+/** Anything that is not a four-digit year, reported rather than silently
+ * dropped: a typo that quietly narrows a type to no year at all would take a
+ * failed reconciliation to notice. */
+export function invalidTaxYears(text: string): string[] {
+  return tokenizeYears(text).filter(token => !isYear(token))
 }

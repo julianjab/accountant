@@ -1,5 +1,28 @@
 import type { MappingChange } from '~/domain/entities/concept-mapping'
-import type { DocumentTypeField } from '~/domain/field-sections'
+
+/**
+ * What a field is for.
+ *
+ * It is what a screen sorts by and what the create flow selects by: an
+ * accountant keeps the identification and the amounts, and the rest is the
+ * wording around them.
+ */
+export type FieldRole = 'identifier' | 'amount' | 'context'
+
+/**
+ * One extracted field, described the way the document describes it.
+ *
+ * Stored on the type rather than derived per screen: the schema knows a path
+ * and a JSON type, neither of which says what the paper calls the field or
+ * which block of the page it sits in.
+ */
+export interface DocumentTypeField {
+  path: string
+  label: string
+  role: FieldRole
+  /** The block of the document this field belongs to; empty when unknown. */
+  section: string
+}
 
 export interface DocumentType {
   id: string
@@ -11,8 +34,9 @@ export interface DocumentType {
   createdAt: string
   /**
    * What each extracted field is called and which block of the document it
-   * came from. Empty for types configured before descriptions existed, which
-   * every screen reading this must still render.
+   * came from. Empty for a type saved before descriptions existed, or one
+   * created from a proposal that described nothing — every screen reading
+   * this must still render with only paths to work from.
    */
   fields: DocumentTypeField[]
 }

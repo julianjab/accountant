@@ -16,15 +16,7 @@
  * different documents.
  */
 
-export type FieldRole = 'identifier' | 'amount' | 'context'
-
-/** One extracted field, described the way the document describes it. */
-export interface DocumentTypeField {
-  path: string
-  label: string
-  role: FieldRole
-  section: string
-}
+import type { DocumentTypeField } from '~/domain/entities/document-type'
 
 export interface Section<T> {
   /** The document's own name for this block; empty for the unnamed group. */

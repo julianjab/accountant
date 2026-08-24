@@ -1,17 +1,30 @@
 import { describe, expect, it } from 'vitest'
 import type { ConceptMapping, MappingChange } from '~/domain/entities/concept-mapping'
+import type { FieldRole } from '~/domain/entities/document-type'
+import type {
+  DocumentTypeProposal,
+  ProposedField
+} from '~/domain/entities/document-type-proposal'
 import type { FieldSelection } from '~/domain/document-type-configuration'
 import type { SchemaField } from '~/domain/extraction-schema'
 import {
   buildFieldSelections,
+  buildProposalRows,
   configurationStatus,
+  creationBlock,
+  groupBySection,
+  invalidTaxYears,
   isDraftSavable,
   keptPaths,
   fieldsMissingAccountPath,
   groupBySpineConcept,
   mappingChangeSeverity,
+  parseTaxYears,
+  proposalMappingBaseline,
   shouldSaveDraft,
-  toMappingDraft
+  toDocumentTypeFields,
+  toMappingDraft,
+  toProposedFieldMappings
 } from '~/domain/document-type-configuration'
 
 function field(path: string): SchemaField {
@@ -362,5 +375,188 @@ describe('fieldsMissingAccountPath', () => {
         { path: 'saldo', kept: true, conceptId: 'c', spineConceptId: null, perAccount: true, accountPath: null }
       ])
     ).toEqual([])
+  })
+})
+
+function proposedField(
+  path: string,
+  role: FieldRole,
+  section = 'Datos del titular'
+): ProposedField {
+  return { path, label: path.toUpperCase(), role, sampleValue: '1', section }
+}
+
+const PROPOSAL: DocumentTypeProposal = {
+  extractionPrompt: 'Extract it',
+  extractionSchema: {
+    type: 'object',
+    properties: {
+      nit: { type: 'string' },
+      razon_social: { type: 'string' },
+      gmf: { type: 'number' },
+      pie_de_pagina: { type: 'string' }
+    }
+  },
+  fields: [
+    proposedField('nit', 'identifier'),
+    proposedField('razon_social', 'context'),
+    proposedField('gmf', 'amount', 'Gravamen a los movimientos financieros'),
+    proposedField('pie_de_pagina', 'context', '')
+  ],
+  fieldMappings: [
+    { fieldPath: 'gmf', conceptId: 'bank:gmf', accountPath: null, sign: -1 }
+  ],
+  unmappedFields: [{ fieldPath: 'pie_de_pagina', reason: 'not an amount' }],
+  kindId: 'exogena_dian',
+  reporterPath: 'nit',
+  reporterNamePath: 'razon_social',
+  periodPath: null
+}
+
+describe('buildProposalRows', () => {
+  it('starts the identification and the amounts selected, and the rest unselected', () => {
+    const rows = buildProposalRows(PROPOSAL, [])
+
+    expect(rows.map(row => [row.path, row.kept])).toEqual([
+      ['nit', true],
+      ['razon_social', false],
+      ['gmf', true],
+      ['pie_de_pagina', false]
+    ])
+  })
+
+  it('carries the proposed concept and sign onto the row', () => {
+    const rows = buildProposalRows(PROPOSAL, [])
+
+    expect(rows.find(row => row.path === 'gmf')).toMatchObject({
+      conceptId: 'bank:gmf',
+      label: 'GMF',
+      section: 'Gravamen a los movimientos financieros'
+    })
+  })
+
+  it('lists a schema field the proposal never described, and keeps it', () => {
+    const rows = buildProposalRows(PROPOSAL, [
+      field('nit'),
+      { path: 'sucursal', name: 'sucursal', type: 'string', description: '', required: false }
+    ])
+
+    expect(rows.find(row => row.path === 'sucursal')).toMatchObject({
+      kept: true,
+      section: null
+    })
+  })
+})
+
+describe('groupBySection', () => {
+  it('keeps the document order and leaves the headless fields last', () => {
+    const groups = groupBySection(buildProposalRows(PROPOSAL, []))
+
+    expect(groups.map(group => group.section)).toEqual([
+      'Datos del titular',
+      'Gravamen a los movimientos financieros',
+      null
+    ])
+    expect(groups[0]).toMatchObject({ paths: ['nit', 'razon_social'], keptCount: 1 })
+  })
+})
+
+describe('creationBlock', () => {
+  const roles = { reporterPath: 'nit', reporterNamePath: null, periodPath: null }
+
+  it('lets a draft through when the reporting party is kept', () => {
+    const rows = buildProposalRows(PROPOSAL, [])
+    const draft = toMappingDraft(rows, roles, proposalMappingBaseline(PROPOSAL))
+
+    expect(creationBlock(rows, draft)).toBeNull()
+    // The proposal's sign is curation this screen has no control for, so it
+    // has to survive the trimming.
+    expect(draft.entries[0]).toMatchObject({ fieldPath: 'gmf', sign: -1 })
+  })
+
+  it('blocks when the field holding the tax id ends up unselected', () => {
+    const rows = buildProposalRows(PROPOSAL, []).map(row =>
+      row.path === 'nit' ? { ...row, kept: false } : row
+    )
+    const draft = toMappingDraft(rows, roles, proposalMappingBaseline(PROPOSAL))
+
+    expect(creationBlock(rows, draft)).toBe('noReporter')
+  })
+
+  it('blocks a type that would extract nothing', () => {
+    const rows = buildProposalRows(PROPOSAL, []).map(row => ({ ...row, kept: false }))
+    const draft = toMappingDraft(rows, roles, proposalMappingBaseline(PROPOSAL))
+
+    expect(creationBlock(rows, draft)).toBe('noFields')
+  })
+
+  it('allows a type nobody mapped to a concept', () => {
+    const rows = buildProposalRows({ ...PROPOSAL, fieldMappings: [] }, [])
+    const draft = toMappingDraft(
+      rows,
+      { reporterPath: null, reporterNamePath: null, periodPath: null },
+      null
+    )
+
+    expect(creationBlock(rows, draft)).toBeNull()
+  })
+})
+
+describe('toDocumentTypeFields', () => {
+  it('stores the label, role and section of the fields that were kept', () => {
+    const rows = buildProposalRows(PROPOSAL, [])
+
+    expect(toDocumentTypeFields(rows)).toEqual([
+      { path: 'nit', label: 'NIT', role: 'identifier', section: 'Datos del titular' },
+      {
+        path: 'gmf',
+        label: 'GMF',
+        role: 'amount',
+        section: 'Gravamen a los movimientos financieros'
+      }
+    ])
+  })
+
+  it('describes a headless field with an empty section rather than dropping it', () => {
+    const rows = buildProposalRows(PROPOSAL, []).map(row =>
+      row.path === 'pie_de_pagina' ? { ...row, kept: true } : row
+    )
+
+    expect(toDocumentTypeFields(rows)).toContainEqual({
+      path: 'pie_de_pagina',
+      label: 'PIE_DE_PAGINA',
+      role: 'context',
+      section: ''
+    })
+  })
+})
+
+describe('toProposedFieldMappings', () => {
+  it('sends only the fields that survived the trimming', () => {
+    const rows = buildProposalRows(PROPOSAL, []).map(row =>
+      row.path === 'gmf' ? { ...row, kept: false } : row
+    )
+    const draft = toMappingDraft(
+      rows,
+      { reporterPath: 'nit', reporterNamePath: null, periodPath: null },
+      proposalMappingBaseline(PROPOSAL)
+    )
+
+    expect(toProposedFieldMappings(draft)).toEqual([])
+  })
+})
+
+describe('parseTaxYears', () => {
+  it('reads an empty box as "any year"', () => {
+    expect(parseTaxYears('   ')).toEqual([])
+  })
+
+  it('reads years separated by commas or spaces, deduplicated and sorted', () => {
+    expect(parseTaxYears('2025, 2024 2025')).toEqual([2024, 2025])
+  })
+
+  it('reports what is not a year instead of dropping it', () => {
+    expect(invalidTaxYears('2024, veinticuatro, 24')).toEqual(['veinticuatro', '24'])
+    expect(parseTaxYears('2024, veinticuatro, 24')).toEqual([2024])
   })
 })
