@@ -151,7 +151,17 @@ const isApproved = computed(() => props.document.status === 'approved')
 // reason to withhold the button.
 const canApprove = computed(() => !isApproved.value)
 
-const isProcessing = computed(() =>
+// Approving is synchronous: the request does the reading and comes back with
+// the document already processed or already failed. So a *persisted*
+// mid-pipeline status never means "work is happening" — it means a run died
+// partway and nothing is going to finish it. `pending` cannot even be reached
+// (the pipeline creates documents straight into `classifying`), which makes a
+// document sitting in one of these the clearest case of all.
+//
+// Animating skeletons here was the bug: the screen promised progress for a
+// document nothing was progressing, so it span forever with no way to tell
+// that pressing the button was the way out.
+const isStalled = computed(() =>
   (['pending', 'classifying', 'running_ocr'] as DocumentStatus[]).includes(props.document.status)
 )
 
@@ -194,7 +204,7 @@ const isMissingExtraction = computed(() =>
           </span>
         </div>
         <ProcessingTimeline
-          v-if="isProcessing || hasExtractionError"
+          v-if="isStalled || hasExtractionError"
           :status="document.status"
           :document-type-id="document.documentTypeId"
         />
@@ -208,16 +218,12 @@ const isMissingExtraction = computed(() =>
       :description="document.error ?? t('documents.errorFallback')"
     />
 
-    <div
-      v-if="isProcessing"
-      class="space-y-4"
-    >
-      <USkeleton
-        v-for="i in 4"
-        :key="i"
-        class="h-12 w-full"
-      />
-    </div>
+    <UAlert
+      v-if="isStalled"
+      color="warning"
+      :title="t('documents.stalledTitle')"
+      :description="t('documents.stalledDescription')"
+    />
 
     <UAlert
       v-else-if="hasExtractedDataLoadError"

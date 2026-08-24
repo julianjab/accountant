@@ -129,7 +129,9 @@
     "approveFailed": "The document could not be approved.",
     "sources": {
       "exogena_report": "Third-party information report (DIAN)"
-    }
+    },
+    "stalledTitle": "This document was left half-processed",
+    "stalledDescription": "An earlier run was interrupted and nothing will finish it on its own. Use “Approve and send to sheet” to read it again."
   },
   "documentTypes": {
     "title": "Document types",

@@ -129,7 +129,9 @@
     "approveFailed": "No se pudo aprobar el documento.",
     "sources": {
       "exogena_report": "Reporte de información exógena (DIAN)"
-    }
+    },
+    "stalledTitle": "Este documento quedó a medio procesar",
+    "stalledDescription": "Una lectura anterior se interrumpió y nada la va a terminar sola. Usá «Aprobar y enviar a hoja» para leerlo de nuevo."
   },
   "documentTypes": {
     "title": "Tipos de documento",
