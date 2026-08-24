@@ -47,7 +47,8 @@
         "unclassified": "Sin clasificar",
         "empty": "Este cliente todavía no tiene documentos.",
         "awaited": "Falta",
-        "awaitedClaims": "{count} valores de la exógena sin certificado"
+        "awaitedClaims": "{count} valores de la exógena sin certificado",
+        "defineType": "Definir tipo"
       },
       "summary": {
         "title": "Resumen del mes"
@@ -123,7 +124,8 @@
       "loading": "Claude está analizando el documento…",
       "loadingHint": "Esto puede tardar cerca de un minuto",
       "error": "No se pudo definir el tipo de documento. Intentá de nuevo.",
-      "invalidJson": "El esquema no es un JSON válido"
+      "invalidJson": "El esquema no es un JSON válido",
+      "issuerDescription": "Certificado tributario emitido por {issuer}."
     },
     "proposal": {
       "title": "Propuesta generada",

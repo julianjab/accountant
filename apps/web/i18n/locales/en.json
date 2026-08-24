@@ -47,7 +47,8 @@
         "unclassified": "Unclassified",
         "empty": "This client doesn't have any documents yet.",
         "awaited": "Missing",
-        "awaitedClaims": "{count} exogena values with no certificate"
+        "awaitedClaims": "{count} exogena values with no certificate",
+        "defineType": "Define type"
       },
       "summary": {
         "title": "Monthly summary"
@@ -123,7 +124,8 @@
       "loading": "Claude is analyzing the document…",
       "loadingHint": "This can take about a minute",
       "error": "Could not define the document type. Please try again.",
-      "invalidJson": "The schema is not valid JSON"
+      "invalidJson": "The schema is not valid JSON",
+      "issuerDescription": "Tax certificate issued by {issuer}."
     },
     "proposal": {
       "title": "Generated proposal",

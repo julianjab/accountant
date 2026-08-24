@@ -6,8 +6,16 @@ type Step = 'form' | 'loading' | 'proposal' | 'error'
 const { t } = useI18n()
 const defineDocumentType = useDefineDocumentTypeUseCase()
 
-const name = ref('')
-const description = ref('')
+// Prefilled when arriving from a client's missing-document row, which already
+// knows who issues the certificate — the part hardest to type correctly.
+const route = useRoute()
+const issuer = computed(() => {
+  const value = route.query.issuer
+  return typeof value === 'string' ? value : ''
+})
+
+const name = ref(issuer.value)
+const description = ref(issuer.value ? t('documentTypes.new.issuerDescription', { issuer: issuer.value }) : '')
 const sampleFile = ref<File | null>(null)
 
 const step = ref<Step>('form')

@@ -53,6 +53,15 @@ const awaited = computed(() => {
 })
 
 const hasRows = computed(() => props.documents.length > 0 || awaited.value.length > 0)
+
+/** Starts the define-a-type flow already knowing who issues the document.
+ *
+ * A party can need more than one — a bank certifies its GMF and its investment
+ * balances on separate forms — so this stays available on the row for as long
+ * as the party still owes something, rather than disappearing after the first. */
+function defineTypeLink(reporterName: string): string {
+  return `/document-types/new?issuer=${encodeURIComponent(reporterName)}`
+}
 </script>
 
 <template>
@@ -70,30 +79,34 @@ const hasRows = computed(() => props.documents.length > 0 || awaited.value.lengt
     <li
       v-for="doc in documents"
       :key="doc.id"
-      class="flex items-center gap-3 px-4 py-2.5"
     >
-      <UIcon
-        name="i-lucide-file-text"
-        class="size-4 shrink-0 text-muted"
-      />
+      <NuxtLink
+        :to="`/documents/${doc.id}`"
+        class="flex items-center gap-3 px-4 py-2.5 transition-colors duration-[120ms] hover:bg-elevated/60"
+      >
+        <UIcon
+          name="i-lucide-file-text"
+          class="size-4 shrink-0 text-muted"
+        />
 
-      <!-- The 320px cap keeps the desktop list from stretching a long file name across the
-           whole card; on a phone the row is already narrower than that. -->
-      <div class="min-w-0 flex-1 sm:max-w-[320px]">
-        <div class="truncate text-[13.5px] font-medium text-highlighted">
-          {{ doc.fileName }}
+        <!-- The 320px cap keeps the desktop list from stretching a long file name across the
+             whole card; on a phone the row is already narrower than that. -->
+        <div class="min-w-0 flex-1 sm:max-w-[320px]">
+          <div class="truncate text-[13.5px] font-medium text-highlighted">
+            {{ doc.fileName }}
+          </div>
+          <div class="mt-0.5 truncate text-[12px] text-muted">
+            {{ typeName(doc.documentTypeId) }} · {{ formattedTime(doc.createdAt) }}
+          </div>
         </div>
-        <div class="mt-0.5 truncate text-[12px] text-muted">
-          {{ typeName(doc.documentTypeId) }} · {{ formattedTime(doc.createdAt) }}
-        </div>
-      </div>
 
-      <UBadge
-        :label="t(`documents.status.${doc.status}`)"
-        :color="STATUS_COLOR[doc.status]"
-        variant="subtle"
-        class="shrink-0"
-      />
+        <UBadge
+          :label="t(`documents.status.${doc.status}`)"
+          :color="STATUS_COLOR[doc.status]"
+          variant="subtle"
+          class="shrink-0"
+        />
+      </NuxtLink>
     </li>
 
     <li
@@ -115,6 +128,16 @@ const hasRows = computed(() => props.documents.length > 0 || awaited.value.lengt
           {{ t('clients.detail.documents.awaitedClaims', { count: expected.claims }) }}
         </div>
       </div>
+
+      <UButton
+        :label="t('clients.detail.documents.defineType')"
+        icon="i-lucide-plus"
+        size="xs"
+        variant="ghost"
+        class="shrink-0"
+        data-testid="define-type-for-party"
+        :to="defineTypeLink(expected.reporterName)"
+      />
 
       <UBadge
         :label="t('clients.detail.documents.awaited')"
