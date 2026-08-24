@@ -173,3 +173,73 @@ def test_a_schema_declaring_no_properties_prunes_nothing():
 
     assert changes == ()
     assert mapping == _mapping()
+
+
+def test_pruning_keeps_the_exogena_line_a_field_answers():
+    """Pruning drops what a schema edit invalidated. Anything it does not own
+    must survive, or every edit would quietly stop the field being compared."""
+    mappings = InMemoryConceptMappingRepository()
+    mappings.save(
+        ConceptMapping(
+            document_type_id="t1",
+            kind_id=KIND_ID,
+            reporter_path="nit",
+            entries=(
+                ConceptMappingEntry(
+                    field_path="saldo",
+                    concept_id="bank:cert_saldo_cuentas_ahorro",
+                    spine_concept_id="dian:saldo-cuentas-bancarias",
+                ),
+            ),
+        )
+    )
+
+    PruneConceptMappings(KindRegistry([ExogenaReconciliation()]), mappings).execute(
+        PruneConceptMappingsInput(
+            document_type_id="t1",
+            extraction_schema={
+                "type": "object",
+                "properties": {"saldo": {"type": "string"}, "nit": {"type": "string"}},
+            },
+        )
+    )
+
+    kept = mappings.get("t1", KIND_ID)
+    assert kept.entries[0].spine_concept_id == "dian:saldo-cuentas-bancarias"
+
+
+def test_losing_the_account_field_downgrades_to_comparing_totals():
+    """Rather than leaving a pairing that can never happen, which reads as a
+    missing certificate for a figure the document does state."""
+    mappings = InMemoryConceptMappingRepository()
+    mappings.save(
+        ConceptMapping(
+            document_type_id="t1",
+            kind_id=KIND_ID,
+            reporter_path="nit",
+            entries=(
+                ConceptMappingEntry(
+                    field_path="saldo",
+                    concept_id="bank:cert_saldo_cuentas_ahorro",
+                    spine_concept_id="dian:saldo-cuentas-bancarias",
+                    account_path="cuenta",
+                    per_account=True,
+                ),
+            ),
+        )
+    )
+
+    PruneConceptMappings(KindRegistry([ExogenaReconciliation()]), mappings).execute(
+        PruneConceptMappingsInput(
+            document_type_id="t1",
+            extraction_schema={
+                "type": "object",
+                "properties": {"saldo": {"type": "string"}, "nit": {"type": "string"}},
+            },
+        )
+    )
+
+    kept = mappings.get("t1", KIND_ID)
+    assert kept.entries[0].account_path is None
+    assert kept.entries[0].per_account is False
+    assert kept.entries[0].spine_concept_id == "dian:saldo-cuentas-bancarias"

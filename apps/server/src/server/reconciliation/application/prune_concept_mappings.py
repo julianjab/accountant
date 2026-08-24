@@ -160,6 +160,15 @@ def _prune(
                 concept_id=entry.concept_id,
                 account_path=account_path,
                 sign=entry.sign,
+                # Carried, not rebuilt. Pruning exists to drop what a schema
+                # edit invalidated; anything it does not own has to survive
+                # untouched, or every edit would quietly erase which exogena
+                # line the field answers and stop it being compared at all.
+                spine_concept_id=entry.spine_concept_id,
+                # Comparing per account needs an account path. When the edit
+                # took that path away, the comparison degrades to totals
+                # rather than becoming a pairing that can never happen.
+                per_account=entry.per_account and account_path is not None,
             )
         )
 
