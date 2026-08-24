@@ -9,6 +9,7 @@ from server.domain.entities import Client
 from server.infrastructure.api import deps
 from server.infrastructure.api.auth_dependency import require_session
 from server.main import app
+from server.reconciliation.application import ReconcileClientPeriod
 from server.reconciliation.kinds.exogena import KIND_ID
 
 NOW = datetime.now(UTC)
@@ -36,10 +37,28 @@ def reports():
     deps.get_reconciliation_report_repository.cache_clear()
 
 
+class _NoFacts:
+    """Stands in for the document-backed fact provider.
+
+    Without it these tests fell through to the real one, which builds
+    GoogleDriveStorage from the developer's service-account file — reaching a
+    live Drive from a unit test, and failing outright on a machine with no
+    credentials. Overriding the use case rather than the storage is what works
+    here: deps builds the provider by calling its factories directly, so
+    FastAPI's dependency_overrides never sees them.
+    """
+
+    def facts_for(self, client_id, period, kind_id):
+        return ()
+
+
 @pytest.fixture
 def client(clients, mappings, reports) -> TestClient:
     deps.get_document_repository.cache_clear()
     app.dependency_overrides[require_session] = lambda: None
+    app.dependency_overrides[deps.get_reconcile_client_period_use_case] = lambda: (
+        ReconcileClientPeriod(deps.get_reconciliation_registry(), _NoFacts(), reports)
+    )
     clients.save(
         Client(id="c1", name="Contribuyente", tax_id="79999999", email=None, created_at=NOW)
     )

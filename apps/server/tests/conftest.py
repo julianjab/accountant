@@ -1,23 +1,41 @@
-"""Keeps the test suite off real infrastructure.
+"""Keeps the test suite off real infrastructure and off the developer's config.
 
-`Settings` reads `.env`, and a developer's `.env` sets
-`ACCOUNTANT_FIRESTORE_PROJECT` so the server can talk to the real database.
-Without this file that setting reaches the tests too: `get_firestore()` returns
-a live client, every repository fixture becomes a Firestore-backed one, and the
-suite reads and writes the actual clients' tax data — asserting counts against
-whatever happens to be in production, and leaving its own fixtures behind.
+`Settings` reads `.env`, so without this file the machine's own configuration
+decides how the tests behave. That produced two separate failures already:
+`ACCOUNTANT_FIRESTORE_PROJECT` made every repository fixture Firestore-backed,
+so the suite read and wrote real clients' tax data and asserted counts against
+whatever happened to be in production; and pointing the app at a tunnel set
+`SESSION_COOKIE_SECURE`, after which the test client would not send a cookie
+over http and the auth tests started returning 401.
 
-Clearing the variable before anything imports `Settings` puts every repository
-back on its in-memory adapter, which is what the tests are written against.
+Both have the same cause, so the fix is the cause and not the symptoms: tests
+do not read `.env` at all. Every setting falls back to its declared default,
+which is what the tests were written against, and the suite behaves the same on
+any machine.
 """
 
 import os
 
+import dotenv
 import pytest
 
-# Set at import time, not in a fixture: pytest imports this module during
-# collection, before any test module can construct a cached Settings.
-os.environ["ACCOUNTANT_FIRESTORE_PROJECT"] = ""
+from server.infrastructure.config.settings import Settings
+
+# All three applied at import time, not in a fixture: pytest imports this module
+# during collection, before any test module can import `main` or build a cached
+# Settings.
+
+# 1. Settings stops reading the file itself.
+Settings.model_config["env_file"] = None
+
+# 2. `main` calls load_dotenv() at import, which copies `.env` into the real
+#    environment — where it outranks anything above. Neutered for the suite.
+dotenv.load_dotenv = lambda *args, **kwargs: False
+
+# 3. Anything already exported before pytest started, or loaded by an earlier
+#    import, is dropped so the declared defaults are what the tests see.
+for name in [key for key in os.environ if key.startswith("ACCOUNTANT_")]:
+    del os.environ[name]
 
 
 @pytest.fixture(autouse=True, scope="session")
