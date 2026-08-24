@@ -181,4 +181,50 @@ test.describe('Definir tipo de documento', () => {
       '/document-types/dt-1'
     )
   })
+
+  test('reads again with what was kept, renamed and annotated', async ({ page }) => {
+    /**
+     * The loop. A first proposal is an offer, and the answer to it is the best
+     * instruction for the next reading — so what is ticked, renamed and noted
+     * has to reach the server, or every round starts from the paper alone and
+     * re-offers what was just refused.
+     */
+    const requests: string[] = []
+    await page.route('**/document-types/proposals', (route) => {
+      if (route.request().method() === 'OPTIONS') {
+        return route.fulfill({ status: 204, headers: corsHeaders(new URL(page.url()).origin) })
+      }
+      requests.push(route.request().postData() ?? '')
+      return route.fulfill({ json: PROPOSAL, headers: corsHeaders(new URL(page.url()).origin) })
+    })
+
+    await proposeFromSample(page)
+
+    // "Nota al pie" starts unticked (it is context); untick "Razón social" too
+    // so the refusal is one the person made rather than a default.
+    await page.getByTestId('field-row-razon_social').getByRole('checkbox').uncheck()
+    await page.getByTestId('field-edit-gmf').click()
+    await page.getByTestId('field-label-gmf').fill('GMF retenido')
+    await page.getByTestId('field-note-gmf').fill('es la fila, no el total')
+    await page.getByTestId('reread-guidance').fill('Falta la fila de tarjeta de crédito.')
+    await page.getByTestId('reread-type').click()
+
+    await expect.poll(() => requests.length).toBe(2)
+    const selection = JSON.parse(
+      /name="selection"\r\n\r\n(.*?)\r\n/s.exec(requests[1]!)![1]!
+    )
+    expect(selection.dropped).toContain('razon_social')
+    expect(selection.dropped).toContain('pie_de_pagina')
+    expect(selection.kept).toContainEqual({
+      path: 'gmf',
+      label: 'GMF retenido',
+      note: 'es la fila, no el total'
+    })
+  })
+
+  test('shows an amount the way the certificate prints one', async ({ page }) => {
+    await proposeFromSample(page)
+
+    await expect(page.getByTestId('field-row-gmf')).toContainText('512.561,52')
+  })
 })

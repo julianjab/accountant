@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   formatAccountingAmountString,
   formatAccountingNumber,
+  formatSampleAmount,
   formatScalarValue,
   humanizeFieldKey,
   isArrayOfObjects,
@@ -95,5 +96,28 @@ describe('formatScalarValue', () => {
   it('stringifies non-currency values as-is', () => {
     expect(formatScalarValue('contribuyente', 'JULIAN')).toBe('JULIAN')
     expect(formatScalarValue('anio_gravable', 2024)).toBe('2024')
+  })
+})
+
+describe('formatSampleAmount', () => {
+  it('shows a figure the way the certificate beside it prints one', () => {
+    // The whole point of showing the sample value is that it can be checked
+    // against the paper at a glance, which `150464.81` cannot be.
+    expect(formatSampleAmount('150464.81')).toBe('$ 150.464,81')
+  })
+
+  it('leaves a value that is already grouped exactly as it was read', () => {
+    // `Number("150.464,81")` is NaN — forcing the format here would replace a
+    // correct figure with "$ NaN".
+    expect(formatSampleAmount('150.464,81')).toBe('150.464,81')
+  })
+
+  it('leaves anything that is not a number alone', () => {
+    expect(formatSampleAmount('JULIAN ANDRES BUITRAGO')).toBe('JULIAN ANDRES BUITRAGO')
+    expect(formatSampleAmount('')).toBe('')
+  })
+
+  it('reads a negative as accountants read one', () => {
+    expect(formatSampleAmount('-1234.5')).toBe('($ 1.234,50)')
   })
 })

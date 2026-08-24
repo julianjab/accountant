@@ -190,6 +190,40 @@ describe('HttpDocumentTypeRepository.propose as a revision', () => {
     expect(body.get('guidance')).toBe('La tabla tiene una fila por obligación.')
   })
 
+  it('sends the answer to the last reading as JSON, which multipart cannot nest', async () => {
+    const fetcher = stubFetch(() => PROPOSAL_DTO)
+
+    await new HttpDocumentTypeRepository('http://api').propose({
+      name: 'Certificado',
+      documentId: 'doc-1',
+      selection: {
+        kept: [{ path: 'gmf.valor', label: 'GMF retenido', note: 'es la fila' }],
+        dropped: ['agente.direccion']
+      }
+    })
+
+    const body = fetcher.mock.calls[0]![1]!.body as FormData
+    expect(JSON.parse(body.get('selection') as string)).toEqual({
+      kept: [{ path: 'gmf.valor', label: 'GMF retenido', note: 'es la fila' }],
+      dropped: ['agente.direccion']
+    })
+  })
+
+  it('leaves the selection out when there is nothing to say about one', async () => {
+    // A first reading has no answer behind it, and an empty block in the
+    // prompt is noise the model still has to read past.
+    const fetcher = stubFetch(() => PROPOSAL_DTO)
+
+    await new HttpDocumentTypeRepository('http://api').propose({
+      name: 'Certificado',
+      documentId: 'doc-1',
+      selection: { kept: [], dropped: [] }
+    })
+
+    const body = fetcher.mock.calls[0]![1]!.body as FormData
+    expect(body.get('selection')).toBeNull()
+  })
+
   it('says nothing about revising on a first reading', async () => {
     const fetcher = stubFetch(() => PROPOSAL_DTO)
 
