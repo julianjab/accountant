@@ -1,3 +1,4 @@
+import type { FieldSelection } from '~/domain/proposal-loop'
 import type {
   DocumentType,
   DocumentTypeCreation,
@@ -34,6 +35,15 @@ export interface ProposeDocumentTypeInput {
    * every mapping someone curated to fix the one field that was missing.
    */
   documentTypeId?: string | null
+  /**
+   * What the person kept and threw out of the last reading.
+   *
+   * The answer to a proposal is the best instruction for the next one: without
+   * it every round starts from the document alone and offers back the same
+   * twenty fields that were just refused. Absent on a first reading, which has
+   * no answer behind it yet.
+   */
+  selection?: FieldSelection | null
   /**
    * What the person configuring the type says the last reading got wrong.
    *

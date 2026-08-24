@@ -323,6 +323,20 @@ export interface ProposalFieldRow extends FieldSelection {
   /** Null for a field the proposal filed under no heading. */
   section: string | null
   role: FieldRole
+  /** What the person renamed this field to, null while it is still called
+   * whatever the document calls it. Kept apart from `label` so a regeneration
+   * can refresh the document's own wording without overwriting theirs — and
+   * so the next round can be told which of the two the model is looking at. */
+  renamedLabel?: string | null
+  /** A correction aimed at this field alone ("this is a row of the table, not
+   * the total"), sent with it on the next round. Empty for the ordinary field
+   * nobody had to explain. */
+  note?: string
+}
+
+/** What to call a field: the person's word for it when they gave one. */
+export function rowLabel(row: ProposalFieldRow): string {
+  return row.renamedLabel?.trim() || row.label
 }
 
 /**
@@ -546,7 +560,7 @@ export function toDocumentTypeFields(rows: readonly ProposalFieldRow[]): Documen
     .filter(row => row.kept)
     .map(row => ({
       path: row.path,
-      label: row.label,
+      label: rowLabel(row),
       role: row.role,
       section: row.section ?? '',
       // Carried so the editor can show the same value the row was chosen by;

@@ -6,7 +6,6 @@ import type { ProposalFieldRow } from '~/domain/document-type-configuration'
 import {
   buildProposalRows,
   creationBlock,
-  groupBySection,
   invalidTaxYears,
   keptPaths,
   parseTaxYears,
@@ -17,9 +16,10 @@ import {
   toProposedFieldMappings,
   writeSource
 } from '~/domain/document-type-configuration'
+import { carryChoices, toFieldSelection } from '~/domain/proposal-loop'
 import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
-import { matchesFieldQuery } from '~/domain/field-search'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
+import ProposalFieldPicker from '~/components/document-types/ProposalFieldPicker.vue'
 
 type Step = 'form' | 'analyzing' | 'select' | 'created'
 
@@ -153,6 +153,10 @@ const { data: sampleDocument } = await useAsyncData<ClientDocument | null>(
  * sample; without one there is nothing to read. */
 const canAnalyze = computed(() => Boolean(sampleDocumentId.value || sampleFile.value))
 
+/** What the person says this reading got wrong, for the next one. */
+const guidance = ref('')
+const rereading = ref(false)
+
 async function analyze() {
   if (analyzing.value || !canAnalyze.value) return
 
@@ -160,17 +164,7 @@ async function analyze() {
   analysisFailed.value = false
 
   try {
-    const proposed = await proposeDocumentType.execute({
-      name: name.value,
-      // A stored document wins: it is the one the saved type can point back at.
-      documentId: sampleDocumentId.value || null,
-      sampleFile: sampleFile.value
-    })
-    proposal.value = proposed
-    rows.value = buildProposalRows(proposed, listSchemaFields(proposed.extractionSchema))
-    reporterPath.value = proposed.reporterPath
-    reporterNamePath.value = proposed.reporterNamePath
-    periodPath.value = proposed.periodPath
+    await read()
     step.value = 'select'
   } catch {
     analysisFailed.value = true
@@ -178,9 +172,58 @@ async function analyze() {
   }
 }
 
+/**
+ * Reads the paper again with the answers to the last reading in hand.
+ *
+ * The loop, and the reason the first proposal does not have to be right: what
+ * was ticked, renamed and annotated goes back as the instruction, so a round
+ * converges on the handful of fields this office actually wants instead of
+ * re-offering the twenty that were just refused.
+ *
+ * Stays on the select step while it runs rather than returning to the form —
+ * the paper, the choices and the guidance are all still on screen, and losing
+ * them to a spinner is losing the work being iterated on.
+ */
+async function reread() {
+  if (rereading.value || !canAnalyze.value) return
+
+  rereading.value = true
+  analysisFailed.value = false
+  try {
+    await read()
+    guidance.value = ''
+  } catch {
+    analysisFailed.value = true
+  } finally {
+    rereading.value = false
+  }
+}
+
+async function read() {
+  const previous = rows.value
+  const proposed = await proposeDocumentType.execute({
+    name: name.value,
+    // A stored document wins: it is the one the saved type can point back at.
+    documentId: sampleDocumentId.value || null,
+    sampleFile: sampleFile.value,
+    guidance: guidance.value,
+    // Empty on the first reading, which has no answer behind it yet.
+    selection: previous.length ? toFieldSelection(previous) : null
+  })
+  proposal.value = proposed
+  rows.value = carryChoices(
+    buildProposalRows(proposed, listSchemaFields(proposed.extractionSchema)),
+    previous
+  )
+  reporterPath.value = proposed.reporterPath
+  reporterNamePath.value = proposed.reporterNamePath
+  periodPath.value = proposed.periodPath
+}
+
 function startOver() {
   proposal.value = null
   rows.value = []
+  guidance.value = ''
   step.value = 'form'
 }
 
@@ -204,44 +247,7 @@ const draft = computed(() =>
 const blocked = computed(() => creationBlock(rows.value, draft.value))
 const canSave = computed(() => !saving.value && blocked.value === null && invalidYears.value.length === 0)
 
-const keptCount = computed(() => keptPaths(rows.value).size)
-
 const rowByPath = computed(() => new Map(rows.value.map(row => [row.path, row])))
-
-/**
- * What the user typed to find a field, matched against everything the row
- * shows: its name, the value read from the sample, its path and its block.
- *
- * A proposal is long, and the field being answered for is one the user is
- * pointing at on the paper — typing the figure or the wording printed beside
- * it is faster than reading every block.
- */
-const fieldQuery = ref('')
-
-const visibleRows = computed(() =>
-  rows.value.filter(row =>
-    matchesFieldQuery(fieldQuery.value, [row.label, row.path, row.sampleValue, row.section])
-  )
-)
-
-/** Sections are built from what is on screen, so the counts and the
- * mark-all/none buttons of a filtered list act on the rows the user can
- * actually see rather than on hidden ones. */
-const sections = computed(() =>
-  groupBySection(visibleRows.value).map(group => ({
-    ...group,
-    // The group is a domain answer about paths; the rows it is rendered with
-    // are a rendering detail, resolved once here instead of in the template.
-    rows: group.paths.map(path => rowByPath.value.get(path)).filter(row => row !== undefined)
-  }))
-)
-
-function setSection(paths: readonly string[], kept: boolean) {
-  const target = new Set(paths)
-  for (const row of rows.value) {
-    if (target.has(row.path)) row.kept = kept
-  }
-}
 
 /** Only fields that survive the trimming can play a role: pointing the
  * reporting party at a field about to be dropped is the failure, not a
@@ -538,128 +544,42 @@ async function save() {
               {{ t('documentTypes.new.select.empty') }}
             </p>
 
-            <template v-else>
-              <UInput
-                v-model="fieldQuery"
-                icon="i-lucide-search"
-                class="mb-4 w-full"
-                data-testid="field-filter"
-                :placeholder="t('documentTypes.fields.filter.placeholder')"
-                :aria-label="t('documentTypes.fields.filter.placeholder')"
-              >
-                <template
-                  v-if="fieldQuery"
-                  #trailing
-                >
-                  <UButton
-                    color="neutral"
-                    variant="link"
-                    size="xs"
-                    icon="i-lucide-x"
-                    :aria-label="t('documentTypes.fields.filter.clear')"
-                    @click="fieldQuery = ''"
-                  />
-                </template>
-              </UInput>
+            <ProposalFieldPicker
+              v-else
+              :rows="rows"
+            />
 
-              <p
-                v-if="!visibleRows.length"
-                class="text-muted text-sm"
-                data-testid="field-filter-empty"
+            <!--
+              The loop. A first reading is an offer, and what was just ticked,
+              renamed and annotated is a better instruction for the next one
+              than the document alone — so the answer goes back rather than
+              being spent on a one-way create.
+            -->
+            <template #footer>
+              <UFormField
+                :label="t('documentTypes.reread.guidance')"
+                :help="t('documentTypes.reread.hint')"
               >
-                {{ t('documentTypes.fields.filter.empty', { query: fieldQuery }) }}
-              </p>
-
-              <div
-                v-else
-                class="flex flex-col gap-6"
-                data-testid="proposal-sections"
+                <UTextarea
+                  v-model="guidance"
+                  :rows="2"
+                  class="w-full"
+                  data-testid="reread-guidance"
+                  :placeholder="t('documentTypes.reread.placeholder')"
+                />
+              </UFormField>
+              <UButton
+                class="mt-3"
+                variant="outline"
+                icon="i-lucide-refresh-cw"
+                :loading="rereading"
+                :disabled="rereading || !rows.length"
+                data-testid="reread-type"
+                @click="reread"
               >
-                <section
-                  v-for="section in sections"
-                  :key="section.section ?? '__headless__'"
-                  class="flex flex-col gap-2"
-                >
-                  <div class="bg-elevated/50 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2">
-                    <div class="min-w-0">
-                      <p class="text-highlighted text-sm font-medium">
-                        {{ section.section ?? t('documentTypes.sections.other') }}
-                      </p>
-                      <p class="text-muted text-xs">
-                        {{ t('documentTypes.sections.count', {
-                          kept: section.keptCount,
-                          total: section.paths.length
-                        }) }}
-                      </p>
-                    </div>
-                    <div class="flex shrink-0 gap-1">
-                      <UButton
-                        size="xs"
-                        color="neutral"
-                        variant="ghost"
-                        @click="setSection(section.paths, true)"
-                      >
-                        {{ t('documentTypes.sections.all') }}
-                      </UButton>
-                      <UButton
-                        size="xs"
-                        color="neutral"
-                        variant="ghost"
-                        @click="setSection(section.paths, false)"
-                      >
-                        {{ t('documentTypes.sections.none') }}
-                      </UButton>
-                    </div>
-                  </div>
-
-                  <label
-                    v-for="row in section.rows"
-                    :key="row.path"
-                    class="border-default flex items-start gap-3 rounded-lg border p-3 transition-colors duration-[120ms] hover:bg-elevated/60"
-                    :class="row.kept ? '' : 'opacity-60'"
-                  >
-                    <UCheckbox
-                      v-model="row.kept"
-                      :aria-label="t('documentTypes.new.select.keep')"
-                      class="mt-0.5"
-                    />
-                    <div class="min-w-0 flex-1">
-                      <div class="flex flex-wrap items-center gap-2">
-                        <p
-                          class="text-sm font-medium"
-                          :class="row.kept ? 'text-highlighted' : 'text-muted'"
-                        >
-                          {{ row.label }}
-                        </p>
-                        <UBadge
-                          size="sm"
-                          variant="subtle"
-                          :color="row.role === 'amount' ? 'primary' : row.role === 'identifier' ? 'success' : 'neutral'"
-                        >
-                          {{ t(`documentTypes.new.select.role.${row.role}`) }}
-                        </UBadge>
-                      </div>
-                      <p
-                        v-if="row.sampleValue"
-                        class="text-toned text-[13px]"
-                      >
-                        {{ t('documentTypes.sections.sampleValue', { value: row.sampleValue }) }}
-                      </p>
-                      <p class="text-dimmed break-all font-mono text-xs">
-                        {{ row.path }}
-                      </p>
-                    </div>
-                  </label>
-                </section>
-              </div>
+                {{ t('documentTypes.reread.action') }}
+              </UButton>
             </template>
-
-            <p
-              class="text-muted mt-4 text-sm"
-              data-testid="kept-summary"
-            >
-              {{ t('documentTypes.new.select.keptSummary', { kept: keptCount, total: rows.length }) }}
-            </p>
           </UCard>
 
           <UCard>

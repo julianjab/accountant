@@ -1,3 +1,4 @@
+import { isEmptySelection } from '~/domain/proposal-loop'
 import type {
   DocumentType,
   DocumentTypeCreation,
@@ -223,6 +224,11 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
     if (input.kindId) formData.append('kind_id', input.kindId)
     if (input.documentTypeId) formData.append('document_type_id', input.documentTypeId)
     if (input.guidance) formData.append('guidance', input.guidance)
+    // JSON in a form field: multipart cannot nest, and a kept field is three
+    // values (its path, the name the person gave it, a note aimed at it).
+    if (input.selection && !isEmptySelection(input.selection)) {
+      formData.append('selection', JSON.stringify(input.selection))
+    }
 
     const dto = await $fetch<DocumentTypeProposalDto>('/document-types/proposals', {
       baseURL: this.baseUrl,

@@ -160,7 +160,15 @@
         "placeholder": "Filtrar por campo, valor o ruta",
         "clear": "Limpiar el filtro",
         "empty": "Ningún campo coincide con «{query}»."
-      }
+      },
+      "added": "Nuevo",
+      "renamed": "Renombrado",
+      "edit": "Editar",
+      "label": "Cómo se llama este campo",
+      "labelHint": "Dejalo vacío para usar el nombre que le da el documento.",
+      "note": "Indicación para este campo",
+      "noteHint": "Se envía junto a este campo en la próxima lectura.",
+      "notePlaceholder": "Ej.: es una fila de la tabla, no el total"
     },
     "sections": {
       "other": "Otros campos del documento",
@@ -335,8 +343,15 @@
         "kept": "{count} campos se mantienen igual, con sus asignaciones.",
         "noChange": "La nueva lectura declara los mismos campos. El prompt de extracción sí cambia; aplicalo solo si querés esa nueva redacción.",
         "apply": "Aplicar al tipo",
-        "discard": "Descartar"
+        "discard": "Descartar",
+        "applyHint": "Se guardan sólo los campos marcados. Un campo que esta lectura dejó de proponer vuelve marcándolo y leyendo otra vez — el esquema lo escribe el modelo, no esta pantalla."
       }
+    },
+    "reread": {
+      "action": "Volver a leer con esta selección",
+      "guidance": "¿Qué le faltó a esta lectura?",
+      "hint": "La próxima lectura recibe lo que dejaste marcado, cómo lo nombraste y las indicaciones por campo. Lo que desmarcaste no se vuelve a proponer.",
+      "placeholder": "Ej.: la tabla «Obligaciones a Cargo» tiene una fila por obligación. Extraé cada fila con su nombre, capital e interés."
     }
   },
   "auth": {

@@ -92,6 +92,26 @@ export function formatAccountingAmountString(value: string, locale = 'es-CO'): s
   return collapsedToZero ? formatFullPrecisionAmount(value) : formatted
 }
 
+/**
+ * A value read off a sample, rendered as money when it is one.
+ *
+ * The configurator screens show the value the AI read for each field, and a
+ * figure shown as `150464.81` beside a certificate that prints `$150.464,81`
+ * is the one thing on that screen the accountant cannot check at a glance —
+ * which is the entire point of showing it. Every field the proposal calls an
+ * amount goes through here.
+ *
+ * A value that does not parse as a plain decimal is returned untouched rather
+ * than forced: the model often hands back exactly what the paper prints,
+ * already grouped, and `Number("150.464,81")` is `NaN` — formatting that would
+ * replace a correct figure with "$ NaN".
+ */
+export function formatSampleAmount(value: string): string {
+  const trimmed = value.trim()
+  if (!/^-?\d+(\.\d+)?$/.test(trimmed)) return value
+  return formatAccountingAmountString(trimmed)
+}
+
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

@@ -5,9 +5,10 @@ import type { ClientDocument } from '~/domain/entities/document'
 import { DocumentTypeInUseError } from '~/domain/errors/document-type-in-use-error'
 import type { ReconciliationKind } from '~/domain/entities/reconciliation-kind'
 import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
-import type { FieldSelection } from '~/domain/document-type-configuration'
+import type { FieldSelection, ProposalFieldRow } from '~/domain/document-type-configuration'
 import {
   buildFieldSelections,
+  buildProposalRows,
   configurationStatus,
   fieldsMissingAccountPath,
   groupBySpineConcept,
@@ -16,6 +17,7 @@ import {
   mappingChangeSeverity,
   shouldSaveDraft,
   readSource,
+  toDocumentTypeFields,
   toMappingDraft,
   writeSource
 } from '~/domain/document-type-configuration'
@@ -23,6 +25,8 @@ import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
 import { changesNothing, compareSchemaPaths } from '~/domain/schema-revision'
 import type { SchemaRevision } from '~/domain/schema-revision'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
+import ProposalFieldPicker from '~/components/document-types/ProposalFieldPicker.vue'
+import { carryChoices, rowsForRemovedPaths, toFieldSelection } from '~/domain/proposal-loop'
 import { matchesFieldQuery } from '~/domain/field-search'
 import {
   descriptionsForKnownPaths,
@@ -261,14 +265,26 @@ const regenerationChangesNothing = computed(
   () => regeneratedRevision.value !== null && changesNothing(regeneratedRevision.value)
 )
 
-/** The document's own name for a proposed path, so the additions read as the
- * paper reads and not as dotted paths. */
-const regeneratedLabels = computed(
-  () => new Map((regenerated.value?.fields ?? []).map(field => [field.path, field.label]))
-)
+/**
+ * The regenerated reading as a list to answer, not a verdict to accept.
+ *
+ * Before this the screen showed the diff and two buttons: take all of it or
+ * none of it. The reading that added fourteen useful fields and dropped two
+ * that mattered had no third answer — which is the state a certificate lands
+ * in most of the time.
+ *
+ * A path the new reading dropped is listed here too, unticked. Ticking it back
+ * does not restore it on its own (only the model writes the schema branch that
+ * would hold it); it puts the field in the next round's kept list, which is
+ * the instruction that brings it back.
+ */
+const regeneratedRows = ref<ProposalFieldRow[]>([])
 
-function regeneratedLabelFor(path: string): string {
-  return regeneratedLabels.value.get(path) || fieldName(path)
+function readRows(proposal: DocumentTypeProposal, revision: SchemaRevision | null) {
+  const previous = regeneratedRows.value
+  const proposed = buildProposalRows(proposal, listSchemaFields(proposal.extractionSchema))
+  const removed = rowsForRemovedPaths(revision?.removed ?? [], path => fieldName(path))
+  regeneratedRows.value = carryChoices([...proposed, ...removed], previous)
 }
 
 async function regenerate() {
@@ -277,10 +293,10 @@ async function regenerate() {
 
   regenerating.value = true
   regenerationFailed.value = false
-  regenerated.value = null
 
   try {
-    regenerated.value = await proposeDocumentType.execute({
+    const previous = regeneratedRows.value
+    const proposal = await proposeDocumentType.execute({
       name: documentType.value.name,
       documentId: paper.id,
       // Named so the server revises this type rather than reading it afresh:
@@ -288,8 +304,20 @@ async function regenerate() {
       // it kept would discard every one of them to fix the one that was
       // missing.
       documentTypeId: documentTypeId,
-      guidance: regenerationGuidance.value
+      guidance: regenerationGuidance.value,
+      // The answer to the last round, which is this round's instruction. Empty
+      // on the first press, where there is no answer behind it yet.
+      selection: previous.length ? toFieldSelection(previous) : null
     })
+    regenerated.value = proposal
+    readRows(
+      proposal,
+      compareSchemaPaths(
+        schemaFields.value.map(field => field.path),
+        listSchemaFields(proposal.extractionSchema).map(field => field.path)
+      )
+    )
+    regenerationGuidance.value = ''
   } catch {
     regenerationFailed.value = true
   } finally {
@@ -299,6 +327,7 @@ async function regenerate() {
 
 function discardRegeneration() {
   regenerated.value = null
+  regeneratedRows.value = []
   regenerationFailed.value = false
 }
 
@@ -320,12 +349,22 @@ async function applyRegeneration() {
   try {
     const updated = await updateDocumentType.execute(documentTypeId, {
       extractionPrompt: proposal.extractionPrompt,
-      extractionSchema: proposal.extractionSchema,
-      fields: mergeDescriptions(documentType.value.fields, proposal.fields),
+      // Trimmed to what was ticked, like creating a type: a reading that also
+      // proposed the letterhead should not widen what every future document
+      // is asked for just because it came in the same round as the fix.
+      extractionSchema: pruneSchema(proposal.extractionSchema, keptPaths(regeneratedRows.value)),
+      // The rows win over what is stored: their labels are what the person
+      // just decided this field is called. The stored fields only fill in what
+      // a row left blank — a section or a sample value this reading missed.
+      fields: mergeDescriptions(
+        toDocumentTypeFields(regeneratedRows.value),
+        documentType.value.fields
+      ),
       sampleDocumentId: documentToReadAgain.value?.id
     })
     mappingChanges.value = updated.mappingChanges
     regenerated.value = null
+    regeneratedRows.value = []
     regenerationGuidance.value = ''
     await refreshDocumentType()
   } catch {
@@ -1074,48 +1113,29 @@ watch(
                 {{ t('documentTypes.edit.regenerate.noChange') }}
               </p>
 
-              <div v-if="regeneratedRevision.added.length > 0">
-                <p class="text-sm font-medium">
-                  {{ t('documentTypes.edit.regenerate.added', {
-                    count: regeneratedRevision.added.length
-                  }) }}
-                </p>
-                <ul class="mt-1 flex flex-col gap-1">
-                  <li
-                    v-for="path in regeneratedRevision.added"
-                    :key="path"
-                    class="text-sm"
-                  >
-                    <span class="text-success">+</span>
-                    {{ regeneratedLabelFor(path) }}
-                    <span class="text-dimmed break-all font-mono text-xs">{{ path }}</span>
-                  </li>
-                </ul>
-              </div>
+              <p
+                v-if="regeneratedRevision.removed.length > 0"
+                class="text-warning text-sm"
+                data-testid="regenerate-removed"
+              >
+                {{ t('documentTypes.edit.regenerate.removed', {
+                  count: regeneratedRevision.removed.length
+                }) }}
+              </p>
 
-              <div v-if="regeneratedRevision.removed.length > 0">
-                <p class="text-warning text-sm font-medium">
-                  {{ t('documentTypes.edit.regenerate.removed', {
-                    count: regeneratedRevision.removed.length
-                  }) }}
-                </p>
-                <ul class="mt-1 flex flex-col gap-1">
-                  <li
-                    v-for="path in regeneratedRevision.removed"
-                    :key="path"
-                    class="text-sm"
-                  >
-                    <span class="text-warning">−</span>
-                    {{ fieldName(path) }}
-                    <span class="text-dimmed break-all font-mono text-xs">{{ path }}</span>
-                  </li>
-                </ul>
-              </div>
+              <!--
+                The diff, as a list that can be answered. Fields this reading
+                added are badged among their neighbours rather than listed
+                apart, and a field it dropped is here unticked — ticking it
+                back is what asks the next reading to bring it home.
+              -->
+              <ProposalFieldPicker
+                :rows="regeneratedRows"
+                :added-paths="regeneratedRevision.added"
+              />
 
               <p class="text-muted text-xs">
-                {{ t('documentTypes.edit.regenerate.kept', {
-                  count: regeneratedRevision.kept.length
-                }) }}
+                {{ t('documentTypes.edit.regenerate.applyHint') }}
               </p>
 
               <div class="flex flex-wrap gap-2">
@@ -1127,6 +1147,23 @@ watch(
                   @click="applyRegeneration"
                 >
                   {{ t('documentTypes.edit.regenerate.apply') }}
+                </UButton>
+                <!--
+                  The loop: what was just ticked, renamed and annotated goes
+                  back as the instruction for another reading, so a proposal
+                  that is close does not have to be accepted whole or thrown
+                  away whole.
+                -->
+                <UButton
+                  variant="outline"
+                  size="sm"
+                  icon="i-lucide-refresh-cw"
+                  :loading="regenerating"
+                  :disabled="regenerating || applyingRegeneration"
+                  data-testid="reread-type"
+                  @click="regenerate"
+                >
+                  {{ t('documentTypes.reread.action') }}
                 </UButton>
                 <UButton
                   color="neutral"
