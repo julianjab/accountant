@@ -3,6 +3,7 @@ import { HttpDocumentRepository } from '~/infrastructure/http/http-document-repo
 import { HttpDocumentTypeRepository } from '~/infrastructure/http/http-document-type-repository'
 import { HttpSpreadsheetRepository } from '~/infrastructure/http/http-spreadsheet-repository'
 import { HttpReconciliationRepository } from '~/infrastructure/http/http-reconciliation-repository'
+import { HttpConceptMappingRepository } from '~/infrastructure/http/http-concept-mapping-repository'
 import { ServerSessionAuthProvider } from '~/infrastructure/auth/server-session-auth-provider'
 import { GetClient } from '~/application/use-cases/get-client'
 import { ListClients } from '~/application/use-cases/list-clients'
@@ -17,6 +18,11 @@ import { ImportClientsFromDrive } from '~/application/use-cases/import-clients-f
 import { GetCurrentUser } from '~/application/use-cases/get-current-user'
 import { ListDocumentTypes } from '~/application/use-cases/list-document-types'
 import { DefineDocumentType } from '~/application/use-cases/define-document-type'
+import { GetDocumentType } from '~/application/use-cases/get-document-type'
+import { UpdateDocumentType } from '~/application/use-cases/update-document-type'
+import { ListReconciliationKinds } from '~/application/use-cases/list-reconciliation-kinds'
+import { GetConceptMapping } from '~/application/use-cases/get-concept-mapping'
+import { SaveConceptMapping } from '~/application/use-cases/save-concept-mapping'
 import { GetReconciliationReport } from '~/application/use-cases/get-reconciliation-report'
 import { RunReconciliation } from '~/application/use-cases/run-reconciliation'
 import { SignInWithGoogle } from '~/application/use-cases/sign-in-with-google'
@@ -46,6 +52,11 @@ export function useSpreadsheetRepository() {
 export function useReconciliationRepository() {
   const config = useRuntimeConfig()
   return new HttpReconciliationRepository(config.public.serverApiBase)
+}
+
+export function useConceptMappingRepository() {
+  const config = useRuntimeConfig()
+  return new HttpConceptMappingRepository(config.public.serverApiBase)
 }
 
 export function useGetReconciliationReportUseCase() {
@@ -78,6 +89,26 @@ export function useListDocumentTypesUseCase() {
 
 export function useDefineDocumentTypeUseCase() {
   return new DefineDocumentType(useDocumentTypeRepository())
+}
+
+export function useGetDocumentTypeUseCase() {
+  return new GetDocumentType(useDocumentTypeRepository())
+}
+
+export function useUpdateDocumentTypeUseCase() {
+  return new UpdateDocumentType(useDocumentTypeRepository())
+}
+
+export function useListReconciliationKindsUseCase() {
+  return new ListReconciliationKinds(useConceptMappingRepository())
+}
+
+export function useGetConceptMappingUseCase() {
+  return new GetConceptMapping(useConceptMappingRepository())
+}
+
+export function useSaveConceptMappingUseCase() {
+  return new SaveConceptMapping(useConceptMappingRepository())
 }
 
 export function useListClientSheetRowsUseCase() {

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { DocumentType } from '~/domain/entities/document-type'
-import type { DefineDocumentTypeInput, DocumentTypeRepository } from '~/application/ports/document-type-repository'
+import type { DocumentType, DocumentTypeUpdate } from '~/domain/entities/document-type'
+import type {
+  DefineDocumentTypeInput,
+  DocumentTypeRepository,
+  UpdateDocumentTypeInput
+} from '~/application/ports/document-type-repository'
 import { DefineDocumentType } from '~/application/use-cases/define-document-type'
 
 class FakeDocumentTypeRepository implements DocumentTypeRepository {
@@ -19,6 +23,10 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
   define(input: DefineDocumentTypeInput): Promise<DocumentType> {
     this.receivedInput = input
     return Promise.resolve(this.documentType)
+  }
+
+  update(_id: string, _changes: UpdateDocumentTypeInput): Promise<DocumentTypeUpdate> {
+    throw new Error('not implemented')
   }
 }
 

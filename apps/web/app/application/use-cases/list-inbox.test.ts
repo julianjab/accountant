@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Client } from '~/domain/entities/client'
 import type { ClientDocument } from '~/domain/entities/document'
-import type { DocumentType } from '~/domain/entities/document-type'
+import type { DocumentType, DocumentTypeUpdate } from '~/domain/entities/document-type'
 import type { ClientRepository, ImportSummary, RegisterClientInput } from '~/application/ports/client-repository'
 import type { DocumentListFilter, DocumentRepository } from '~/application/ports/document-repository'
-import type { DefineDocumentTypeInput, DocumentTypeRepository } from '~/application/ports/document-type-repository'
+import type {
+  DefineDocumentTypeInput,
+  DocumentTypeRepository,
+  UpdateDocumentTypeInput
+} from '~/application/ports/document-type-repository'
 import { ListInbox } from '~/application/use-cases/list-inbox'
 
 class FakeClientRepository implements ClientRepository {
@@ -59,6 +63,10 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
   }
 
   define(_input: DefineDocumentTypeInput): Promise<DocumentType> {
+    throw new Error('not implemented')
+  }
+
+  update(_id: string, _changes: UpdateDocumentTypeInput): Promise<DocumentTypeUpdate> {
     throw new Error('not implemented')
   }
 }
