@@ -96,6 +96,7 @@
     "title": "Document review",
     "signInRequired": "Sign in with Google to see this document.",
     "notFound": "Document not found",
+    "otherFields": "Other fields",
     "unknownType": "Unknown document type",
     "headerConfidence": "Average confidence",
     "averageConfidence": "Average confidence",

@@ -96,6 +96,7 @@
     "title": "Revisión de documento",
     "signInRequired": "Inicia sesión con Google para ver este documento.",
     "notFound": "No se encontró el documento",
+    "otherFields": "Otros campos",
     "unknownType": "Tipo de documento desconocido",
     "headerConfidence": "Confianza promedio",
     "averageConfidence": "Confianza promedio",

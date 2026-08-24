@@ -1,4 +1,5 @@
 import type { MappingChange } from '~/domain/entities/concept-mapping'
+import type { DocumentTypeField } from '~/domain/field-sections'
 
 export interface DocumentType {
   id: string
@@ -8,6 +9,12 @@ export interface DocumentType {
   extractionSchema: Record<string, unknown>
   active: boolean
   createdAt: string
+  /**
+   * What each extracted field is called and which block of the document it
+   * came from. Empty for types configured before descriptions existed, which
+   * every screen reading this must still render.
+   */
+  fields: DocumentTypeField[]
 }
 
 /**

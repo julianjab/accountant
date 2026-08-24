@@ -14,7 +14,8 @@ const DOCUMENT_TYPE: DocumentType = {
   extractionPrompt: 'Extract the certificate fields',
   extractionSchema: { properties: { balance: { type: 'string' } } },
   active: true,
-  createdAt: '2026-01-01'
+  createdAt: '2026-01-01',
+  fields: []
 }
 
 class FakeDocumentTypeRepository implements DocumentTypeRepository {

@@ -1,5 +1,6 @@
 import type { DocumentType, DocumentTypeUpdate } from '~/domain/entities/document-type'
 import type { MappingChange } from '~/domain/entities/concept-mapping'
+import type { DocumentTypeField, FieldRole } from '~/domain/field-sections'
 import type {
   DefineDocumentTypeInput,
   DocumentTypeRepository,
@@ -14,6 +15,28 @@ interface DocumentTypeDto {
   extraction_schema: Record<string, unknown>
   active: boolean
   created_at: string
+  fields?: DocumentTypeFieldDto[]
+}
+
+interface DocumentTypeFieldDto {
+  path: string
+  label: string
+  role: string
+  section: string
+}
+
+const ROLES: FieldRole[] = ['identifier', 'amount', 'context']
+
+/**
+ * Descriptions as the server stored them.
+ *
+ * A role the client does not know is read as plain context rather than
+ * rejected: the role only orders a screen, and refusing the type over it
+ * would leave the accountant unable to open a document at all.
+ */
+function toField(dto: DocumentTypeFieldDto): DocumentTypeField {
+  const role = ROLES.find(known => known === dto.role) ?? 'context'
+  return { path: dto.path, label: dto.label || dto.path, role, section: dto.section ?? '' }
 }
 
 interface MappingChangeDto {
@@ -48,7 +71,8 @@ function toDocumentType(dto: DocumentTypeDto): DocumentType {
     extractionPrompt: dto.extraction_prompt,
     extractionSchema: dto.extraction_schema,
     active: dto.active,
-    createdAt: dto.created_at
+    createdAt: dto.created_at,
+    fields: (dto.fields ?? []).map(toField)
   }
 }
 

@@ -4,6 +4,7 @@ import type { DocumentType } from '~/domain/entities/document-type'
 import type { ExtractedData } from '~/domain/entities/extracted-data'
 import ExtractionFieldRow from '~/components/documents/ExtractionFieldRow.vue'
 import ProcessingTimeline from '~/components/documents/ProcessingTimeline.vue'
+import { groupBySection, hasUsefulSections, labelFor } from '~/domain/field-sections'
 
 const props = defineProps<{
   document: ClientDocument
@@ -66,19 +67,35 @@ interface FieldEntry {
   key: string
   value: unknown
   confidence: number | null
+  /** The document's own name for this field, empty when its type has none. */
+  label: string
 }
 
 const fieldEntries = computed<FieldEntry[]>(() => {
   if (!props.extractedData) {
     return []
   }
+  const described = props.documentType?.fields ?? []
   return Object.entries(props.extractedData.fields).map(([key, raw]) => {
+    // A top-level key is only described when it is a leaf; an extracted array
+    // is described through its columns, so labelFor returns the key and the
+    // row falls back to humanising it, which is right for a group heading.
+    const label = labelFor(key, described) === key ? '' : labelFor(key, described)
     if (isFieldWithConfidence(raw)) {
-      return { key, value: raw.value, confidence: raw.confidence }
+      return { key, value: raw.value, confidence: raw.confidence, label }
     }
-    return { key, value: raw, confidence: props.extractedData!.confidence }
+    return { key, value: raw, confidence: props.extractedData!.confidence, label }
   })
 })
+
+// The document is shown in its own blocks when its type records more than one.
+// One section is a heading that separates nothing, and no sections at all is
+// every type configured before they existed — both read better as a flat list.
+const showSections = computed(() => hasUsefulSections(props.documentType?.fields ?? []))
+
+const sections = computed(() =>
+  groupBySection(fieldEntries.value, entry => entry.key, props.documentType?.fields ?? [])
+)
 
 const averageConfidence = computed<number | null>(() => {
   if (!props.extractedData) {
@@ -181,6 +198,30 @@ const isMissingExtraction = computed(() =>
     />
 
     <div
+      v-else-if="extractedData && showSections"
+      class="flex flex-col gap-6"
+    >
+      <section
+        v-for="section in sections"
+        :key="section.name || 'unsectioned'"
+      >
+        <h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+          {{ section.name || t('documents.otherFields') }}
+        </h3>
+        <div class="divide-y divide-default">
+          <ExtractionFieldRow
+            v-for="entry in section.items"
+            :key="entry.key"
+            :field-key="entry.key"
+            :value="entry.value"
+            :confidence="entry.confidence"
+            :label="entry.label"
+          />
+        </div>
+      </section>
+    </div>
+
+    <div
       v-else-if="extractedData"
       class="divide-y divide-default"
     >
@@ -190,6 +231,7 @@ const isMissingExtraction = computed(() =>
         :field-key="entry.key"
         :value="entry.value"
         :confidence="entry.confidence"
+        :label="entry.label"
       />
     </div>
 
