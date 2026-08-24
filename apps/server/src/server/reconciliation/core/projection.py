@@ -32,6 +32,15 @@ class ConceptMappingEntry:
     #: with `accounts[].balance`.
     account_path: str | None = None
     sign: int = 1
+    #: Which claim of the spine this field answers. Without it the field is
+    #: still extracted and still becomes a fact, but no rule compares it
+    #: against anything — it is evidence nobody asked for.
+    spine_concept_id: str | None = None
+    #: Compare account by account rather than totalling per reporting party.
+    #: True only when *both* sides identify the account: a certificate that
+    #: consolidates has no account to pair against, and asking for one turns
+    #: a figure it does back into "no certificate found".
+    per_account: bool = False
 
     def __post_init__(self) -> None:
         # A sign of 0 would silently zero every amount this field contributes

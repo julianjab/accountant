@@ -69,6 +69,7 @@ class ReconciliationEngine:
         report_id: str | None = None,
         generated_at: datetime | None = None,
         contributions: tuple[DocumentContribution, ...] = (),
+        rules: tuple[ReconciliationRule, ...] | None = None,
     ) -> ReconciliationReport:
         catalog = kind.concept_catalog()
         in_period = [f for f in facts if f.period == period]
@@ -83,7 +84,7 @@ class ReconciliationEngine:
         used_evidence: set[int] = set()
 
         findings: list[ReconciliationFinding] = []
-        for rule in kind.rules():
+        for rule in kind.rules() if rules is None else rules:
             findings.extend(
                 self._apply_rule(rule, catalog, spine, evidence, used_spine, used_evidence)
             )

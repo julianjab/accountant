@@ -33,9 +33,11 @@ class SaveConceptMapping:
     def execute(self, data: SaveConceptMappingInput) -> ConceptMapping:
         kind = self._registry.get(data.mapping.kind_id)
         catalog = kind.concept_catalog()
-        unknown = sorted(
-            {e.concept_id for e in data.mapping.entries if e.concept_id not in catalog}
-        )
+        named = {e.concept_id for e in data.mapping.entries}
+        named |= {
+            e.spine_concept_id for e in data.mapping.entries if e.spine_concept_id is not None
+        }
+        unknown = sorted(name for name in named if name not in catalog)
         if unknown:
             raise UnknownMappedConcept(
                 f"{kind.id} does not define concept(s): {', '.join(unknown)}"

@@ -140,7 +140,7 @@ def wiring():
     provider = DocumentFactProvider(
         registry, clients, documents, document_types, extracted, mappings, storage
     )
-    use_case = ReconcileClientPeriod(registry, provider, reports)
+    use_case = ReconcileClientPeriod(registry, provider, reports, mappings)
     return use_case, reports, documents, mappings, document_types, extracted
 
 
@@ -422,3 +422,28 @@ def test_an_unreadable_spine_still_lets_its_extraction_be_used(wiring):
     contribution = next(c for c in report.contributions if c.document_id == "cert-banco")
     assert contribution.status is ContributionStatus.CONTRIBUTED
     assert contribution.fact_count > 0
+
+
+def test_what_the_user_configured_outranks_the_built_in_pack(wiring):
+    """The point of making this editable: someone reading the certificate can
+    overrule a default that does not fit their documents."""
+    use_case, _, _, mappings, _, _ = wiring
+    mappings.save(
+        ConceptMapping(
+            document_type_id=fixtures.BANCOLOMBIA_MAPPING.document_type_id,
+            kind_id=KIND_ID,
+            reporter_path=fixtures.BANCOLOMBIA_MAPPING.reporter_path,
+            entries=(
+                ConceptMappingEntry(
+                    field_path="saldo_cuenta_ahorros",
+                    concept_id="bank:cert_saldo_cuentas_ahorro",
+                    spine_concept_id="dian:saldo-cuentas-bancarias",
+                ),
+            ),
+        )
+    )
+
+    report = use_case.execute(ReconcileClientPeriodInput("client-1", KIND_ID, Period.of_year(2025)))
+
+    matched = [f for f in report.findings if f.status.is_reconciled]
+    assert any(f.rule_id == "configured.dian:saldo-cuentas-bancarias" for f in matched)
