@@ -5,6 +5,7 @@ import {
   mergeDescriptions,
   groupBySection,
   hasUsefulSections,
+  isUnderdescribed,
   labelFor,
   orderedSectionNames,
   rootKey,
@@ -165,5 +166,54 @@ describe('mergeDescriptions', () => {
     const merged = mergeDescriptions(FIELDS, [])
 
     expect(merged).toEqual([...FIELDS])
+  })
+
+  it('fills in the sample value of a field that was named but never valued', () => {
+    // Every type saved before values were carried. Merging whole fields left
+    // these unfixable: the path was there, so the reading that had just found
+    // the value on the paper was thrown away.
+    const stored = { ...field('nit', 'Emisor', 'NIT'), sampleValue: '' }
+    const fresh = { ...field('nit', 'Emisor', 'NIT'), sampleValue: '890.903.938' }
+
+    expect(mergeDescriptions([stored], [fresh])[0]!.sampleValue).toBe('890.903.938')
+  })
+
+  it('replaces a label that only repeats the field name', () => {
+    // What the schema fallback produces when a proposal describes nothing: a
+    // label in the data and no label on screen.
+    const stored = field('agente_retenedor.nit', '', 'nit')
+    const fresh = field('agente_retenedor.nit', 'Agente retenedor', 'NIT del agente')
+
+    expect(mergeDescriptions([stored], [fresh])[0]).toEqual({
+      ...fresh,
+      role: stored.role
+    })
+  })
+
+  it('still refuses to overwrite a label someone wrote', () => {
+    const merged = mergeDescriptions(
+      [{ ...field('nit', 'Emisor', 'NIT corregido a mano'), sampleValue: '1' }],
+      [{ ...field('nit', 'Otro bloque', 'NIT'), sampleValue: '2' }]
+    )
+
+    expect(merged[0]!.label).toBe('NIT corregido a mano')
+    expect(merged[0]!.section).toBe('Emisor')
+    expect(merged[0]!.sampleValue).toBe('1')
+  })
+})
+
+describe('isUnderdescribed', () => {
+  it('is true for a field whose label only repeats its own name', () => {
+    expect(isUnderdescribed(field('agente_retenedor.nit', 'Emisor', 'nit'))).toBe(true)
+  })
+
+  it('is true for a field with no sample value, however well named', () => {
+    expect(isUnderdescribed(field('nit', 'Emisor', 'NIT'))).toBe(true)
+  })
+
+  it('is false once the paper has told us everything about it', () => {
+    expect(
+      isUnderdescribed({ ...field('nit', 'Emisor', 'NIT'), sampleValue: '890.903.938' })
+    ).toBe(false)
   })
 })

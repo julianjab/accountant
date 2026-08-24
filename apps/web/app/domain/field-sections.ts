@@ -120,24 +120,59 @@ export function hasUsefulSections(fields: readonly DocumentTypeField[]): boolean
 }
 
 /**
- * Stored descriptions, plus recovered ones for the fields that had none.
+ * Whether a label says anything the path does not already say.
+ *
+ * A type whose proposal came back with no descriptions falls back to the
+ * schema, which labels each field with its own property name — `nit` for
+ * `agente_retenedor.nit`. That is a label in the data and no label on screen,
+ * and treating it as one is what left those types stuck: nothing was missing,
+ * so nothing offered to fill it.
+ */
+function saysNothing(label: string, path: string): boolean {
+  return !label || label === path || label === path.split('.').pop()?.replace('[]', '')
+}
+
+/** Whether re-reading the paper could still tell us something about a field. */
+export function isUnderdescribed(field: DocumentTypeField): boolean {
+  return saysNothing(field.label, field.path) || !field.section || !field.sampleValue
+}
+
+/**
+ * Stored descriptions, filled in from a fresh reading of the same paper.
  *
  * Additive on purpose. A stored description was written when the type was
  * configured and may well have been corrected by hand since; a recovered one
- * comes from re-reading the paper today. Where both exist the stored one is
- * the curated answer and wins.
+ * comes from re-reading the paper today. Where both say something the stored
+ * one is the curated answer and wins.
  *
- * This matters because the server replaces descriptions wholesale: sending
- * only what a re-read matched would delete every label it failed to match,
- * which on a well-described type is a straight loss of curated data caused by
- * an action offering to add to it.
+ * Per attribute, not per field. Merging whole fields meant a field that had a
+ * name but no sample value — every type saved before values were carried —
+ * could never gain one: its path was present, so the re-read that had just
+ * read the value off the paper was discarded entire. An empty attribute has
+ * no curation to protect.
+ *
+ * The wholesale part still matters because the server replaces descriptions
+ * wholesale: sending only what a re-read matched would delete every label it
+ * failed to match, which on a well-described type is a straight loss of
+ * curated data caused by an action offering to add to it.
  */
 export function mergeDescriptions(
   stored: readonly DocumentTypeField[],
   recovered: readonly DocumentTypeField[]
 ): DocumentTypeField[] {
+  const freshByPath = new Map(recovered.map(field => [field.path, field]))
+  const merged = stored.map((field) => {
+    const fresh = freshByPath.get(field.path)
+    if (!fresh) return field
+    return {
+      ...field,
+      label: saysNothing(field.label, field.path) ? fresh.label : field.label,
+      section: field.section || fresh.section,
+      sampleValue: field.sampleValue || fresh.sampleValue
+    }
+  })
   const described = new Set(stored.map(field => field.path))
-  return [...stored, ...recovered.filter(field => !described.has(field.path))]
+  return [...merged, ...recovered.filter(field => !described.has(field.path))]
 }
 
 /**

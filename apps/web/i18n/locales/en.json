@@ -297,12 +297,12 @@
         "hint": "The fields below were taken from this paper. Check them against it to confirm the right things are being read."
       },
       "recover": {
-        "title": "Recover the fields' names and blocks",
-        "hint": "This type was configured before they were stored, which is why the list below shows paths instead of the paper's own words. «{file}» can be read again to recover them. The prompt, the schema and the mappings are left alone.",
+        "title": "Recover names, blocks and the sample's values",
+        "hint": "Some fields below are missing the paper's own name for them, their block, or the value the sample carried. «{file}» can be read again to fill those in. The prompt, the schema and the mappings are left alone, and anything already named by hand is kept.",
         "action": "Read the document again",
         "failed": "The document could not be read. Try again.",
-        "done": "Named {named} new fields, out of {total}. The document was saved with the type.",
-        "nothing": "No new field could be named: re-reading the document, the model used different field names than the ones this type has stored. Nothing was deleted; the document was saved with the type."
+        "done": "Filled in {named} fields, out of {total}. The document was saved with the type.",
+        "nothing": "No field could be filled in: re-reading the document, the model used different field names than the ones this type has stored. Nothing was deleted; the document was saved with the type."
       },
       "remove": {
         "title": "Delete this type",

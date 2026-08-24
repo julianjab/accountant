@@ -23,6 +23,7 @@ import DocumentViewer from '~/components/documents/DocumentViewer.vue'
 import {
   descriptionsForKnownPaths,
   groupBySection,
+  isUnderdescribed,
   labelFor,
   mergeDescriptions,
   orderedSectionNames
@@ -102,11 +103,23 @@ const { data: offeredDocument, refresh: refreshOfferedDocument } = await useAsyn
   { immediate: false, server: false, default: () => null }
 )
 
-/** Fields the type extracts but cannot name. Zero means there is nothing to
- * recover, and the action is not offered. */
+/**
+ * Fields a re-reading of the paper could still tell us something about. Zero
+ * means there is nothing to recover, and the action is not offered.
+ *
+ * Counts the hollow ones as well as the absent ones. A type whose proposal
+ * described nothing falls back to the schema, which gives every field a label
+ * equal to its own property name and no sample value — so nothing was
+ * "missing", the offer never appeared, and the screen stayed a list of paths
+ * with no values against a document that was right there.
+ */
 const missingDescriptions = computed(() => {
-  const described = new Set((documentType.value?.fields ?? []).map(field => field.path))
-  return schemaFields.value.filter(field => !described.has(field.path)).length
+  const stored = documentType.value?.fields ?? []
+  const described = new Map(stored.map(field => [field.path, field]))
+  return schemaFields.value.filter((field) => {
+    const match = described.get(field.path)
+    return match === undefined || isUnderdescribed(match)
+  }).length
 })
 
 const confirmingDelete = ref(false)
@@ -172,7 +185,16 @@ async function recoverDescriptions() {
       fields: merged,
       sampleDocumentId: offeredDocumentId.value
     })
-    recovered.value = { named: merged.length - stored.length, total: known.length }
+    // Counted by what actually changed, not by how many rows appeared. The
+    // re-read that matters most adds no rows at all: it fills in the values
+    // and blocks of fields the type already listed, and reporting that as
+    // "nothing recovered" told the user their working action had failed.
+    const before = new Map(stored.map(field => [field.path, field]))
+    const named = merged.filter((field) => {
+      const previous = before.get(field.path)
+      return previous === undefined || JSON.stringify(previous) !== JSON.stringify(field)
+    }).length
+    recovered.value = { named, total: known.length }
     await refreshDocumentType()
   } catch {
     recoveryFailed.value = true
