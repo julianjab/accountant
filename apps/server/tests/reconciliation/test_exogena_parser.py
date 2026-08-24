@@ -4,6 +4,7 @@ a clean-looking but wrong report."""
 from __future__ import annotations
 
 import io
+import zipfile
 
 import fixtures
 import pytest
@@ -168,3 +169,51 @@ def test_a_row_shorter_than_the_header_does_not_crash_the_parse():
     facts = _extract(data)
     assert len(facts) == 1
     assert facts[0].account is None
+
+
+def _with_decimal_numbers(data: bytes, values: tuple[int, ...]) -> bytes:
+    """The same workbook with those numeric cells written as `N.0`.
+
+    openpyxl always writes a whole number without a decimal point, so a
+    workbook built here cannot reproduce what the DIAN's file actually holds.
+    """
+    source = zipfile.ZipFile(io.BytesIO(data))
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as target:
+        for item in source.infolist():
+            content = source.read(item.filename)
+            if item.filename == "xl/worksheets/sheet1.xml":
+                for value in values:
+                    content = content.replace(
+                        f"<v>{value}</v>".encode(), f"<v>{value}.0</v>".encode()
+                    )
+            target.writestr(item, content)
+    return buffer.getvalue()
+
+
+def test_a_nit_written_as_a_decimal_does_not_grow_a_digit():
+    """A NIT cell holding `890903938.0` comes back from openpyxl as a float.
+
+    Stringifying it kept the decimal point, so the party reached the engine as
+    `8909039380` and no exogena row could pair with the certificate naming the
+    same party — every row of a real report read as "certificate not found".
+    """
+    data = _workbook(
+        [
+            ["Año al que se refiere la consulta:", "", 2025],
+            ["NIT", "Nombre", "NIT", "Nombre", "Detalle", "Valor", "Uso", "Info"],
+            [
+                890903938,
+                "BANCOLOMBIA S.A.",
+                1038409218,
+                "X",
+                "Cuentas por pagar de clientes (Concepto: 1315)",
+                146231584,
+                "",
+                "",
+            ],
+        ]
+    )
+    (fact,) = _extract(_with_decimal_numbers(data, (890903938, 1038409218)))
+    assert str(fact.reporter_tax_id) == "890903938"
+    assert str(fact.subject_tax_id) == "1038409218"

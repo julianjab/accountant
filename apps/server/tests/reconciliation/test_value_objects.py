@@ -55,6 +55,9 @@ def test_money_arithmetic_stays_exact():
         ("890.903.938", "890903938"),
         (" 1038409218 ", "1038409218"),
         (1038409218, "1038409218"),
+        # openpyxl reads a NIT column as a number, and `str(890903938.0)` ends
+        # in a digit that is not part of the identifier.
+        (890903938.0, "890903938"),
     ],
 )
 def test_tax_ids_normalize_to_the_identifier_without_its_check_digit(raw, expected):
