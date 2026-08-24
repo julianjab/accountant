@@ -25,6 +25,7 @@ from server.infrastructure.api.schemas import (
     ConceptMappingEntryPayload,
     ConceptMappingRequest,
     ConceptMappingResponse,
+    DocumentContributionResponse,
     ReconciliationConceptResponse,
     ReconciliationFactResponse,
     ReconciliationFindingResponse,
@@ -227,6 +228,16 @@ def _to_report_response(report: ReconciliationReport) -> ReconciliationReportRes
             needing_attention=summary.needing_attention,
         ),
         findings=[_to_finding_response(f) for f in report.findings],
+        contributions=[
+            DocumentContributionResponse(
+                document_id=c.document_id,
+                file_name=c.file_name,
+                status=c.status.value,
+                fact_count=c.fact_count,
+                detail=c.detail,
+            )
+            for c in report.contributions
+        ],
     )
 
 

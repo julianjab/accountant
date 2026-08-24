@@ -187,6 +187,16 @@ class ReconciliationSummaryResponse(BaseModel):
     needing_attention: int
 
 
+class DocumentContributionResponse(BaseModel):
+    """What one document contributed to the reconciliation, and why."""
+
+    document_id: str
+    file_name: str
+    status: str
+    fact_count: int
+    detail: str
+
+
 class ReconciliationReportResponse(BaseModel):
     id: str
     client_id: str
@@ -195,6 +205,7 @@ class ReconciliationReportResponse(BaseModel):
     generated_at: datetime
     summary: ReconciliationSummaryResponse
     findings: list[ReconciliationFindingResponse]
+    contributions: list[DocumentContributionResponse]
 
 
 class ConceptMappingEntryPayload(BaseModel):
