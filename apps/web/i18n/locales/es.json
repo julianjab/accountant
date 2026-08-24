@@ -199,6 +199,7 @@
         "unmappedTitle": "Estos campos se van a extraer pero no se van a cruzar"
       },
       "sampleDocumentHint": "Este es el papel con el que se va a configurar el tipo. Queda guardado con el tipo, así después se pueden revisar los campos contra él.",
+      "samplePending": "Acá se va a ver el documento de muestra, para que puedas leer los campos contra el papel.",
       "previewUnsupported": "No se puede previsualizar este tipo de archivo acá."
     },
     "configure": "Configurar",

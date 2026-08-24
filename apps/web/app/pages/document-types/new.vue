@@ -292,120 +292,465 @@ async function save() {
       :title="t('documentTypes.new.error')"
     />
 
-    <form
-      v-if="step === 'form'"
-      class="flex max-w-xl flex-col gap-4"
-      @submit.prevent="analyze"
-    >
-      <UFormField
-        :label="t('documentTypes.fields.name')"
-        required
-      >
-        <UInput
-          v-model="name"
-          required
-          class="w-full"
-        />
-      </UFormField>
+    <!--
+      The paper on the right, at every step. Naming the type, waiting on the
+      analysis and choosing the fields are all done by reading the document,
+      so it never leaves the screen while the column beside it changes.
+    -->
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+      <div class="flex min-w-0 flex-col gap-6">
+        <form
+          v-if="step === 'form'"
+          class="flex flex-col gap-4"
+          @submit.prevent="analyze"
+        >
+          <UFormField
+            :label="t('documentTypes.fields.name')"
+            required
+          >
+            <UInput
+              v-model="name"
+              required
+              class="w-full"
+            />
+          </UFormField>
 
-      <UFormField
-        :label="t('documentTypes.fields.description')"
-        required
-      >
-        <UTextarea
-          v-model="description"
-          required
-          class="w-full"
-        />
-      </UFormField>
+          <UFormField
+            :label="t('documentTypes.fields.description')"
+            required
+          >
+            <UTextarea
+              v-model="description"
+              required
+              class="w-full"
+            />
+          </UFormField>
 
-      <!--
+          <!--
         Started from a document, so there is nothing to upload: that paper is
         the sample, and the type will keep pointing at it.
       -->
-      <UFormField
-        v-if="sampleDocument"
-        :label="t('documentTypes.fields.sampleFile')"
-        :help="t('documentTypes.new.sampleDocumentHint')"
-      >
-        <div
-          class="flex flex-col gap-3"
-          data-testid="sample-document"
-        >
-          <UButton
-            :to="`/documents/${sampleDocument.id}`"
-            variant="link"
-            size="xs"
-            class="w-fit p-0"
+          <UFormField
+            v-if="sampleDocument"
+            :label="t('documentTypes.fields.sampleFile')"
+            :help="t('documentTypes.new.sampleDocumentHint')"
           >
-            {{ sampleDocument.fileName }}
+            <UButton
+              :to="`/documents/${sampleDocument.id}`"
+              variant="link"
+              size="xs"
+              class="w-fit p-0"
+            >
+              {{ sampleDocument.fileName }}
+            </UButton>
+          </UFormField>
+
+          <UFormField
+            v-else
+            :label="t('documentTypes.fields.sampleFile')"
+            :help="t('documentTypes.new.sampleFileHint')"
+            required
+          >
+            <input
+              type="file"
+              accept="application/pdf,image/png,image/jpeg,image/webp,image/gif"
+              required
+              class="max-w-full text-[13px] text-toned"
+              @change="onFileChange"
+            >
+          </UFormField>
+
+          <UButton
+            type="submit"
+            :loading="analyzing"
+            :disabled="analyzing || !canAnalyze"
+            block
+            class="sm:w-fit"
+          >
+            {{ t('documentTypes.new.submit') }}
           </UButton>
-          <DocumentViewer
-            :drive-file-id="sampleDocument.driveFileId"
-            :mime-type="sampleDocument.mimeType"
-            :file-name="sampleDocument.fileName"
-          />
-        </div>
-      </UFormField>
+        </form>
 
-      <UFormField
-        v-else
-        :label="t('documentTypes.fields.sampleFile')"
-        :help="t('documentTypes.new.sampleFileHint')"
-        required
-      >
-        <input
-          type="file"
-          accept="application/pdf,image/png,image/jpeg,image/webp,image/gif"
-          required
-          class="max-w-full text-[13px] text-toned"
-          @change="onFileChange"
+        <div
+          v-else-if="step === 'analyzing'"
+          class="flex flex-col items-center gap-3 py-16 text-center"
         >
-      </UFormField>
+          <UIcon
+            name="i-lucide-loader-circle"
+            class="text-primary size-8 animate-spin"
+          />
+          <p class="font-medium">
+            {{ t('documentTypes.new.loading') }}
+          </p>
+          <p class="text-muted text-sm">
+            {{ t('documentTypes.new.loadingHint') }}
+          </p>
+        </div>
 
-      <UButton
-        type="submit"
-        :loading="analyzing"
-        :disabled="analyzing || !canAnalyze"
-        block
-        class="sm:w-fit"
-      >
-        {{ t('documentTypes.new.submit') }}
-      </UButton>
-    </form>
-
-    <div
-      v-else-if="step === 'analyzing'"
-      class="flex flex-col items-center gap-3 py-16 text-center"
-    >
-      <UIcon
-        name="i-lucide-loader-circle"
-        class="text-primary size-8 animate-spin"
-      />
-      <p class="font-medium">
-        {{ t('documentTypes.new.loading') }}
-      </p>
-      <p class="text-muted text-sm">
-        {{ t('documentTypes.new.loadingHint') }}
-      </p>
-    </div>
-
-    <div
-      v-else-if="step === 'select' && proposal"
-      class="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start"
-    >
-      <!--
-        The paper stays on screen while the fields are chosen. Choosing them
-        means reading one against the other, and this is where it was missing:
-        the sample was shown before the analysis and vanished at the one step
-        that needs it. Sticky, because the field list is long and the document
-        has to still be there at the bottom of it.
+        <div
+          v-else-if="step === 'select' && proposal"
+          class="flex flex-col gap-6"
+        >
+          <!--
+        Loudest control on the screen on purpose: without it the server drops
+        every mapping this type carries, and the type then reports each figure
+        it should back as missing.
       -->
-      <div
-        v-if="sampleDocument || uploadedPreview"
-        class="lg:sticky lg:top-4 lg:order-2"
+          <UCard :ui="{ root: blocked === 'noReporter' ? 'ring-2 ring-error' : '' }">
+            <template #header>
+              <div class="flex flex-col gap-1">
+                <h2 class="font-medium">
+                  {{ t('documentTypes.edit.reporter.title') }}
+                </h2>
+                <p class="text-muted text-sm">
+                  {{ t('documentTypes.edit.reporter.hint') }}
+                </p>
+              </div>
+            </template>
+
+            <div class="flex flex-col gap-4">
+              <UAlert
+                v-if="proposedReporterRow"
+                color="warning"
+                variant="soft"
+                icon="i-lucide-badge-check"
+                data-testid="reporter-proposed"
+                :title="t('documentTypes.new.reporterProposed', {
+                  field: proposedReporterRow.label,
+                  value: proposedReporterRow.sampleValue || '—'
+                })"
+                :description="t('documentTypes.edit.reporter.pathHint')"
+              />
+              <UAlert
+                v-else
+                color="error"
+                variant="soft"
+                icon="i-lucide-triangle-alert"
+                data-testid="reporter-not-proposed"
+                :title="t('documentTypes.new.reporterNotProposed')"
+                :description="t('documentTypes.edit.reporter.missing')"
+              />
+
+              <UFormField
+                :label="t('documentTypes.edit.reporter.path')"
+                :help="t('documentTypes.edit.reporter.sourceHint')"
+                required
+              >
+                <UInputMenu
+                  :model-value="writeSource(reporterPath, reporterTaxId)"
+                  :items="pathSuggestions"
+                  create-item
+                  class="w-full sm:w-96"
+                  data-testid="reporter-path"
+                  :placeholder="t('documentTypes.edit.reporter.sourcePlaceholder')"
+                  @update:model-value="setReporter($event as string)"
+                  @create="setReporter($event as string)"
+                />
+              </UFormField>
+
+              <UAlert
+                v-if="blocked === 'noReporter'"
+                color="error"
+                variant="soft"
+                icon="i-lucide-triangle-alert"
+                data-testid="reporter-missing"
+                :title="t('documentTypes.edit.reporter.missingTitle')"
+                :description="t('documentTypes.edit.reporter.missing')"
+              />
+
+              <UFormField
+                :label="t('documentTypes.edit.reporter.namePath')"
+                :help="t('documentTypes.edit.reporter.nameSourceHint')"
+              >
+                <UInputMenu
+                  :model-value="writeSource(reporterNamePath, reporterName)"
+                  :items="pathSuggestions"
+                  create-item
+                  class="w-full sm:w-96"
+                  data-testid="reporter-name-path"
+                  :placeholder="t('documentTypes.edit.reporter.nameSourcePlaceholder')"
+                  @update:model-value="setReporterName($event as string)"
+                  @create="setReporterName($event as string)"
+                />
+              </UFormField>
+
+              <UFormField
+                :label="t('documentTypes.edit.period.path')"
+                :help="t('documentTypes.edit.period.sourceHint')"
+              >
+                <UInputMenu
+                  :model-value="writeSource(periodPath, declaredPeriod)"
+                  :items="pathSuggestions"
+                  create-item
+                  class="w-full sm:w-96"
+                  data-testid="period-path"
+                  :placeholder="t('documentTypes.edit.period.sourcePlaceholder')"
+                  @update:model-value="setPeriod($event as string)"
+                  @create="setPeriod($event as string)"
+                />
+              </UFormField>
+
+              <UAlert
+                v-if="!draft.periodPath && !draft.period"
+                color="warning"
+                variant="soft"
+                :title="t('documentTypes.edit.period.missing')"
+              />
+            </div>
+          </UCard>
+
+          <UCard>
+            <template #header>
+              <div class="flex flex-col gap-1">
+                <h2 class="font-medium">
+                  {{ t('documentTypes.new.select.title') }}
+                </h2>
+                <p class="text-muted text-sm">
+                  {{ t('documentTypes.new.select.hint') }}
+                </p>
+              </div>
+            </template>
+
+            <p
+              v-if="!rows.length"
+              class="text-muted text-sm"
+            >
+              {{ t('documentTypes.new.select.empty') }}
+            </p>
+
+            <div
+              v-else
+              class="flex flex-col gap-6"
+              data-testid="proposal-sections"
+            >
+              <section
+                v-for="section in sections"
+                :key="section.section ?? '__headless__'"
+                class="flex flex-col gap-2"
+              >
+                <div class="bg-elevated/50 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2">
+                  <div class="min-w-0">
+                    <p class="text-highlighted text-sm font-medium">
+                      {{ section.section ?? t('documentTypes.new.select.otherSection') }}
+                    </p>
+                    <p class="text-muted text-xs">
+                      {{ t('documentTypes.new.select.sectionCount', {
+                        kept: section.keptCount,
+                        total: section.paths.length
+                      }) }}
+                    </p>
+                  </div>
+                  <div class="flex shrink-0 gap-1">
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      @click="setSection(section.paths, true)"
+                    >
+                      {{ t('documentTypes.new.select.all') }}
+                    </UButton>
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      @click="setSection(section.paths, false)"
+                    >
+                      {{ t('documentTypes.new.select.none') }}
+                    </UButton>
+                  </div>
+                </div>
+
+                <label
+                  v-for="row in section.rows"
+                  :key="row.path"
+                  class="border-default flex items-start gap-3 rounded-lg border p-3 transition-colors duration-[120ms] hover:bg-elevated/60"
+                  :class="row.kept ? '' : 'opacity-60'"
+                >
+                  <UCheckbox
+                    v-model="row.kept"
+                    :aria-label="t('documentTypes.new.select.keep')"
+                    class="mt-0.5"
+                  />
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <p
+                        class="text-sm font-medium"
+                        :class="row.kept ? 'text-highlighted' : 'text-muted'"
+                      >
+                        {{ row.label }}
+                      </p>
+                      <UBadge
+                        size="sm"
+                        variant="subtle"
+                        :color="row.role === 'amount' ? 'primary' : row.role === 'identifier' ? 'success' : 'neutral'"
+                      >
+                        {{ t(`documentTypes.new.select.role.${row.role}`) }}
+                      </UBadge>
+                    </div>
+                    <p
+                      v-if="row.sampleValue"
+                      class="text-toned text-[13px]"
+                    >
+                      {{ t('documentTypes.new.select.sampleValue', { value: row.sampleValue }) }}
+                    </p>
+                    <p class="text-dimmed break-all font-mono text-xs">
+                      {{ row.path }}
+                    </p>
+                  </div>
+                </label>
+              </section>
+            </div>
+
+            <p
+              class="text-muted mt-4 text-sm"
+              data-testid="kept-summary"
+            >
+              {{ t('documentTypes.new.select.keptSummary', { kept: keptCount, total: rows.length }) }}
+            </p>
+          </UCard>
+
+          <UCard>
+            <template #header>
+              <h2 class="font-medium">
+                {{ t('documentTypes.new.taxYears.title') }}
+              </h2>
+            </template>
+
+            <UFormField
+              :label="t('documentTypes.new.taxYears.label')"
+              :help="t('documentTypes.new.taxYears.hint')"
+            >
+              <UInput
+                v-model="taxYearsText"
+                :placeholder="t('documentTypes.new.taxYears.placeholder')"
+                class="w-full sm:w-96"
+                data-testid="tax-years"
+              />
+            </UFormField>
+            <p
+              v-if="invalidYears.length"
+              class="text-error mt-2 text-sm"
+              data-testid="tax-years-invalid"
+            >
+              {{ t('documentTypes.new.taxYears.invalid', { years: invalidYears.join(', ') }) }}
+            </p>
+          </UCard>
+
+          <div class="flex flex-col gap-3">
+            <UAlert
+              v-if="saveFailed"
+              color="error"
+              :title="t('documentTypes.new.createError')"
+            />
+
+            <div class="flex flex-wrap items-center gap-3">
+              <UButton
+                :loading="saving"
+                :disabled="!canSave"
+                data-testid="create-document-type"
+                @click="save"
+              >
+                {{ t('documentTypes.new.save') }}
+              </UButton>
+              <UButton
+                color="neutral"
+                variant="soft"
+                @click="startOver"
+              >
+                {{ t('documentTypes.new.startOver') }}
+              </UButton>
+              <p
+                v-if="blocked === 'noReporter'"
+                class="text-error text-sm"
+              >
+                {{ t('documentTypes.edit.reporter.blocksSave') }}
+              </p>
+              <p
+                v-else-if="blocked === 'noFields'"
+                class="text-error text-sm"
+                data-testid="no-fields"
+              >
+                {{ t('documentTypes.new.blocked.noFields') }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-else-if="step === 'created' && createdType"
+          class="flex flex-col gap-4"
+        >
+          <UAlert
+            color="success"
+            variant="soft"
+            icon="i-lucide-check"
+            :title="t('documentTypes.new.created.title', { name: createdType.name })"
+            :description="t('documentTypes.new.created.hint')"
+          />
+
+          <!--
+        The type is saved by the time this shows, so these are not errors to
+        retry: they are the fields it will read off every document of this
+        kind and then have nothing to compare against. Said here because the
+        alternative is discovering it as a missing certificate months later.
+      -->
+          <section
+            v-if="unmappedFields.length > 0"
+            class="flex flex-col gap-2"
+            data-testid="unmapped-fields"
+          >
+            <h2 class="font-medium">
+              {{ t('documentTypes.new.created.unmappedTitle') }}
+            </h2>
+            <UAlert
+              v-for="field in unmappedFields"
+              :key="field.fieldPath"
+              color="warning"
+              variant="soft"
+              :title="field.fieldPath"
+              :description="field.reason"
+            />
+          </section>
+
+          <div class="flex flex-wrap gap-3">
+            <UButton :to="`/document-types/${createdType.id}`">
+              {{ t('documentTypes.new.created.configure') }}
+            </UButton>
+            <UButton
+              to="/document-types"
+              color="neutral"
+              variant="soft"
+            >
+              {{ t('documentTypes.new.created.list') }}
+            </UButton>
+          </div>
+        </div>
+      </div>
+
+      <!--
+        Sticky: the field list runs long, and reading a row against the paper
+        is the whole job, whichever row is being decided.
+      -->
+      <aside
+        class="lg:sticky lg:top-4"
         data-testid="sample-document"
       >
+        <UButton
+          v-if="sampleDocument"
+          :to="`/documents/${sampleDocument.id}`"
+          variant="link"
+          size="xs"
+          class="mb-2 w-fit p-0"
+        >
+          {{ sampleDocument.fileName }}
+        </UButton>
+        <p
+          v-else-if="sampleFile"
+          class="text-toned mb-2 text-[13px]"
+        >
+          {{ sampleFile.name }}
+        </p>
+
         <DocumentViewer
           v-if="sampleDocument"
           :drive-file-id="sampleDocument.driveFileId"
@@ -413,362 +758,35 @@ async function save() {
           :file-name="sampleDocument.fileName"
         />
         <iframe
-          v-else-if="uploadedIsPdf"
+          v-else-if="uploadedPreview && uploadedIsPdf"
           :src="`${uploadedPreview}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`"
           class="border-default aspect-[3/4] w-full rounded-lg border"
         />
         <img
-          v-else-if="uploadedIsImage"
-          :src="uploadedPreview!"
+          v-else-if="uploadedPreview && uploadedIsImage"
+          :src="uploadedPreview"
           :alt="sampleFile?.name"
           class="border-default w-full rounded-lg border"
         >
         <p
-          v-else
+          v-else-if="uploadedPreview"
           class="text-muted text-sm"
         >
           {{ t('documentTypes.new.previewUnsupported') }}
         </p>
-      </div>
-
-      <div
-        class="flex flex-col gap-6 lg:order-1"
-        :class="sampleDocument || uploadedPreview ? '' : 'lg:col-span-2'"
-      >
         <!--
-        Loudest control on the screen on purpose: without it the server drops
-        every mapping this type carries, and the type then reports each figure
-        it should back as missing.
-      -->
-        <UCard :ui="{ root: blocked === 'noReporter' ? 'ring-2 ring-error' : '' }">
-          <template #header>
-            <div class="flex flex-col gap-1">
-              <h2 class="font-medium">
-                {{ t('documentTypes.edit.reporter.title') }}
-              </h2>
-              <p class="text-muted text-sm">
-                {{ t('documentTypes.edit.reporter.hint') }}
-              </p>
-            </div>
-          </template>
-
-          <div class="flex flex-col gap-4">
-            <UAlert
-              v-if="proposedReporterRow"
-              color="warning"
-              variant="soft"
-              icon="i-lucide-badge-check"
-              data-testid="reporter-proposed"
-              :title="t('documentTypes.new.reporterProposed', {
-                field: proposedReporterRow.label,
-                value: proposedReporterRow.sampleValue || '—'
-              })"
-              :description="t('documentTypes.edit.reporter.pathHint')"
-            />
-            <UAlert
-              v-else
-              color="error"
-              variant="soft"
-              icon="i-lucide-triangle-alert"
-              data-testid="reporter-not-proposed"
-              :title="t('documentTypes.new.reporterNotProposed')"
-              :description="t('documentTypes.edit.reporter.missing')"
-            />
-
-            <UFormField
-              :label="t('documentTypes.edit.reporter.path')"
-              :help="t('documentTypes.edit.reporter.sourceHint')"
-              required
-            >
-              <UInputMenu
-                :model-value="writeSource(reporterPath, reporterTaxId)"
-                :items="pathSuggestions"
-                create-item
-                class="w-full sm:w-96"
-                data-testid="reporter-path"
-                :placeholder="t('documentTypes.edit.reporter.sourcePlaceholder')"
-                @update:model-value="setReporter($event as string)"
-                @create="setReporter($event as string)"
-              />
-            </UFormField>
-
-            <UAlert
-              v-if="blocked === 'noReporter'"
-              color="error"
-              variant="soft"
-              icon="i-lucide-triangle-alert"
-              data-testid="reporter-missing"
-              :title="t('documentTypes.edit.reporter.missingTitle')"
-              :description="t('documentTypes.edit.reporter.missing')"
-            />
-
-            <UFormField
-              :label="t('documentTypes.edit.reporter.namePath')"
-              :help="t('documentTypes.edit.reporter.nameSourceHint')"
-            >
-              <UInputMenu
-                :model-value="writeSource(reporterNamePath, reporterName)"
-                :items="pathSuggestions"
-                create-item
-                class="w-full sm:w-96"
-                data-testid="reporter-name-path"
-                :placeholder="t('documentTypes.edit.reporter.nameSourcePlaceholder')"
-                @update:model-value="setReporterName($event as string)"
-                @create="setReporterName($event as string)"
-              />
-            </UFormField>
-
-            <UFormField
-              :label="t('documentTypes.edit.period.path')"
-              :help="t('documentTypes.edit.period.sourceHint')"
-            >
-              <UInputMenu
-                :model-value="writeSource(periodPath, declaredPeriod)"
-                :items="pathSuggestions"
-                create-item
-                class="w-full sm:w-96"
-                data-testid="period-path"
-                :placeholder="t('documentTypes.edit.period.sourcePlaceholder')"
-                @update:model-value="setPeriod($event as string)"
-                @create="setPeriod($event as string)"
-              />
-            </UFormField>
-
-            <UAlert
-              v-if="!draft.periodPath && !draft.period"
-              color="warning"
-              variant="soft"
-              :title="t('documentTypes.edit.period.missing')"
-            />
-          </div>
-        </UCard>
-
-        <UCard>
-          <template #header>
-            <div class="flex flex-col gap-1">
-              <h2 class="font-medium">
-                {{ t('documentTypes.new.select.title') }}
-              </h2>
-              <p class="text-muted text-sm">
-                {{ t('documentTypes.new.select.hint') }}
-              </p>
-            </div>
-          </template>
-
-          <p
-            v-if="!rows.length"
-            class="text-muted text-sm"
-          >
-            {{ t('documentTypes.new.select.empty') }}
-          </p>
-
-          <div
-            v-else
-            class="flex flex-col gap-6"
-            data-testid="proposal-sections"
-          >
-            <section
-              v-for="section in sections"
-              :key="section.section ?? '__headless__'"
-              class="flex flex-col gap-2"
-            >
-              <div class="bg-elevated/50 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2">
-                <div class="min-w-0">
-                  <p class="text-highlighted text-sm font-medium">
-                    {{ section.section ?? t('documentTypes.new.select.otherSection') }}
-                  </p>
-                  <p class="text-muted text-xs">
-                    {{ t('documentTypes.new.select.sectionCount', {
-                      kept: section.keptCount,
-                      total: section.paths.length
-                    }) }}
-                  </p>
-                </div>
-                <div class="flex shrink-0 gap-1">
-                  <UButton
-                    size="xs"
-                    color="neutral"
-                    variant="ghost"
-                    @click="setSection(section.paths, true)"
-                  >
-                    {{ t('documentTypes.new.select.all') }}
-                  </UButton>
-                  <UButton
-                    size="xs"
-                    color="neutral"
-                    variant="ghost"
-                    @click="setSection(section.paths, false)"
-                  >
-                    {{ t('documentTypes.new.select.none') }}
-                  </UButton>
-                </div>
-              </div>
-
-              <label
-                v-for="row in section.rows"
-                :key="row.path"
-                class="border-default flex items-start gap-3 rounded-lg border p-3 transition-colors duration-[120ms] hover:bg-elevated/60"
-                :class="row.kept ? '' : 'opacity-60'"
-              >
-                <UCheckbox
-                  v-model="row.kept"
-                  :aria-label="t('documentTypes.new.select.keep')"
-                  class="mt-0.5"
-                />
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <p
-                      class="text-sm font-medium"
-                      :class="row.kept ? 'text-highlighted' : 'text-muted'"
-                    >
-                      {{ row.label }}
-                    </p>
-                    <UBadge
-                      size="sm"
-                      variant="subtle"
-                      :color="row.role === 'amount' ? 'primary' : row.role === 'identifier' ? 'success' : 'neutral'"
-                    >
-                      {{ t(`documentTypes.new.select.role.${row.role}`) }}
-                    </UBadge>
-                  </div>
-                  <p
-                    v-if="row.sampleValue"
-                    class="text-toned text-[13px]"
-                  >
-                    {{ t('documentTypes.new.select.sampleValue', { value: row.sampleValue }) }}
-                  </p>
-                  <p class="text-dimmed break-all font-mono text-xs">
-                    {{ row.path }}
-                  </p>
-                </div>
-              </label>
-            </section>
-          </div>
-
-          <p
-            class="text-muted mt-4 text-sm"
-            data-testid="kept-summary"
-          >
-            {{ t('documentTypes.new.select.keptSummary', { kept: keptCount, total: rows.length }) }}
-          </p>
-        </UCard>
-
-        <UCard>
-          <template #header>
-            <h2 class="font-medium">
-              {{ t('documentTypes.new.taxYears.title') }}
-            </h2>
-          </template>
-
-          <UFormField
-            :label="t('documentTypes.new.taxYears.label')"
-            :help="t('documentTypes.new.taxYears.hint')"
-          >
-            <UInput
-              v-model="taxYearsText"
-              :placeholder="t('documentTypes.new.taxYears.placeholder')"
-              class="w-full sm:w-96"
-              data-testid="tax-years"
-            />
-          </UFormField>
-          <p
-            v-if="invalidYears.length"
-            class="text-error mt-2 text-sm"
-            data-testid="tax-years-invalid"
-          >
-            {{ t('documentTypes.new.taxYears.invalid', { years: invalidYears.join(', ') }) }}
-          </p>
-        </UCard>
-
-        <div class="flex flex-col gap-3">
-          <UAlert
-            v-if="saveFailed"
-            color="error"
-            :title="t('documentTypes.new.createError')"
-          />
-
-          <div class="flex flex-wrap items-center gap-3">
-            <UButton
-              :loading="saving"
-              :disabled="!canSave"
-              data-testid="create-document-type"
-              @click="save"
-            >
-              {{ t('documentTypes.new.save') }}
-            </UButton>
-            <UButton
-              color="neutral"
-              variant="soft"
-              @click="startOver"
-            >
-              {{ t('documentTypes.new.startOver') }}
-            </UButton>
-            <p
-              v-if="blocked === 'noReporter'"
-              class="text-error text-sm"
-            >
-              {{ t('documentTypes.edit.reporter.blocksSave') }}
-            </p>
-            <p
-              v-else-if="blocked === 'noFields'"
-              class="text-error text-sm"
-              data-testid="no-fields"
-            >
-              {{ t('documentTypes.new.blocked.noFields') }}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div
-      v-else-if="step === 'created' && createdType"
-      class="flex flex-col gap-4"
-    >
-      <UAlert
-        color="success"
-        variant="soft"
-        icon="i-lucide-check"
-        :title="t('documentTypes.new.created.title', { name: createdType.name })"
-        :description="t('documentTypes.new.created.hint')"
-      />
-
-      <!--
-        The type is saved by the time this shows, so these are not errors to
-        retry: they are the fields it will read off every document of this
-        kind and then have nothing to compare against. Said here because the
-        alternative is discovering it as a missing certificate months later.
-      -->
-      <section
-        v-if="unmappedFields.length > 0"
-        class="flex flex-col gap-2"
-        data-testid="unmapped-fields"
-      >
-        <h2 class="font-medium">
-          {{ t('documentTypes.new.created.unmappedTitle') }}
-        </h2>
-        <UAlert
-          v-for="field in unmappedFields"
-          :key="field.fieldPath"
-          color="warning"
-          variant="soft"
-          :title="field.fieldPath"
-          :description="field.reason"
-        />
-      </section>
-
-      <div class="flex flex-wrap gap-3">
-        <UButton :to="`/document-types/${createdType.id}`">
-          {{ t('documentTypes.new.created.configure') }}
-        </UButton>
-        <UButton
-          to="/document-types"
-          color="neutral"
-          variant="soft"
+          Nothing chosen yet. The space is held rather than collapsed, so the
+          column does not appear on the first file picked and shove the form
+          it sits next to sideways.
+        -->
+        <div
+          v-else
+          class="border-default text-muted flex aspect-[3/4] items-center justify-center rounded-lg border border-dashed p-8 text-center text-sm"
+          data-testid="sample-pending"
         >
-          {{ t('documentTypes.new.created.list') }}
-        </UButton>
-      </div>
+          {{ t('documentTypes.new.samplePending') }}
+        </div>
+      </aside>
     </div>
   </UContainer>
 </template>

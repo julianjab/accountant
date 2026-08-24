@@ -199,6 +199,7 @@
         "unmappedTitle": "These fields will be extracted but never reconciled"
       },
       "sampleDocumentHint": "This is the paper the type will be configured from. It is saved with the type, so the fields can be checked against it later.",
+      "samplePending": "The sample document shows up here, so the fields can be read against the paper.",
       "previewUnsupported": "This kind of file cannot be previewed here."
     },
     "configure": "Configure",
