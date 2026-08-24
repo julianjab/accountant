@@ -132,6 +132,9 @@
     "defineTypeFromThis": "Definir un tipo con este documento",
     "configureTypeFromThis": "Configurar el tipo con este documento",
     "approveFailed": "No se pudo aprobar el documento.",
+    "reprocess": "Reprocesar",
+    "reprocessHint": "Vuelve a leer el documento con la configuración actual del tipo. Queda sin aprobar y hay que aprobarlo de nuevo.",
+    "reprocessFailed": "No se pudo reprocesar el documento.",
     "sources": {
       "exogena_report": "Reporte de información exógena (DIAN)"
     },

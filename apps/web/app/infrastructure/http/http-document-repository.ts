@@ -113,6 +113,15 @@ export class HttpDocumentRepository implements DocumentRepository {
     }
   }
 
+  async reprocess(id: string): Promise<ClientDocument> {
+    const dto = await $fetch<DocumentDto>(`/documents/${id}/reprocess`, {
+      baseURL: this.baseUrl,
+      credentials: 'include',
+      method: 'POST'
+    })
+    return toClientDocument(dto)
+  }
+
   async approve(id: string, approvedBy?: string): Promise<ClientDocument> {
     const dto = await $fetch<DocumentDto>(`/documents/${id}/approve`, {
       baseURL: this.baseUrl,

@@ -31,4 +31,11 @@ export interface DocumentRepository {
    * against the configured types, whichever the file calls for — and rebuilds
    * the client's cross-check from what it read. */
   approve: (id: string, approvedBy?: string) => Promise<ClientDocument>
+  /** Reads this one document's file again, whatever state it is in.
+   *
+   * The folder sync deliberately skips a document somebody already approved,
+   * so this is the only way a corrected document type reaches one. The
+   * approval does not survive it: what comes back is a fresh reading nobody
+   * has looked at, and it has to be approved again. */
+  reprocess: (id: string) => Promise<ClientDocument>
 }

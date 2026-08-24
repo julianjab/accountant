@@ -17,6 +17,7 @@ const getDocumentType = useGetDocumentTypeUseCase()
 const listReconciliationKinds = useListReconciliationKindsUseCase()
 const getConceptMapping = useGetConceptMappingUseCase()
 const approveDocument = useApproveDocumentUseCase()
+const reprocessDocument = useReprocessDocumentUseCase()
 const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
 const { setLabel: setBreadcrumbLabel, clearLabel: clearBreadcrumbLabel } = useBreadcrumbLabels()
 const showSignedOut = computed(() => !isAuthLoading.value && !isAuthenticated.value)
@@ -114,6 +115,29 @@ async function onApprove() {
     actionError.value = errorMessage(error, t('documents.approveFailed'))
   } finally {
     approving.value = false
+  }
+}
+
+const reprocessing = ref(false)
+
+/**
+ * Reads the document again and leaves it unapproved.
+ *
+ * Refreshes exactly what approving does, and for the same reason: the reread
+ * reclassifies the document, so its type — and the mapping that says what that
+ * type contributes — can both come back different.
+ */
+async function onReprocess() {
+  reprocessing.value = true
+  actionError.value = null
+  try {
+    await reprocessDocument.execute(documentId)
+    await refreshDocument()
+    await Promise.all([refreshExtractedData(), refreshDocumentType(), refreshConceptMapping()])
+  } catch (error) {
+    actionError.value = errorMessage(error, t('documents.reprocessFailed'))
+  } finally {
+    reprocessing.value = false
   }
 }
 
@@ -225,8 +249,10 @@ onUnmounted(() => {
           :reconciliation-kind="kind"
           :extracted-data-error="!!extractedDataError"
           :approving="approving"
+          :reprocessing="reprocessing"
           :action-error="actionError"
           @approve="onApprove"
+          @reprocess="onReprocess"
         />
       </div>
     </template>

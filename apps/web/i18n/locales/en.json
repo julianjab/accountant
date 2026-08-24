@@ -132,6 +132,9 @@
     "defineTypeFromThis": "Define a type from this document",
     "configureTypeFromThis": "Configure the type from this document",
     "approveFailed": "The document could not be approved.",
+    "reprocess": "Reprocess",
+    "reprocessHint": "Reads the document again with the type's current configuration. It comes back unapproved and has to be approved again.",
+    "reprocessFailed": "The document could not be reprocessed.",
     "sources": {
       "exogena_report": "Third-party information report (DIAN)"
     },

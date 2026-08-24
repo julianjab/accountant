@@ -15,6 +15,7 @@ import { RegisterClient } from '~/application/use-cases/register-client'
 import { GetDocument } from '~/application/use-cases/get-document'
 import { GetDocumentExtractedData } from '~/application/use-cases/get-document-extracted-data'
 import { ApproveDocument } from '~/application/use-cases/approve-document'
+import { ReprocessDocument } from '~/application/use-cases/reprocess-document'
 import { ImportClientDocuments } from '~/application/use-cases/import-client-documents'
 import { ImportClientsFromDrive } from '~/application/use-cases/import-clients-from-drive'
 import { GetCurrentUser } from '~/application/use-cases/get-current-user'
@@ -154,6 +155,10 @@ export function useGetDocumentExtractedDataUseCase() {
 
 export function useApproveDocumentUseCase() {
   return new ApproveDocument(useDocumentRepository())
+}
+
+export function useReprocessDocumentUseCase() {
+  return new ReprocessDocument(useDocumentRepository())
 }
 
 export function useImportClientsUseCase() {

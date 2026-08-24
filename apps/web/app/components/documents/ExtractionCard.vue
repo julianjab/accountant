@@ -16,6 +16,7 @@ const props = defineProps<{
   extractedData: ExtractedData | null
   extractedDataError?: boolean
   approving?: boolean
+  reprocessing?: boolean
   actionError?: string | null
   /** How this type's fields project onto the reconciliation, when it is
    * mapped. Null covers both "not mapped" and "not loaded", which render the
@@ -25,7 +26,7 @@ const props = defineProps<{
   reconciliationKind?: ReconciliationKind | null
 }>()
 
-const emit = defineEmits<{ approve: [] }>()
+const emit = defineEmits<{ approve: [], reprocess: [] }>()
 
 const { t, te, locale } = useI18n()
 
@@ -167,6 +168,13 @@ const isApproved = computed(() => props.document.status === 'approved')
 // reason to withhold the button.
 const canApprove = computed(() => !isApproved.value)
 
+// Only offered on an approved document, because that is the only state where
+// re-reading is not already what the other button does: approving *is* the
+// reread everywhere else. Here it is a second, deliberate act — the import
+// skips an approved document precisely so a folder sync can never undo a
+// review, so this is the only way a corrected document type reaches one.
+const canReprocess = computed(() => isApproved.value)
+
 // Approving is synchronous: the request does the reading and comes back with
 // the document already processed or already failed. So a *persisted*
 // mid-pipeline status never means "work is happening" — it means a run died
@@ -301,22 +309,46 @@ const isMissingExtraction = computed(() =>
     </div>
 
     <template #footer>
-      <!--
-        The only control on this screen. It reads the document — by its own
-        parser or by OCR against the configured types, whichever the file calls
-        for — signs off on the result, and rebuilds the client's cross-check
-        from it. Pressing it again redoes all of that, which is how a document
-        gets re-read once a type has been configured for it.
-      -->
-      <UButton
-        :disabled="!canApprove"
-        :loading="approving"
-        block
-        class="sm:w-auto"
-        @click="emit('approve')"
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <!--
+          The main control. It reads the document — by its own parser or by OCR
+          against the configured types, whichever the file calls for — signs off
+          on the result, and rebuilds the client's cross-check from it. Pressing
+          it again redoes all of that, which is how a document gets re-read once
+          a type has been configured for it.
+        -->
+        <UButton
+          :disabled="!canApprove"
+          :loading="approving"
+          block
+          class="sm:w-auto"
+          @click="emit('approve')"
+        >
+          {{ isApproved ? t('documents.status.approved') : t('documents.approveAndSend') }}
+        </UButton>
+        <!--
+          Once approved, the button above is spent — and it is exactly then
+          that a reread is worth offering, because the type it was read with
+          may have been corrected since. Kept secondary, and labelled with what
+          it costs: the approval.
+        -->
+        <UButton
+          v-if="canReprocess"
+          :loading="reprocessing"
+          variant="outline"
+          block
+          class="sm:w-auto"
+          @click="emit('reprocess')"
+        >
+          {{ t('documents.reprocess') }}
+        </UButton>
+      </div>
+      <p
+        v-if="canReprocess"
+        class="mt-2 text-sm text-muted"
       >
-        {{ isApproved ? t('documents.status.approved') : t('documents.approveAndSend') }}
-      </UButton>
+        {{ t('documents.reprocessHint') }}
+      </p>
       <p
         v-if="actionError"
         class="mt-2 text-sm text-error"
