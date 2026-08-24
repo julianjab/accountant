@@ -164,11 +164,19 @@ def test_certified_figures_absent_from_the_exogena_are_surfaced(report):
     assert interest.spine_amount.is_zero
 
 
-def test_unruled_exogena_rows_are_reported_as_unvalidated_not_as_clean(report):
-    out_of_scope = report.of_status(FindingStatus.OUT_OF_SCOPE)
-    labels = {f.label for f in out_of_scope}
-    assert "Pagos por salarios" in labels
-    assert all(f.rule_id is None for f in out_of_scope)
+def test_every_row_of_this_report_is_attempted(report):
+    """The row-driven promise, on the report that motivated it.
+
+    Every wording in this exogena has a declared correspondence, so every row
+    is now compared against something — the salary row that used to reach the
+    accountant as "not validated" is a request for the employer's certificate
+    instead. A row with no correspondence would still be OUT_OF_SCOPE; see
+    `test_exogena_correspondence.py`.
+    """
+    assert report.of_status(FindingStatus.OUT_OF_SCOPE) == ()
+    salaries = _finding(report, "exogena.pagos_salarios", fixtures.EMPLOYER)
+    assert salaries.status is FindingStatus.MISSING_EVIDENCE
+    assert salaries.spine_amount == Money.of("129604000")
 
 
 def test_nothing_is_double_counted_across_rules(report):

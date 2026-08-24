@@ -26,7 +26,9 @@ class ExogenaReconciliation:
 
     def __init__(self) -> None:
         self._catalog = build_catalog()
-        self._rules = build_rules()
+        # The rules read their labels off the catalog, so the catalog is built
+        # first and handed over rather than rebuilt behind the rule pack.
+        self._rules = build_rules(self._catalog)
         self._sources = (
             FactSourceSpec(
                 id="exogena_report",
