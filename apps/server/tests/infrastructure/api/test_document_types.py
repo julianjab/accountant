@@ -738,3 +738,27 @@ def test_a_malformed_selection_is_refused_rather_than_guessed_at(raw) -> None:
     status, _ = _propose_with(selection=raw)
 
     assert status == 422
+
+
+def test_a_block_instruction_survives_the_multipart_boundary() -> None:
+    status, received = _propose_with(
+        selection=json.dumps(
+            {
+                "kept": [],
+                "dropped": [],
+                "sections": [
+                    {"section": " Obligaciones a Cargo ", "note": " una fila por obligación "},
+                    # Dropped: an empty note is a box the reader opened and left
+                    # alone, and it would reach the prompt as a blank line.
+                    {"section": "GMF", "note": "   "},
+                ],
+            }
+        )
+    )
+
+    assert status == 200
+    assert received.selection is not None
+    assert len(received.selection.sections) == 1
+    note = received.selection.sections[0]
+    assert note.section == "Obligaciones a Cargo"
+    assert note.note == "una fila por obligación"

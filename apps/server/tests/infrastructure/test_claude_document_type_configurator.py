@@ -8,6 +8,7 @@ from server.domain.ports import (
     ExistingConfig,
     FieldSelection,
     KeptField,
+    SectionNote,
 )
 from server.infrastructure.adapters.claude_document_type_configurator import (
     ClaudeDocumentTypeConfigurator,
@@ -589,3 +590,33 @@ def test_an_empty_selection_is_the_same_as_none():
     )
     text = provider.request["messages"][0]["content"][-1]["text"]
     assert "already read a proposal" not in text
+
+
+def test_what_to_watch_for_in_a_block_is_named_against_that_block():
+    """A correction is usually about a whole part of the page. Folded into the
+    general guidance the model has to work out which part it meant; stated
+    against the block it arrives attached to the fields it governs."""
+    _, provider = _configure(
+        {"extraction_prompt": "p", "extraction_schema": {}},
+        selection=FieldSelection(
+            sections=(
+                SectionNote(
+                    section="Obligaciones a Cargo",
+                    note="una fila por obligación, con su nombre",
+                ),
+            )
+        ),
+    )
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert 'In "Obligaciones a Cargo": una fila por obligación, con su nombre' in text
+
+
+def test_a_selection_that_is_only_a_block_instruction_still_reaches_the_model():
+    """Nothing ticked or refused yet, and still worth sending: the reader may
+    say what a table is before they have chosen a single field out of it."""
+    _, provider = _configure(
+        {"extraction_prompt": "p", "extraction_schema": {}},
+        selection=FieldSelection(sections=(SectionNote(section="GMF", note="son mensuales"),)),
+    )
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert "son mensuales" in text
