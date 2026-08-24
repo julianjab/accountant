@@ -213,6 +213,7 @@
         "noSpine": "No se compara con la exógena",
         "noSpineGroup": "Se extraen, pero no se comparan con nada",
         "noSpineGroupHint": "Estos campos se siguen extrayendo y quedan guardados; simplemente no hay ningún renglón de la exógena que tengan que respaldar.",
+        "sections": "Bloques del documento:",
         "summed": "Este documento aporta {count} valores a este renglón: se suman entre sí y el total es lo que se compara contra la exógena.",
         "single": "Este valor se compara contra este renglón de la exógena.",
         "mixedComparison": "Ojo: en este renglón hay valores que van cuenta por cuenta y otros que son un total. No se pueden sumar entre sí, así que conviene que todos usen la misma forma de comparar.",

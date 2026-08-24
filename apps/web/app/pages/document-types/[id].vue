@@ -15,6 +15,7 @@ import {
   toMappingDraft
 } from '~/domain/document-type-configuration'
 import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
+import { labelFor, orderedSectionNames, sectionFor } from '~/domain/field-sections'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -237,6 +238,33 @@ const missingAccountPaths = computed(() => fieldsMissingAccountPath(selections.v
 const nameByPath = computed(
   () => new Map(schemaFields.value.map(field => [field.path, field.name]))
 )
+
+/** What the type recorded about its fields when it was created: the document's
+ * own name for each one and the block of the page it sits in. */
+const describedFields = computed(() => documentType.value?.fields ?? [])
+
+/**
+ * The rows are grouped by the line of the exogena they answer, which is the
+ * question this screen exists to settle. The section is shown on the row
+ * instead of as a second level of grouping: it says *where on the paper* the
+ * field is, which is what someone needs to recognise a field, and a field's
+ * block and the line it answers are independent — one exogena line is
+ * routinely answered by figures from two different blocks.
+ */
+function fieldSection(path: string): string {
+  return sectionFor(path, describedFields.value)
+}
+
+/** The document's own words where they exist, the schema's name otherwise. */
+function fieldName(path: string): string {
+  const described = labelFor(path, describedFields.value)
+  if (described !== path) return described
+  return nameByPath.value.get(path) ?? path
+}
+
+/** The blocks this document is divided into, listed so the reader can see the
+ * shape of the paper before scrolling through its fields. */
+const sectionNames = computed(() => orderedSectionNames(describedFields.value))
 
 function selectValue(path: string | null): string {
   return path ?? UNMAPPED
@@ -478,6 +506,28 @@ watch(
               <p class="text-muted text-sm">
                 {{ t('documentTypes.edit.fields.hint') }}
               </p>
+              <!--
+                The blocks the document is divided into, before any field is
+                listed: the rows below are ordered by the exogena line they
+                answer, so this is the only place the shape of the paper
+                itself is visible.
+              -->
+              <div
+                v-if="sectionNames.length"
+                class="mt-1 flex flex-wrap items-center gap-1.5"
+                data-testid="document-sections"
+              >
+                <span class="text-dimmed text-xs">{{ t('documentTypes.edit.fields.sections') }}</span>
+                <UBadge
+                  v-for="section in sectionNames"
+                  :key="section"
+                  color="neutral"
+                  variant="subtle"
+                  size="sm"
+                >
+                  {{ section }}
+                </UBadge>
+              </div>
             </div>
             <UFormField
               v-if="kindItems.length > 1"
@@ -565,11 +615,21 @@ watch(
                 />
 
                 <div class="min-w-0">
+                  <UBadge
+                    v-if="fieldSection(selections[index]!.path)"
+                    color="neutral"
+                    variant="subtle"
+                    size="sm"
+                    class="mb-1"
+                    data-testid="field-section"
+                  >
+                    {{ fieldSection(selections[index]!.path) }}
+                  </UBadge>
                   <p
                     class="text-sm font-medium"
                     :class="selections[index]!.kept ? 'text-highlighted' : 'text-muted line-through'"
                   >
-                    {{ nameByPath.get(selections[index]!.path) ?? selections[index]!.path }}
+                    {{ fieldName(selections[index]!.path) }}
                   </p>
                   <p
                     v-if="descriptionByPath.get(selections[index]!.path)"

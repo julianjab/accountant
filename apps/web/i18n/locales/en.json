@@ -213,6 +213,7 @@
         "noSpine": "Not compared against the base report",
         "noSpineGroup": "Extracted, but compared against nothing",
         "noSpineGroupHint": "These fields are still extracted and stored; there is simply no line of the base report they have to back.",
+        "sections": "Blocks of the document:",
         "summed": "This document contributes {count} values to this line: they are added together and the total is what gets compared against the base report.",
         "single": "This value is compared against this line of the base report.",
         "mixedComparison": "Careful: this line mixes values compared account by account with values compared as a total. They cannot be added together, so they should all use the same comparison.",
