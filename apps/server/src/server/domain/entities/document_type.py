@@ -36,6 +36,10 @@ class DocumentTypeField:
     #: The block of the document this field sits in, named as the document
     #: names it, so a screen can be laid out like the page.
     section: str = ""
+    #: What this field actually said on the sample the type was configured
+    #: from. A path and a label still leave "which figure is this?" open on a
+    #: certificate that prints four of them; the value settles it.
+    sample_value: str = ""
 
 
 @dataclass(frozen=True, slots=True)

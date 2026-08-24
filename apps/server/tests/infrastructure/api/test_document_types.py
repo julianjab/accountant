@@ -474,3 +474,50 @@ def test_omitting_the_tax_years_leaves_them_alone(document_types, client) -> Non
     client.patch("/document-types/t-keep", json={"name": "Otro nombre"})
 
     assert document_types.get("t-keep").tax_years == (2024,)
+
+
+def test_a_field_keeps_what_it_said_on_the_sample(client, document_types) -> None:
+    """The configurator screen shows the sample value beside every field, and
+    the editor has to show the same one: a path and a label leave "which of
+    these four figures is it?" open on a certificate that prints four."""
+    created = client.post(
+        "/document-types",
+        json={
+            "name": "Bancolombia GMF",
+            "description": "Certificado GMF",
+            "extraction_prompt": "Extract it",
+            "extraction_schema": {"type": "object", "properties": {"gmf": {"type": "number"}}},
+            "fields": [
+                {
+                    "path": "gmf",
+                    "label": "Valor GMF",
+                    "role": "amount",
+                    "section": "Gravamen a los Movimientos Financieros",
+                    "sample_value": "$ 512.561,52",
+                }
+            ],
+        },
+    )
+    assert created.status_code == 201
+    assert created.json()["fields"][0]["sample_value"] == "$ 512.561,52"
+
+    # And on the way back out, which is the trip the editor actually makes.
+    listed = client.get("/document-types").json()
+    assert listed[0]["fields"][0]["sample_value"] == "$ 512.561,52"
+
+
+def test_a_field_saved_before_sample_values_existed_still_reads(client, document_types) -> None:
+    """Every type configured until now has none, and a missing value is a
+    field described a little less well, never a type that fails to load."""
+    created = client.post(
+        "/document-types",
+        json={
+            "name": "Old type",
+            "description": "Configured before",
+            "extraction_prompt": "Extract it",
+            "extraction_schema": {"type": "object", "properties": {"gmf": {"type": "number"}}},
+            "fields": [{"path": "gmf", "label": "Valor GMF", "role": "amount"}],
+        },
+    )
+    assert created.status_code == 201
+    assert created.json()["fields"][0]["sample_value"] == ""

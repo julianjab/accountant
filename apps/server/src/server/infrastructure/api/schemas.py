@@ -97,6 +97,9 @@ class DocumentTypeFieldPayload(BaseModel):
     role: str = "context"
     #: The block of the document this field belongs to. Empty when unknown.
     section: str = ""
+    #: What the field said on the sample this type was configured from. Empty
+    #: when unknown, which is every type saved before it was carried.
+    sample_value: str = ""
 
 
 class DocumentTypeResponse(BaseModel):

@@ -206,6 +206,7 @@ class FirestoreDocumentTypeRepository:
                         "label": f.label,
                         "role": str(f.role),
                         "section": f.section,
+                        "sample_value": f.sample_value,
                     }
                     for f in document_type.fields
                 ],
@@ -265,6 +266,7 @@ def _document_type_fields(raw: Any) -> tuple[DocumentTypeField, ...]:
                 label=item.get("label") or item["path"],
                 role=role,
                 section=item.get("section") or "",
+                sample_value=item.get("sample_value") or "",
             )
         )
     return tuple(fields)

@@ -418,7 +418,13 @@ def _fields_from_payload(
             logger.warning("Unknown field role %r on %s, kept as context", f.role, f.path)
             role = FieldRole.CONTEXT
         fields.append(
-            DocumentTypeField(path=f.path, label=f.label or f.path, role=role, section=f.section)
+            DocumentTypeField(
+                path=f.path,
+                label=f.label or f.path,
+                role=role,
+                section=f.section,
+                sample_value=f.sample_value,
+            )
         )
     return tuple(fields)
 
