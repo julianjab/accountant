@@ -45,8 +45,15 @@ export function looksLikeCurrencyKey(key: string): boolean {
   return CURRENCY_LIKE_KEYWORDS.some(keyword => lower.includes(keyword))
 }
 
-export function formatGroupedNumber(value: number, locale = 'es-CO'): string {
-  return new Intl.NumberFormat(locale).format(value)
+/** Standard accounting number format: a fixed 2 decimals, grouped thousands, and a negative
+ * shown as `(1.234,56)` rather than `-1.234,56` — the convention accountants read at a
+ * glance, since a lone leading minus sign is easy to miss next to a column of numbers. */
+export function formatAccountingNumber(value: number, locale = 'es-CO'): string {
+  const formatted = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(Math.abs(value))
+  return value < 0 ? `(${formatted})` : formatted
 }
 
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -63,7 +70,7 @@ export function formatScalarValue(key: string, value: unknown): string {
     return '—'
   }
   if (typeof value === 'number' && looksLikeCurrencyKey(key)) {
-    return formatGroupedNumber(value)
+    return formatAccountingNumber(value)
   }
   return String(value)
 }
