@@ -152,7 +152,12 @@
       "description": "Description",
       "sampleFile": "Sample document",
       "fieldsCount": "{count} fields",
-      "schemaKeys": "Schema fields"
+      "schemaKeys": "Schema fields",
+      "filter": {
+        "placeholder": "Filter by field, value or path",
+        "clear": "Clear the filter",
+        "empty": "No field matches “{query}”."
+      }
     },
     "sections": {
       "other": "Other fields in the document",

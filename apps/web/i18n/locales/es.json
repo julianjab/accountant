@@ -152,7 +152,12 @@
       "description": "Descripción",
       "sampleFile": "Documento de muestra",
       "fieldsCount": "{count} campos",
-      "schemaKeys": "Campos del esquema"
+      "schemaKeys": "Campos del esquema",
+      "filter": {
+        "placeholder": "Filtrar por campo, valor o ruta",
+        "clear": "Limpiar el filtro",
+        "empty": "Ningún campo coincide con «{query}»."
+      }
     },
     "sections": {
       "other": "Otros campos del documento",

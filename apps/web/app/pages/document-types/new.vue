@@ -18,6 +18,7 @@ import {
   writeSource
 } from '~/domain/document-type-configuration'
 import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
+import { matchesFieldQuery } from '~/domain/field-search'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
 
 type Step = 'form' | 'analyzing' | 'select' | 'created'
@@ -207,8 +208,27 @@ const keptCount = computed(() => keptPaths(rows.value).size)
 
 const rowByPath = computed(() => new Map(rows.value.map(row => [row.path, row])))
 
+/**
+ * What the user typed to find a field, matched against everything the row
+ * shows: its name, the value read from the sample, its path and its block.
+ *
+ * A proposal is long, and the field being answered for is one the user is
+ * pointing at on the paper — typing the figure or the wording printed beside
+ * it is faster than reading every block.
+ */
+const fieldQuery = ref('')
+
+const visibleRows = computed(() =>
+  rows.value.filter(row =>
+    matchesFieldQuery(fieldQuery.value, [row.label, row.path, row.sampleValue, row.section])
+  )
+)
+
+/** Sections are built from what is on screen, so the counts and the
+ * mark-all/none buttons of a filtered list act on the rows the user can
+ * actually see rather than on hidden ones. */
 const sections = computed(() =>
-  groupBySection(rows.value).map(group => ({
+  groupBySection(visibleRows.value).map(group => ({
     ...group,
     // The group is a domain answer about paths; the rows it is rendered with
     // are a rendering detail, resolved once here instead of in the template.
@@ -518,88 +538,121 @@ async function save() {
               {{ t('documentTypes.new.select.empty') }}
             </p>
 
-            <div
-              v-else
-              class="flex flex-col gap-6"
-              data-testid="proposal-sections"
-            >
-              <section
-                v-for="section in sections"
-                :key="section.section ?? '__headless__'"
-                class="flex flex-col gap-2"
+            <template v-else>
+              <UInput
+                v-model="fieldQuery"
+                icon="i-lucide-search"
+                class="mb-4 w-full"
+                data-testid="field-filter"
+                :placeholder="t('documentTypes.fields.filter.placeholder')"
+                :aria-label="t('documentTypes.fields.filter.placeholder')"
               >
-                <div class="bg-elevated/50 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2">
-                  <div class="min-w-0">
-                    <p class="text-highlighted text-sm font-medium">
-                      {{ section.section ?? t('documentTypes.sections.other') }}
-                    </p>
-                    <p class="text-muted text-xs">
-                      {{ t('documentTypes.sections.count', {
-                        kept: section.keptCount,
-                        total: section.paths.length
-                      }) }}
-                    </p>
-                  </div>
-                  <div class="flex shrink-0 gap-1">
-                    <UButton
-                      size="xs"
-                      color="neutral"
-                      variant="ghost"
-                      @click="setSection(section.paths, true)"
-                    >
-                      {{ t('documentTypes.sections.all') }}
-                    </UButton>
-                    <UButton
-                      size="xs"
-                      color="neutral"
-                      variant="ghost"
-                      @click="setSection(section.paths, false)"
-                    >
-                      {{ t('documentTypes.sections.none') }}
-                    </UButton>
-                  </div>
-                </div>
-
-                <label
-                  v-for="row in section.rows"
-                  :key="row.path"
-                  class="border-default flex items-start gap-3 rounded-lg border p-3 transition-colors duration-[120ms] hover:bg-elevated/60"
-                  :class="row.kept ? '' : 'opacity-60'"
+                <template
+                  v-if="fieldQuery"
+                  #trailing
                 >
-                  <UCheckbox
-                    v-model="row.kept"
-                    :aria-label="t('documentTypes.new.select.keep')"
-                    class="mt-0.5"
+                  <UButton
+                    color="neutral"
+                    variant="link"
+                    size="xs"
+                    icon="i-lucide-x"
+                    :aria-label="t('documentTypes.fields.filter.clear')"
+                    @click="fieldQuery = ''"
                   />
-                  <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <p
-                        class="text-sm font-medium"
-                        :class="row.kept ? 'text-highlighted' : 'text-muted'"
-                      >
-                        {{ row.label }}
+                </template>
+              </UInput>
+
+              <p
+                v-if="!visibleRows.length"
+                class="text-muted text-sm"
+                data-testid="field-filter-empty"
+              >
+                {{ t('documentTypes.fields.filter.empty', { query: fieldQuery }) }}
+              </p>
+
+              <div
+                v-else
+                class="flex flex-col gap-6"
+                data-testid="proposal-sections"
+              >
+                <section
+                  v-for="section in sections"
+                  :key="section.section ?? '__headless__'"
+                  class="flex flex-col gap-2"
+                >
+                  <div class="bg-elevated/50 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2">
+                    <div class="min-w-0">
+                      <p class="text-highlighted text-sm font-medium">
+                        {{ section.section ?? t('documentTypes.sections.other') }}
                       </p>
-                      <UBadge
-                        size="sm"
-                        variant="subtle"
-                        :color="row.role === 'amount' ? 'primary' : row.role === 'identifier' ? 'success' : 'neutral'"
-                      >
-                        {{ t(`documentTypes.new.select.role.${row.role}`) }}
-                      </UBadge>
+                      <p class="text-muted text-xs">
+                        {{ t('documentTypes.sections.count', {
+                          kept: section.keptCount,
+                          total: section.paths.length
+                        }) }}
+                      </p>
                     </div>
-                    <p
-                      v-if="row.sampleValue"
-                      class="text-toned text-[13px]"
-                    >
-                      {{ t('documentTypes.sections.sampleValue', { value: row.sampleValue }) }}
-                    </p>
-                    <p class="text-dimmed break-all font-mono text-xs">
-                      {{ row.path }}
-                    </p>
+                    <div class="flex shrink-0 gap-1">
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="ghost"
+                        @click="setSection(section.paths, true)"
+                      >
+                        {{ t('documentTypes.sections.all') }}
+                      </UButton>
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="ghost"
+                        @click="setSection(section.paths, false)"
+                      >
+                        {{ t('documentTypes.sections.none') }}
+                      </UButton>
+                    </div>
                   </div>
-                </label>
-              </section>
-            </div>
+
+                  <label
+                    v-for="row in section.rows"
+                    :key="row.path"
+                    class="border-default flex items-start gap-3 rounded-lg border p-3 transition-colors duration-[120ms] hover:bg-elevated/60"
+                    :class="row.kept ? '' : 'opacity-60'"
+                  >
+                    <UCheckbox
+                      v-model="row.kept"
+                      :aria-label="t('documentTypes.new.select.keep')"
+                      class="mt-0.5"
+                    />
+                    <div class="min-w-0 flex-1">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <p
+                          class="text-sm font-medium"
+                          :class="row.kept ? 'text-highlighted' : 'text-muted'"
+                        >
+                          {{ row.label }}
+                        </p>
+                        <UBadge
+                          size="sm"
+                          variant="subtle"
+                          :color="row.role === 'amount' ? 'primary' : row.role === 'identifier' ? 'success' : 'neutral'"
+                        >
+                          {{ t(`documentTypes.new.select.role.${row.role}`) }}
+                        </UBadge>
+                      </div>
+                      <p
+                        v-if="row.sampleValue"
+                        class="text-toned text-[13px]"
+                      >
+                        {{ t('documentTypes.sections.sampleValue', { value: row.sampleValue }) }}
+                      </p>
+                      <p class="text-dimmed break-all font-mono text-xs">
+                        {{ row.path }}
+                      </p>
+                    </div>
+                  </label>
+                </section>
+              </div>
+            </template>
 
             <p
               class="text-muted mt-4 text-sm"

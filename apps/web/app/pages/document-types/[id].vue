@@ -20,13 +20,15 @@ import {
 } from '~/domain/document-type-configuration'
 import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
+import { matchesFieldQuery } from '~/domain/field-search'
 import {
   descriptionsForKnownPaths,
   groupBySection,
   isUnderdescribed,
   labelFor,
   mergeDescriptions,
-  orderedSectionNames
+  orderedSectionNames,
+  sectionFor
 } from '~/domain/field-sections'
 
 const { t } = useI18n()
@@ -430,9 +432,34 @@ function conceptLabel(conceptId: string): string {
  * Rows are edited in place, so a group carries the index of each row rather
  * than a copy of it.
  */
+/**
+ * What the user typed to find a field, matched against everything the row
+ * shows: the document's own name for it, the value read from the sample, its
+ * path and the block it sits in.
+ *
+ * A certificate configures dozens of fields, and the one being corrected is
+ * one the user is pointing at on the paper — typing the figure or the wording
+ * printed beside it beats scrolling every block to find it.
+ */
+const fieldQuery = ref('')
+
+const visibleEntries = computed(() =>
+  selections.value
+    .map((selection, index) => ({ selection, index }))
+    .filter(entry =>
+      matchesFieldQuery(fieldQuery.value, [
+        fieldName(entry.selection.path),
+        descriptionByPath.value.get(entry.selection.path),
+        sampleValueByPath.value.get(entry.selection.path),
+        sectionFor(entry.selection.path, describedFields.value),
+        entry.selection.path
+      ])
+    )
+)
+
 const sections = computed(() =>
   groupBySection(
-    selections.value.map((selection, index) => ({ selection, index })),
+    visibleEntries.value,
     entry => entry.selection.path,
     describedFields.value
   ).map(section => ({
@@ -871,193 +898,226 @@ watch(
             {{ t('documentTypes.edit.fields.empty') }}
           </p>
 
-          <div
-            v-else
-            class="flex flex-col gap-6"
-            data-testid="field-rows"
-          >
-            <section
-              v-for="section in sections"
-              :key="section.name || '__unsectioned__'"
-              class="flex flex-col gap-2"
+          <template v-else>
+            <UInput
+              v-model="fieldQuery"
+              icon="i-lucide-search"
+              class="mb-4 w-full"
+              data-testid="field-filter"
+              :placeholder="t('documentTypes.fields.filter.placeholder')"
+              :aria-label="t('documentTypes.fields.filter.placeholder')"
             >
-              <div class="bg-elevated/50 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2">
-                <div class="min-w-0">
-                  <p class="text-highlighted text-sm font-medium">
-                    {{ section.name || t('documentTypes.sections.other') }}
-                  </p>
-                  <p class="text-muted text-xs">
-                    {{ t('documentTypes.sections.count', {
-                      kept: section.keptCount,
-                      total: section.indices.length
-                    }) }}
-                  </p>
-                </div>
-                <div class="flex shrink-0 gap-1">
-                  <UButton
-                    size="xs"
-                    color="neutral"
-                    variant="ghost"
-                    @click="setSection(section.indices, true)"
-                  >
-                    {{ t('documentTypes.sections.all') }}
-                  </UButton>
-                  <UButton
-                    size="xs"
-                    color="neutral"
-                    variant="ghost"
-                    @click="setSection(section.indices, false)"
-                  >
-                    {{ t('documentTypes.sections.none') }}
-                  </UButton>
-                </div>
-              </div>
-
-              <div
-                v-for="index in section.indices"
-                :key="selections[index]!.path"
-                class="border-default flex flex-col gap-3 rounded-lg border p-3"
-                :class="selections[index]!.kept ? '' : 'opacity-60'"
+              <template
+                v-if="fieldQuery"
+                #trailing
               >
-                <div class="flex items-start gap-3">
-                  <UCheckbox
-                    v-model="selections[index]!.kept"
-                    :aria-label="t('documentTypes.edit.fields.keep')"
-                    class="mt-1"
-                  />
+                <UButton
+                  color="neutral"
+                  variant="link"
+                  size="xs"
+                  icon="i-lucide-x"
+                  :aria-label="t('documentTypes.fields.filter.clear')"
+                  @click="fieldQuery = ''"
+                />
+              </template>
+            </UInput>
 
+            <p
+              v-if="!visibleEntries.length"
+              class="text-muted text-sm"
+              data-testid="field-filter-empty"
+            >
+              {{ t('documentTypes.fields.filter.empty', { query: fieldQuery }) }}
+            </p>
+
+            <div
+              v-else
+              class="flex flex-col gap-6"
+              data-testid="field-rows"
+            >
+              <section
+                v-for="section in sections"
+                :key="section.name || '__unsectioned__'"
+                class="flex flex-col gap-2"
+              >
+                <div class="bg-elevated/50 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2">
                   <div class="min-w-0">
-                    <p
-                      class="text-sm font-medium"
-                      :class="selections[index]!.kept ? 'text-highlighted' : 'text-muted line-through'"
-                    >
-                      {{ fieldName(selections[index]!.path) }}
+                    <p class="text-highlighted text-sm font-medium">
+                      {{ section.name || t('documentTypes.sections.other') }}
                     </p>
-                    <p
-                      v-if="descriptionByPath.get(selections[index]!.path)"
-                      class="text-muted text-xs"
-                    >
-                      {{ descriptionByPath.get(selections[index]!.path) }}
-                    </p>
-                    <p class="text-dimmed break-all font-mono text-xs">
-                      {{ selections[index]!.path }}
-                    </p>
-                    <!--
-                      The same anchor the configurator offers: on a certificate
-                      that prints four figures, the value is what says which
-                      one this row is.
-                    -->
-                    <p
-                      v-if="sampleValueByPath.get(selections[index]!.path)"
-                      class="text-toned text-[13px]"
-                      data-testid="field-sample-value"
-                    >
-                      {{ t('documentTypes.sections.sampleValue', {
-                        value: sampleValueByPath.get(selections[index]!.path)
+                    <p class="text-muted text-xs">
+                      {{ t('documentTypes.sections.count', {
+                        kept: section.keptCount,
+                        total: section.indices.length
                       }) }}
                     </p>
-                    <p
-                      v-if="!selections[index]!.kept"
-                      class="text-warning text-xs"
+                  </div>
+                  <div class="flex shrink-0 gap-1">
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      @click="setSection(section.indices, true)"
                     >
-                      {{ t('documentTypes.edit.fields.removed') }}
-                    </p>
+                      {{ t('documentTypes.sections.all') }}
+                    </UButton>
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      @click="setSection(section.indices, false)"
+                    >
+                      {{ t('documentTypes.sections.none') }}
+                    </UButton>
                   </div>
                 </div>
 
-                <div class="grid gap-3 sm:grid-cols-2 sm:pl-8">
-                  <UFormField
-                    :label="t('documentTypes.edit.fields.conceptQuestion')"
-                    :help="t('documentTypes.edit.fields.conceptHint')"
-                  >
-                    <UInputMenu
-                      :model-value="selections[index]!.conceptId ?? UNMAPPED"
-                      :items="conceptItems"
-                      value-key="value"
-                      :disabled="!selections[index]!.kept"
-                      :placeholder="t('documentTypes.edit.fields.searchConcept')"
-                      class="w-full"
-                      @update:model-value="selections[index]!.conceptId = toPath($event as string)"
-                    />
-                  </UFormField>
-
-                  <UFormField
-                    :label="t('documentTypes.edit.fields.spineQuestion')"
-                    :help="t('documentTypes.edit.fields.spineHint')"
-                  >
-                    <UInputMenu
-                      :model-value="selections[index]!.spineConceptId ?? UNMAPPED"
-                      :items="spineItems"
-                      value-key="value"
-                      :disabled="!selections[index]!.kept || !selections[index]!.conceptId"
-                      :placeholder="t('documentTypes.edit.fields.searchSpine')"
-                      class="w-full"
-                      @update:model-value="selections[index]!.spineConceptId = toPath($event as string)"
-                    />
-                  </UFormField>
-                </div>
-
-                <!--
-                  Said on the row now that the exogena line is no longer a
-                  heading: that this figure is one of several added together,
-                  and that the sum is being built out of mismatched parts.
-                -->
-                <p
-                  v-if="spineFactsByPath.get(selections[index]!.path)?.summed"
-                  class="text-primary text-xs sm:pl-8"
-                  data-testid="summed-note"
-                >
-                  {{ t('documentTypes.edit.fields.summed', {
-                    count: spineFactsByPath.get(selections[index]!.path)!.summed
-                  }) }}
-                </p>
-                <p
-                  v-if="spineFactsByPath.get(selections[index]!.path)?.mixed"
-                  class="text-warning text-xs sm:pl-8"
-                  data-testid="mixed-comparison"
-                >
-                  {{ t('documentTypes.edit.fields.mixedComparison') }}
-                </p>
-
                 <div
-                  v-if="selections[index]!.kept && selections[index]!.conceptId && selections[index]!.spineConceptId"
-                  class="flex flex-col gap-3 sm:pl-8"
+                  v-for="index in section.indices"
+                  :key="selections[index]!.path"
+                  class="border-default flex flex-col gap-3 rounded-lg border p-3"
+                  :class="selections[index]!.kept ? '' : 'opacity-60'"
                 >
-                  <UFormField :label="t('documentTypes.edit.fields.comparison.question')">
-                    <URadioGroup
-                      :model-value="selections[index]!.perAccount ? 'perAccount' : 'total'"
-                      :items="comparisonItems"
-                      @update:model-value="selections[index]!.perAccount = $event === 'perAccount'"
+                  <div class="flex items-start gap-3">
+                    <UCheckbox
+                      v-model="selections[index]!.kept"
+                      :aria-label="t('documentTypes.edit.fields.keep')"
+                      class="mt-1"
                     />
-                  </UFormField>
 
-                  <UFormField
-                    v-if="selections[index]!.perAccount"
-                    :label="t('documentTypes.edit.fields.accountPath')"
-                    :help="t('documentTypes.edit.fields.accountPathHint')"
+                    <div class="min-w-0">
+                      <p
+                        class="text-sm font-medium"
+                        :class="selections[index]!.kept ? 'text-highlighted' : 'text-muted line-through'"
+                      >
+                        {{ fieldName(selections[index]!.path) }}
+                      </p>
+                      <p
+                        v-if="descriptionByPath.get(selections[index]!.path)"
+                        class="text-muted text-xs"
+                      >
+                        {{ descriptionByPath.get(selections[index]!.path) }}
+                      </p>
+                      <p class="text-dimmed break-all font-mono text-xs">
+                        {{ selections[index]!.path }}
+                      </p>
+                      <!--
+                        The same anchor the configurator offers: on a certificate
+                        that prints four figures, the value is what says which
+                        one this row is.
+                      -->
+                      <p
+                        v-if="sampleValueByPath.get(selections[index]!.path)"
+                        class="text-toned text-[13px]"
+                        data-testid="field-sample-value"
+                      >
+                        {{ t('documentTypes.sections.sampleValue', {
+                          value: sampleValueByPath.get(selections[index]!.path)
+                        }) }}
+                      </p>
+                      <p
+                        v-if="!selections[index]!.kept"
+                        class="text-warning text-xs"
+                      >
+                        {{ t('documentTypes.edit.fields.removed') }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="grid gap-3 sm:grid-cols-2 sm:pl-8">
+                    <UFormField
+                      :label="t('documentTypes.edit.fields.conceptQuestion')"
+                      :help="t('documentTypes.edit.fields.conceptHint')"
+                    >
+                      <UInputMenu
+                        :model-value="selections[index]!.conceptId ?? UNMAPPED"
+                        :items="conceptItems"
+                        value-key="value"
+                        :disabled="!selections[index]!.kept"
+                        :placeholder="t('documentTypes.edit.fields.searchConcept')"
+                        class="w-full"
+                        @update:model-value="selections[index]!.conceptId = toPath($event as string)"
+                      />
+                    </UFormField>
+
+                    <UFormField
+                      :label="t('documentTypes.edit.fields.spineQuestion')"
+                      :help="t('documentTypes.edit.fields.spineHint')"
+                    >
+                      <UInputMenu
+                        :model-value="selections[index]!.spineConceptId ?? UNMAPPED"
+                        :items="spineItems"
+                        value-key="value"
+                        :disabled="!selections[index]!.kept || !selections[index]!.conceptId"
+                        :placeholder="t('documentTypes.edit.fields.searchSpine')"
+                        class="w-full"
+                        @update:model-value="selections[index]!.spineConceptId = toPath($event as string)"
+                      />
+                    </UFormField>
+                  </div>
+
+                  <!--
+                    Said on the row now that the exogena line is no longer a
+                    heading: that this figure is one of several added together,
+                    and that the sum is being built out of mismatched parts.
+                  -->
+                  <p
+                    v-if="spineFactsByPath.get(selections[index]!.path)?.summed"
+                    class="text-primary text-xs sm:pl-8"
+                    data-testid="summed-note"
                   >
-                    <UInputMenu
-                      :model-value="selectValue(selections[index]!.accountPath)"
-                      :items="optionalFieldItems"
-                      value-key="value"
-                      :placeholder="t('documentTypes.edit.fields.searchField')"
-                      class="w-full sm:w-96"
-                      @update:model-value="selections[index]!.accountPath = toPath($event as string)"
-                    />
-                  </UFormField>
+                    {{ t('documentTypes.edit.fields.summed', {
+                      count: spineFactsByPath.get(selections[index]!.path)!.summed
+                    }) }}
+                  </p>
+                  <p
+                    v-if="spineFactsByPath.get(selections[index]!.path)?.mixed"
+                    class="text-warning text-xs sm:pl-8"
+                    data-testid="mixed-comparison"
+                  >
+                    {{ t('documentTypes.edit.fields.mixedComparison') }}
+                  </p>
 
-                  <UAlert
-                    v-if="selections[index]!.perAccount && !selections[index]!.accountPath"
-                    color="warning"
-                    variant="soft"
-                    icon="i-lucide-triangle-alert"
-                    data-testid="account-path-missing"
-                    :title="t('documentTypes.edit.fields.accountPathMissing')"
-                  />
+                  <div
+                    v-if="selections[index]!.kept && selections[index]!.conceptId && selections[index]!.spineConceptId"
+                    class="flex flex-col gap-3 sm:pl-8"
+                  >
+                    <UFormField :label="t('documentTypes.edit.fields.comparison.question')">
+                      <URadioGroup
+                        :model-value="selections[index]!.perAccount ? 'perAccount' : 'total'"
+                        :items="comparisonItems"
+                        @update:model-value="selections[index]!.perAccount = $event === 'perAccount'"
+                      />
+                    </UFormField>
+
+                    <UFormField
+                      v-if="selections[index]!.perAccount"
+                      :label="t('documentTypes.edit.fields.accountPath')"
+                      :help="t('documentTypes.edit.fields.accountPathHint')"
+                    >
+                      <UInputMenu
+                        :model-value="selectValue(selections[index]!.accountPath)"
+                        :items="optionalFieldItems"
+                        value-key="value"
+                        :placeholder="t('documentTypes.edit.fields.searchField')"
+                        class="w-full sm:w-96"
+                        @update:model-value="selections[index]!.accountPath = toPath($event as string)"
+                      />
+                    </UFormField>
+
+                    <UAlert
+                      v-if="selections[index]!.perAccount && !selections[index]!.accountPath"
+                      color="warning"
+                      variant="soft"
+                      icon="i-lucide-triangle-alert"
+                      data-testid="account-path-missing"
+                      :title="t('documentTypes.edit.fields.accountPathMissing')"
+                    />
+                  </div>
                 </div>
-              </div>
-            </section>
-          </div>
+              </section>
+            </div>
+          </template>
 
           <p
             v-if="missingAccountPaths.length > 0"
