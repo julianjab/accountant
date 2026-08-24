@@ -604,3 +604,46 @@ def test_describing_the_fields_of_a_type_that_is_gone_is_a_404() -> None:
         assert response.status_code == 404
     finally:
         app.dependency_overrides.clear()
+
+
+def test_a_proposal_can_be_asked_to_revise_an_existing_type() -> None:
+    """The regeneration path: the guidance and the type being revised have to
+    reach the use case, or the reading repeats the omission it was called for."""
+    from server.application.use_cases import ProposeDocumentType, ReadStoredDocument
+    from server.domain.ports import DocumentContent, ProposedOcrConfig
+    from server.infrastructure.api import deps
+
+    class _Propose(ProposeDocumentType):
+        def __init__(self):
+            self.received = None
+
+        def execute(self, data):
+            self.received = data
+            return ProposedOcrConfig(extraction_prompt="p", extraction_schema={"type": "object"})
+
+    class _Read(ReadStoredDocument):
+        def __init__(self):
+            pass
+
+        def execute(self, data):
+            return DocumentContent(data=b"%PDF-", mime_type="application/pdf", file_name="c.pdf")
+
+    propose = _Propose()
+    app.dependency_overrides[require_session] = lambda: None
+    app.dependency_overrides[deps.get_propose_document_type_use_case] = lambda: propose
+    app.dependency_overrides[deps.get_read_stored_document_use_case] = lambda: _Read()
+    try:
+        response = TestClient(app).post(
+            "/document-types/proposals",
+            data={
+                "name": "Certificado",
+                "document_id": "doc-1",
+                "document_type_id": "type-1",
+                "guidance": "La tabla tiene una fila por obligación.",
+            },
+        )
+        assert response.status_code == 200
+        assert propose.received.document_type_id == "type-1"
+        assert propose.received.guidance == "La tabla tiene una fila por obligación."
+    finally:
+        app.dependency_overrides.clear()

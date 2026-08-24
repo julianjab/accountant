@@ -43,7 +43,13 @@ document_type_configuration:
   instructions_template: |
     This is a sample "{type_name}" document. Design an extraction prompt and
     a JSON Schema covering every relevant field in it, so future documents of
-    this same type can be OCR'd consistently.{mapping_instructions}
+    this same type can be OCR'd consistently.
+
+    Where the document lays a table out with one row per item — an obligation,
+    an account, a withholding — the schema must model it as a list, and must
+    declare the column that names each row, not only the figures. Without that
+    column the rows cannot be told apart and only one of them ever gets
+    extracted.{revision_instructions}{mapping_instructions}
 
 document_field_description:
   system: |

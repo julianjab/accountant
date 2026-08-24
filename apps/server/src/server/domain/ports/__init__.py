@@ -16,6 +16,7 @@ from server.domain.ports.ocr import (
     ConceptOption,
     DocumentClassifier,
     DocumentTypeConfigurator,
+    ExistingConfig,
     FieldRole,
     OcrEngine,
     ProposedField,
@@ -34,6 +35,7 @@ from server.domain.ports.repositories import (
 from server.domain.ports.source_parser import DocumentSourceParsers, ParsedSource
 
 __all__ = [
+    "ExistingConfig",
     "ProposedField",
     "FieldRole",
     "ProposedFieldMapping",

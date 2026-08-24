@@ -2,7 +2,7 @@
 
 import pytest
 
-from server.domain.ports import ConceptOption, DocumentContent
+from server.domain.ports import ConceptOption, DocumentContent, ExistingConfig
 from server.infrastructure.adapters.claude_document_type_configurator import (
     ClaudeDocumentTypeConfigurator,
 )
@@ -12,7 +12,7 @@ SAMPLE = DocumentContent(data=b"%PDF-", mime_type="application/pdf", file_name="
 
 PROMPT = TemplatedPrompt(
     system="You design extraction configs.",
-    instructions_template='Sample "{type_name}".{mapping_instructions}',
+    instructions_template='Sample "{type_name}".{revision_instructions}{mapping_instructions}',
 )
 
 DESCRIPTION_PROMPT = TemplatedPrompt(
@@ -39,10 +39,10 @@ class _Provider:
         }
 
 
-def _configure(tool_input, concepts=CONCEPTS):
+def _configure(tool_input, concepts=CONCEPTS, **kwargs):
     provider = _Provider(tool_input)
     adapter = ClaudeDocumentTypeConfigurator(provider, "claude-x", PROMPT, DESCRIPTION_PROMPT)
-    return adapter.propose_config(SAMPLE, "Certificado", concepts), provider
+    return adapter.propose_config(SAMPLE, "Certificado", concepts, **kwargs), provider
 
 
 def _describe(tool_input, paths=("saldo", "retenciones[].valor")):
@@ -486,3 +486,34 @@ def test_a_response_without_the_tool_call_fails_loudly():
     adapter = ClaudeDocumentTypeConfigurator(provider, "claude-x", PROMPT, DESCRIPTION_PROMPT)
     with pytest.raises(RuntimeError):
         adapter.describe_fields(SAMPLE, "Certificado", ("saldo",))
+
+
+def test_a_first_reading_says_nothing_about_revising():
+    _, provider = _configure({"extraction_prompt": "p", "extraction_schema": {}})
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert "being revised" not in text
+
+
+def test_a_revision_carries_the_current_configuration_and_forbids_renaming():
+    """Renaming a field that survives is what silently discards its mapping,
+    which is worse than the omission the revision was asked to fix."""
+    _, provider = _configure(
+        {"extraction_prompt": "p", "extraction_schema": {}},
+        base=ExistingConfig(
+            extraction_prompt="Read the obligations table.",
+            extraction_schema={"properties": {"obligaciones_a_cargo": {"type": "array"}}},
+        ),
+    )
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert "Read the obligations table." in text
+    assert "obligaciones_a_cargo" in text
+    assert "do not rename or drop" in text
+
+
+def test_the_complaint_reaches_the_model_verbatim():
+    _, provider = _configure(
+        {"extraction_prompt": "p", "extraction_schema": {}},
+        guidance="La tabla tiene una fila por obligación: falta la de tarjeta de crédito.",
+    )
+    text = provider.request["messages"][0]["content"][-1]["text"]
+    assert "falta la de tarjeta de crédito" in text

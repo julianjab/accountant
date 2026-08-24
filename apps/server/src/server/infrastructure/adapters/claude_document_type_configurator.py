@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from server.domain.ports import (
     ConceptOption,
     DocumentContent,
+    ExistingConfig,
     FieldRole,
     ProposedField,
     ProposedFieldMapping,
@@ -39,6 +40,8 @@ class ClaudeDocumentTypeConfigurator:
         content: DocumentContent,
         type_name: str,
         concepts: Sequence[ConceptOption] = (),
+        guidance: str = "",
+        base: ExistingConfig | None = None,
     ) -> ProposedOcrConfig:
         response = self._provider.create_message(
             model=self._model,
@@ -136,7 +139,9 @@ class ClaudeDocumentTypeConfigurator:
                             "type": "text",
                             "text": self._prompt.instructions_template.replace(
                                 "{type_name}", type_name
-                            ).replace("{mapping_instructions}", _mapping_instructions(concepts)),
+                            )
+                            .replace("{mapping_instructions}", _mapping_instructions(concepts))
+                            .replace("{revision_instructions}", _revision(guidance, base)),
                         },
                     ],
                 }
@@ -383,6 +388,45 @@ def _mapping_properties(concepts: Sequence[ConceptOption]) -> dict:
             },
         },
     }
+
+
+def _revision(guidance: str, base: ExistingConfig | None) -> str:
+    """What turns a fresh proposal into a revision of one that already exists.
+
+    The current schema goes in whole and its paths are declared untouchable.
+    The mappings a person curated are keyed by path, so a regeneration that
+    renamed the fields it kept would discard every one of them to fix the one
+    field that was missing — and the screen would report the type as newly
+    unconfigured.
+
+    The guidance comes last because it is the specific complaint: the model has
+    already been told to preserve and extend, and this says what to extend.
+    """
+    if not guidance and base is None:
+        return ""
+
+    parts = ["\n\nThis document type already exists and is being revised, not created."]
+    if base is not None:
+        parts.append(
+            "\n\nIts current extraction prompt is:\n"
+            f"{base.extraction_prompt}\n\n"
+            "And its current JSON Schema is:\n"
+            f"{json.dumps(base.extraction_schema, ensure_ascii=False, indent=2)}\n\n"
+            "Start from these. Every field path the current schema declares must "
+            "still be declared, spelled exactly the same way — concept mappings "
+            "are keyed by those paths and renaming a field silently throws its "
+            "mapping away. Add, deepen or correct fields; do not rename or drop "
+            "what is already there."
+        )
+    if guidance:
+        parts.append(
+            "\n\nThe person configuring this type says what is missing or wrong:\n"
+            f"{guidance}\n"
+            "Treat that as the point of this revision: read the document again "
+            "with it in mind, and make sure the resulting schema and prompt "
+            "capture what it asks for."
+        )
+    return "".join(parts)
 
 
 def _mapping_instructions(concepts: Sequence[ConceptOption]) -> str:

@@ -328,7 +328,7 @@ def get_describe_document_type_fields_use_case() -> DescribeDocumentTypeFields:
 
 
 def get_propose_document_type_use_case() -> ProposeDocumentType:
-    return ProposeDocumentType(get_document_type_configurator())
+    return ProposeDocumentType(get_document_type_configurator(), get_document_type_repository())
 
 
 def get_import_client_documents_use_case() -> ImportClientDocuments:

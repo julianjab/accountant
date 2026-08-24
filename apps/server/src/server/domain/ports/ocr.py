@@ -35,6 +35,20 @@ class ConceptOption:
 
 
 @dataclass(frozen=True, slots=True)
+class ExistingConfig:
+    """The configuration a proposal is meant to improve rather than replace.
+
+    A type that missed a row of a table needs its schema widened, not a second
+    schema invented beside it: every concept mapping someone curated is keyed
+    by path, so a regeneration that renames the fields it keeps throws all of
+    them away to fix one omission.
+    """
+
+    extraction_prompt: str
+    extraction_schema: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
 class ProposedField:
     """One field of the proposed schema, with what it is and what it holds."""
 
@@ -101,6 +115,8 @@ class DocumentTypeConfigurator(Protocol):
         content: DocumentContent,
         type_name: str,
         concepts: Sequence[ConceptOption] = (),
+        guidance: str = "",
+        base: ExistingConfig | None = None,
     ) -> ProposedOcrConfig:
         """Proposes how to extract this kind of document, and — when a
         vocabulary is offered — what each extracted field means.
@@ -110,6 +126,14 @@ class DocumentTypeConfigurator(Protocol):
         tying them to concepts is trivial. A second call would re-derive both
         sides independently and could disagree with itself about the names it
         produced.
+
+        `guidance` is what the person configuring the type says is wrong with
+        what they got: a certificate whose table has a row per obligation is
+        read as one row until someone says so, and no amount of re-running the
+        same request finds the row that was never asked for.
+
+        `base` makes it a revision instead of a fresh reading: the existing
+        paths must survive, because the mappings are keyed by them.
         """
         ...
 

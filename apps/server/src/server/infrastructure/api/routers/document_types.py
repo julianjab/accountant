@@ -84,6 +84,8 @@ def propose_document_type(
     sample_file: UploadFile | None = File(None),
     document_id: str | None = Form(None),
     kind_id: str | None = Form(None),
+    guidance: str | None = Form(None),
+    document_type_id: str | None = Form(None),
     use_case: ProposeDocumentType = Depends(get_propose_document_type_use_case),
     registry: KindRegistry = Depends(get_reconciliation_registry),
     read_document: ReadStoredDocument = Depends(get_read_stored_document_use_case),
@@ -93,6 +95,13 @@ def propose_document_type(
     A proposal routinely lists twenty fields where the accountant wants the
     identifier and three figures. Saving it whole made pruning the type their
     problem afterwards; this makes choosing it their decision up front.
+
+    Naming `document_type_id` makes it a revision of that type instead of a
+    first reading: its stored prompt and schema become the starting point, and
+    the paths it already declares must survive — the concept mappings are keyed
+    by them. `guidance` carries what the person configuring it says the last
+    reading got wrong, which is the only way a table read as one row is ever
+    read as two.
 
     The sample is named either as a document already in a client's folder
     (`document_id`) or as an uploaded file. The first is what lets the saved
@@ -104,13 +113,18 @@ def propose_document_type(
     event loop for the length of the Claude call.
     """
     kind = _resolve_kind(registry, kind_id)
-    proposal = use_case.execute(
-        ProposeDocumentTypeInput(
-            type_name=name,
-            sample_document=_sample(sample_file, document_id, read_document),
-            concepts=_concept_options(kind),
+    try:
+        proposal = use_case.execute(
+            ProposeDocumentTypeInput(
+                type_name=name,
+                sample_document=_sample(sample_file, document_id, read_document),
+                concepts=_concept_options(kind),
+                guidance=guidance or "",
+                document_type_id=document_type_id,
+            )
         )
-    )
+    except DocumentTypeNotFound as exc:
+        raise HTTPException(status_code=404, detail="Document type not found") from exc
     return DocumentTypeProposalResponse(
         extraction_prompt=proposal.extraction_prompt,
         extraction_schema=proposal.extraction_schema,
