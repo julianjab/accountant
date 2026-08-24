@@ -89,6 +89,36 @@ Padding `22px 30px 40px`.
 - Tabla: cabecera "{cliente} · {periodo}", etiqueta verde con "N filas aprobadas", botón de contorno "Abrir en Google Sheets". Columnas `110px 1fr 130px 120px 110px`: fecha (mono `#6B7770`), descripción, documento origen (12px `#8A948C`), valor (mono 13px/500, derecha), iva (mono 13px `#6B7770`, derecha). Nombres de columna en mono 11px uppercase tracking .07em.
 - **No existe en el servidor todavía**: no hay entidad ni endpoint de hojas. Requiere trabajo de backend (agregación de `ExtractedData` por cliente/periodo + export a Sheets).
 
+## List row pattern
+
+Toda lista de la app (bandeja agrupada por cliente, documentos de un cliente, la lista de
+clientes) comparte una única forma de fila — **no hay una variante de tabla aparte**. Esto
+no estaba explícito antes de que `/clients` divergiera de las demás listas usando `UTable`;
+queda documentado aquí para que no vuelva a pasar.
+
+- Contenedor: `<ul>` con `divide-y divide-default`, envuelto en `rounded-lg border
+  border-default bg-default`. Cada fila es un `<li>` con un `<NuxtLink>` de bloque completo
+  como única celda clickeable — así el tap y la activación por teclado (Enter/Espacio) vienen
+  gratis del elemento nativo, sin réplicas de `onSelect`/`keydown` como las que necesitaba
+  `UTable`.
+- Fila: `flex items-center gap-3 px-4 py-3` (o `py-2.5` si la fila es más angosta, como en
+  `ClientDocumentList`), `hover:bg-elevated`, `transition-colors duration-[120ms]`.
+- Elemento inicial — avatar o miniatura, según lo que agrupa la fila:
+  - Cliente: iniciales de color estable, `22×22`, `rounded-[5px]`, `text-[10px] font-semibold`
+    — `colorForClient`/`initialsForClientName` en `app/utils/client-color.ts`.
+  - Documento: miniatura de extensión, `22×26`, `rounded-[3px]`, `border border-default
+    bg-muted`.
+- Texto: título `text-[13.5px] font-medium text-highlighted`; metadatos secundarios
+  `text-[12px] text-muted`, mono (`font-mono`) para cualquier dato — NIT, hora, extensión —
+  nunca para una frase.
+- Sin `UTable` para listas de entidades de negocio (clientes, documentos, filas de hoja de
+  cálculo): a esta escala de columnas (2–4, ninguna con orden/filtrado por columna) una tabla
+  sólo agrega un mecanismo de fila distinto que hay que igualar a mano contra este patrón, y
+  en viewports angostos empuja columnas fuera de pantalla sin ninguna señal de que se puede
+  hacer scroll. Excepción real: `sheets.vue` sí usa `UTable`, porque ahí sí hay columnas
+  numéricas alineadas a la derecha que se leen como una hoja de cálculo, no como una lista de
+  entidades.
+
 ## Interactions & Behavior
 
 - **Navegación**: barra lateral cambia de vista. Clic en fila de documento → revisión. Clic en el nombre del cliente (cabecera de grupo o tabla) → ficha de cliente. "← Volver" regresa a la bandeja.

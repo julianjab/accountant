@@ -33,7 +33,10 @@ data from it via a multimodal AI.
 - `apps/server` — Python 3.12 + FastAPI + `uv`. OCR/classification via Anthropic (Claude vision).
   Drive access via `google-api-python-client`.
 - `apps/web` — Nuxt (Vue) + Nuxt UI + `bun`. Talks to the server's HTTP API; will also handle
-  Drive/Sheets integration (uploading documents, exporting extracted data).
+  Drive/Sheets integration (uploading documents, exporting extracted data). Visual design is
+  governed by `design-system/README.md` (tokens, per-screen specs, the shared "List row
+  pattern") — read it before building or changing UI; `design-system/ISSUES.md` tracks
+  implemented vs. open screens and past deviations.
 - Root: `bun` workspaces (JS side only — `apps/server` is managed independently via `uv`).
 
 ### Logging

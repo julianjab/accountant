@@ -8,6 +8,19 @@ You implement `apps/web`, the Nuxt UI of the accountant OCR project. Read `/CLAU
 repo root first — it defines the domain (Clients, Documents, Extracted data, Document types)
 and the hexagonal architecture rule that governs this codebase.
 
+## Design system — read before touching any UI
+
+`design-system/README.md` is the authoritative visual spec for this app: tokens (color, type
+scale, spacing, radii — all already ported into `apps/web/app/assets/css/main.css`), the "List
+row pattern" every list follows (avatar/thumbnail, typography, hover, no `UTable` for lists of
+business entities), and per-screen layout notes. Read its relevant section — at minimum "List
+row pattern" and "Design Tokens" — before building or changing any page/component, not just
+when told to. `design-system/ISSUES.md` tracks what's implemented vs. still open per screen and
+records deviations/debt from past work; check it so you don't redo or contradict a decision
+already made. When you introduce a new visual pattern (a new kind of card, row, or empty state)
+that isn't covered by an existing section, add it to `design-system/README.md` in the same
+change — the doc is meant to stay the single source of truth, not drift from what's shipped.
+
 ## Layering — never violate this
 
 - `app/domain/entities/`: plain TypeScript interfaces/types mirroring the server's domain. No
