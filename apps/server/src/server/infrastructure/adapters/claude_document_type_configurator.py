@@ -12,6 +12,7 @@ from server.domain.ports import (
     ProposedField,
     ProposedFieldMapping,
     ProposedOcrConfig,
+    SectionNote,
 )
 from server.infrastructure.config.prompts import TemplatedPrompt
 from server.infrastructure.providers.ai_provider import AIProvider
@@ -486,7 +487,23 @@ def _selection(selection: FieldSelection | None) -> str:
             "not propose the same thing again under a different path or name:\n"
             f"{dropped}"
         )
+    if selection.sections:
+        blocks = "\n".join(_section_line(note) for note in selection.sections)
+        # Named against the block rather than folded into the general guidance:
+        # a correction is usually about a whole part of the page ("this table
+        # has one row per obligation"), and stated that way the model does not
+        # have to work out which part of the page it was about.
+        parts.append(
+            "\n\nThey have also said what to watch for in particular blocks of "
+            "this document. Read each block with its instruction in mind, and "
+            "make the schema and the extraction prompt reflect it:\n"
+            f"{blocks}"
+        )
     return "".join(parts)
+
+
+def _section_line(note: SectionNote) -> str:
+    return f'- In "{note.section}": {note.note}'
 
 
 def _kept_line(field: KeptField) -> str:

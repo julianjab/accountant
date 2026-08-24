@@ -25,6 +25,7 @@ from server.domain.ports import (
     FieldSelection,
     KeptField,
     ProposedFieldMapping,
+    SectionNote,
 )
 from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
@@ -547,13 +548,18 @@ def _selection(raw: str | None) -> FieldSelection | None:
             status_code=422,
             detail=f"selection is not a valid field selection: {exc.error_count()} error(s)",
         ) from exc
-    if not payload.kept and not payload.dropped:
+    if not payload.kept and not payload.dropped and not payload.sections:
         return None
     return FieldSelection(
         kept=tuple(
             KeptField(path=f.path, label=f.label.strip(), note=f.note.strip()) for f in payload.kept
         ),
         dropped=tuple(payload.dropped),
+        sections=tuple(
+            SectionNote(section=note.section.strip(), note=note.note.strip())
+            for note in payload.sections
+            if note.note.strip()
+        ),
     )
 
 

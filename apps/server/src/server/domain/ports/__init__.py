@@ -24,6 +24,7 @@ from server.domain.ports.ocr import (
     ProposedField,
     ProposedFieldMapping,
     ProposedOcrConfig,
+    SectionNote,
 )
 from server.domain.ports.repositories import (
     ClientRepository,
@@ -67,6 +68,7 @@ __all__ = [
     "OcrEngine",
     "ParsedSource",
     "ProposedOcrConfig",
+    "SectionNote",
     "SessionRepository",
     "StoredFile",
 ]

@@ -68,6 +68,22 @@ class KeptField:
 
 
 @dataclass(frozen=True, slots=True)
+class SectionNote:
+    """What to watch for in one block of the document.
+
+    A certificate is already divided into blocks on paper — withholdings,
+    balances, issuer details — and a correction is usually about a whole block
+    rather than one field: "this table has one row per obligation", "these
+    figures are monthly, not accumulated". Said against the block, it reaches
+    the model attached to the fields it governs; said in the general guidance,
+    the model has to work out which part of the page it meant.
+    """
+
+    section: str
+    note: str
+
+
+@dataclass(frozen=True, slots=True)
 class FieldSelection:
     """What a person kept from the last reading, and what they threw out.
 
@@ -84,9 +100,11 @@ class FieldSelection:
     #: Paths the person removed on purpose. Distinct from a path nobody
     #: mentioned: this one was offered, looked at, and refused.
     dropped: tuple[str, ...] = ()
+    #: What they said about whole blocks of the document, block by block.
+    sections: tuple[SectionNote, ...] = ()
 
     def __bool__(self) -> bool:
-        return bool(self.kept or self.dropped)
+        return bool(self.kept or self.dropped or self.sections)
 
 
 @dataclass(frozen=True, slots=True)

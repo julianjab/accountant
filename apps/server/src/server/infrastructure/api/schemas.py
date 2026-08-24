@@ -114,6 +114,13 @@ class KeptFieldPayload(BaseModel):
     note: str = ""
 
 
+class SectionNotePayload(BaseModel):
+    """What to watch for in one block of the document."""
+
+    section: str
+    note: str
+
+
 class FieldSelectionPayload(BaseModel):
     """The answer to the last proposal, which is the next one's instruction.
 
@@ -125,6 +132,8 @@ class FieldSelectionPayload(BaseModel):
     #: Paths the person removed on purpose — offered, read, refused. Distinct
     #: from a path nobody ever mentioned.
     dropped: list[str] = []
+    #: What they said about whole blocks of the page, block by block.
+    sections: list[SectionNotePayload] = []
 
 
 class DocumentTypeResponse(BaseModel):
