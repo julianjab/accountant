@@ -200,4 +200,12 @@ def _fold(text: str) -> str:
 def _cell(row: list[object], index: int) -> str:
     if index >= len(row) or row[index] is None:
         return ""
-    return str(row[index]).strip()
+    value = row[index]
+    # openpyxl hands back every numeric cell as a float, and a NIT is a numeric
+    # cell: `str(890903938.0)` is `"890903938.0"`, whose digits are
+    # `8909039380`. That trailing zero made every reporting party of the
+    # exogena a different party from the one its certificate names, so not one
+    # row could ever pair with its evidence.
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()

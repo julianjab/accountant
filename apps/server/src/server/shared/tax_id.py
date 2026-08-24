@@ -19,9 +19,13 @@ class TaxId:
     value: str
 
     @classmethod
-    def parse(cls, raw: str | int | None) -> TaxId | None:
+    def parse(cls, raw: str | int | float | None) -> TaxId | None:
         if raw is None:
             return None
+        # A spreadsheet cell reaches us as a float, and stringifying one keeps
+        # its decimal point: `890903938.0` must not read as `8909039380`.
+        if isinstance(raw, float) and raw.is_integer():
+            raw = int(raw)
         text = str(raw).strip()
         if not text:
             return None
