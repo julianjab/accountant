@@ -83,6 +83,7 @@ from server.reconciliation.application import (
 )
 from server.reconciliation.core.registry import KindRegistry
 from server.reconciliation.infrastructure import (
+    DeleteDocumentTypeAndMappings,
     DocumentFactProvider,
     InMemoryConceptMappingRepository,
     InMemoryReconciliationReportRepository,
@@ -393,5 +394,8 @@ def get_read_stored_document_use_case() -> ReadStoredDocument:
     return ReadStoredDocument(get_document_repository(), get_document_storage())
 
 
-def get_delete_document_type_use_case() -> DeleteDocumentType:
-    return DeleteDocumentType(get_document_type_repository(), get_document_repository())
+def get_delete_document_type_use_case() -> DeleteDocumentTypeAndMappings:
+    return DeleteDocumentTypeAndMappings(
+        DeleteDocumentType(get_document_type_repository(), get_document_repository()),
+        get_concept_mapping_repository(),
+    )
