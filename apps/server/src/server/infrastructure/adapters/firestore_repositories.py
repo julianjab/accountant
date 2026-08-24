@@ -171,7 +171,11 @@ class FirestoreDocumentRepository:
         return Document(
             id=doc_id,
             client_id=data["client_id"],
-            document_type_id=data.get("document_type_id"),
+            # `or None`: rows written by earlier versions stored an empty
+            # string for "not classified", and every reader downstream tests
+            # for None. Normalising on the way out keeps that one meaning of
+            # unclassified instead of two that behave differently.
+            document_type_id=data.get("document_type_id") or None,
             drive_file_id=data["drive_file_id"],
             file_name=data["file_name"],
             mime_type=data["mime_type"],

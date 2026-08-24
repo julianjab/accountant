@@ -174,7 +174,13 @@ class DocumentFactProvider:
         the claim it was meant to satisfy showed as missing, and nothing
         connected the two.
         """
-        if document.document_type_id is None:
+        # Falsy rather than `is None`: rows written by earlier versions hold an
+        # empty string where they mean "nothing classified this". Comparing
+        # against None let those through to the mapping lookup, which of course
+        # found nothing, and the document was reported as a type whose concepts
+        # were never mapped — sending the reader to configure a type that does
+        # not exist instead of to classify the document.
+        if not document.document_type_id:
             return (), ContributionStatus.NOT_CLASSIFIED, ""
 
         mapping = self._mappings.get(document.document_type_id, kind_id)

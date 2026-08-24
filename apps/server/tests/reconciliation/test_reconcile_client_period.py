@@ -462,3 +462,16 @@ def test_a_type_tagged_for_other_years_does_not_read_this_year_documents(wiring)
     contribution = next(c for c in report.contributions if c.document_id == "cert-banco")
     assert contribution.status is ContributionStatus.OTHER_PERIOD
     assert contribution.detail == "2023, 2024"
+
+
+def test_an_empty_document_type_id_reads_as_never_classified(wiring):
+    """Rows written by earlier versions hold `""` where they mean "nothing
+    classified this". Reported as a type with no concept mapping, they sent
+    the reader off to configure a type that does not exist."""
+    use_case, _, documents, _, _, _ = wiring
+    documents.save(_document("sin-tipo", "application/pdf", type_id=""))
+
+    report = use_case.execute(ReconcileClientPeriodInput("client-1", KIND_ID, Period.of_year(2025)))
+
+    statuses = {c.file_name: c.status for c in report.contributions}
+    assert statuses["sin-tipo.bin"] is ContributionStatus.NOT_CLASSIFIED
