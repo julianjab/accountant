@@ -6,6 +6,8 @@ import ClientHeader from '~/infrastructure/components/clients/ClientHeader.vue'
 import ClientDocumentList from '~/infrastructure/components/clients/ClientDocumentList.vue'
 import MonthlySummaryCard from '~/infrastructure/components/clients/MonthlySummaryCard.vue'
 import ConfiguredTypesCard from '~/infrastructure/components/clients/ConfiguredTypesCard.vue'
+import ClientExtractedData from '~/infrastructure/components/clients/ClientExtractedData.vue'
+import ReconciliationPanel from '~/infrastructure/components/reconciliation/ReconciliationPanel.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -46,6 +48,7 @@ watch(
 const tabItems = computed(() => [
   { label: t('clients.detail.tabs.documents'), slot: 'documents' as const },
   { label: t('clients.detail.tabs.extractedData'), slot: 'extractedData' as const },
+  { label: t('clients.detail.tabs.reconciliation'), slot: 'reconciliation' as const },
   { label: t('clients.detail.tabs.spreadsheets'), slot: 'spreadsheets' as const }
 ])
 </script>
@@ -106,9 +109,10 @@ const tabItems = computed(() => [
               />
             </template>
             <template #extractedData>
-              <p class="p-4 text-[13px] text-toned">
-                {{ t('clients.detail.comingSoon') }}
-              </p>
+              <ClientExtractedData :documents="documents ?? []" />
+            </template>
+            <template #reconciliation>
+              <ReconciliationPanel :client-id="id" />
             </template>
             <template #spreadsheets>
               <p class="p-4 text-[13px] text-toned">

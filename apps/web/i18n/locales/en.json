@@ -40,7 +40,8 @@
       "tabs": {
         "documents": "Documents",
         "extractedData": "Extracted data",
-        "spreadsheets": "Spreadsheets"
+        "spreadsheets": "Spreadsheets",
+        "reconciliation": "Reconciliation"
       },
       "comingSoon": "Coming soon.",
       "documents": {
@@ -59,6 +60,11 @@
       "export": {
         "label": "Export to spreadsheet",
         "disabledTooltip": "Available once spreadsheet export ships (issue #11)"
+      },
+      "extractedData": {
+        "empty": "No documents have extracted data yet.",
+        "notExtracted": "This document has no extracted data yet.",
+        "fieldCount": "{count} fields"
       }
     }
   },
@@ -209,6 +215,25 @@
     },
     "group": {
       "count": "({count})"
+    }
+  },
+  "reconciliation": {
+    "title": "Exogena reconciliation {period}",
+    "summary": "{total} findings · {reconciled} reconciled · {attention} need attention",
+    "run": "Reconcile",
+    "rerun": "Reconcile again",
+    "runFailed": "The reconciliation could not be run.",
+    "notRunYet": "This year has not been reconciled yet. Run the reconciliation to see the cross-checks.",
+    "spine": "Exogena",
+    "evidence": "Certificate",
+    "noEvidence": "No certificate backs this.",
+    "status": {
+      "matched": "Matched",
+      "matched_within_tolerance": "Matched (rounding)",
+      "mismatch": "Mismatch",
+      "missing_evidence": "Certificate missing",
+      "unsupported_by_spine": "Not in the exogena",
+      "out_of_scope": "Not validated"
     }
   }
 }

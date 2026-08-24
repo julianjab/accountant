@@ -40,7 +40,8 @@
       "tabs": {
         "documents": "Documentos",
         "extractedData": "Datos extraídos",
-        "spreadsheets": "Hojas de cálculo"
+        "spreadsheets": "Hojas de cálculo",
+        "reconciliation": "Cruce"
       },
       "comingSoon": "Próximamente.",
       "documents": {
@@ -59,6 +60,11 @@
       "export": {
         "label": "Exportar a hoja de cálculo",
         "disabledTooltip": "Disponible cuando se implemente la exportación a hojas de cálculo (issue #11)"
+      },
+      "extractedData": {
+        "empty": "Todavía no hay documentos con datos extraídos.",
+        "notExtracted": "Este documento aún no tiene datos extraídos.",
+        "fieldCount": "{count} campos"
       }
     }
   },
@@ -209,6 +215,25 @@
     },
     "group": {
       "count": "({count})"
+    }
+  },
+  "reconciliation": {
+    "title": "Conciliación de exógena {period}",
+    "summary": "{total} hallazgos · {reconciled} cuadran · {attention} requieren atención",
+    "run": "Conciliar",
+    "rerun": "Volver a conciliar",
+    "runFailed": "No se pudo ejecutar la conciliación.",
+    "notRunYet": "Todavía no se ha conciliado este año. Ejecuta la conciliación para ver los cruces.",
+    "spine": "Exógena",
+    "evidence": "Certificado",
+    "noEvidence": "Sin certificado que lo respalde.",
+    "status": {
+      "matched": "Cuadra",
+      "matched_within_tolerance": "Cuadra (redondeo)",
+      "mismatch": "No cuadra",
+      "missing_evidence": "Falta certificado",
+      "unsupported_by_spine": "No está en la exógena",
+      "out_of_scope": "Sin validar"
     }
   }
 }
