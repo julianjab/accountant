@@ -18,7 +18,9 @@ const CREATED: DocumentTypeCreation = {
     extractionSchema: { type: 'object', properties: {} },
     active: true,
     createdAt: '2026-08-24',
-    fields: [{ path: 'gmf', label: 'Valor GMF', role: 'amount', section: 'GMF' }]
+    fields: [{ path: 'gmf', label: 'Valor GMF', role: 'amount', section: 'GMF' }],
+    taxYears: [],
+    sampleDocumentId: null
   },
   unmappedFields: []
 }

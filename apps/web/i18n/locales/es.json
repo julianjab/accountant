@@ -268,7 +268,11 @@
         "unknown": "El servidor ajustó la asignación ({change}) en {path}."
       },
       "savePartialTitle": "El tipo se guardó, el mapeo no",
-      "savePartialDescription": "Los cambios del documento quedaron guardados, pero no se pudo guardar el mapeo de conceptos. Revisa los conceptos y guarda de nuevo — no hace falta repetir lo demás."
+      "savePartialDescription": "Los cambios del documento quedaron guardados, pero no se pudo guardar el mapeo de conceptos. Revisa los conceptos y guarda de nuevo — no hace falta repetir lo demás.",
+      "sample": {
+        "title": "Documento con el que se configuró este tipo",
+        "hint": "Los campos de abajo se sacaron de este papel. Comparalos contra él para confirmar que se está leyendo lo correcto."
+      }
     }
   },
   "auth": {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ConceptMapping, MappingChange } from '~/domain/entities/concept-mapping'
 import type { DocumentType } from '~/domain/entities/document-type'
+import type { ClientDocument } from '~/domain/entities/document'
 import type { ReconciliationKind } from '~/domain/entities/reconciliation-kind'
 import type { FieldSelection } from '~/domain/document-type-configuration'
 import {
@@ -22,6 +23,7 @@ const route = useRoute()
 const documentTypeId = route.params.id as string
 
 const getDocumentType = useGetDocumentTypeUseCase()
+const getDocument = useGetDocumentUseCase()
 const updateDocumentType = useUpdateDocumentTypeUseCase()
 const listReconciliationKinds = useListReconciliationKindsUseCase()
 const getConceptMapping = useGetConceptMappingUseCase()
@@ -48,6 +50,24 @@ const { data: kinds, refresh: refreshKinds } = await useAsyncData<Reconciliation
   'reconciliation-kinds',
   () => listReconciliationKinds.execute(),
   { immediate: false, server: false, default: () => [] }
+)
+
+/**
+ * The document this type was configured from.
+ *
+ * Shown beside the fields because that is the only way to check them: a list
+ * of labels and sections says what the AI claims the paper contains, and
+ * nothing here says whether it read the paper right. Keyed on the type so it
+ * loads once the type resolves, and simply absent for types configured before
+ * the sample was recorded.
+ */
+const { data: sampleDocument } = await useAsyncData<ClientDocument | null>(
+  `document-type-sample-${documentTypeId}`,
+  () =>
+    documentType.value?.sampleDocumentId
+      ? getDocument.execute(documentType.value.sampleDocumentId)
+      : Promise.resolve(null),
+  { immediate: false, server: false, default: () => null, watch: [documentType] }
 )
 
 const selectedKindId = ref<string | null>(null)
@@ -542,6 +562,34 @@ watch(
             </UFormField>
           </div>
         </template>
+
+        <section
+          v-if="sampleDocument"
+          class="mb-6 flex flex-col gap-2"
+          data-testid="sample-document"
+        >
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 class="text-sm font-medium">
+              {{ t('documentTypes.edit.sample.title') }}
+            </h3>
+            <UButton
+              :to="`/documents/${sampleDocument.id}`"
+              variant="link"
+              size="xs"
+              class="p-0"
+            >
+              {{ sampleDocument.fileName }}
+            </UButton>
+          </div>
+          <p class="text-muted text-xs">
+            {{ t('documentTypes.edit.sample.hint') }}
+          </p>
+          <DocumentViewer
+            :drive-file-id="sampleDocument.driveFileId"
+            :mime-type="sampleDocument.mimeType"
+            :file-name="sampleDocument.fileName"
+          />
+        </section>
 
         <p
           v-if="!selections.length"

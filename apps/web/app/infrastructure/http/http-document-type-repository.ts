@@ -35,6 +35,8 @@ interface DocumentTypeDto {
   active: boolean
   created_at: string
   fields?: DocumentTypeFieldDto[]
+  tax_years?: number[]
+  sample_document_id?: string | null
 }
 
 interface MappingChangeDto {
@@ -179,7 +181,9 @@ function toDocumentType(dto: DocumentTypeDto): DocumentType {
     extractionSchema: dto.extraction_schema,
     active: dto.active,
     createdAt: dto.created_at,
-    fields: (dto.fields ?? []).map(toDocumentTypeField)
+    fields: (dto.fields ?? []).map(toDocumentTypeField),
+    taxYears: dto.tax_years ?? [],
+    sampleDocumentId: dto.sample_document_id ?? null
   }
 }
 

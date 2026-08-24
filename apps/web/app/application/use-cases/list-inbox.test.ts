@@ -336,6 +336,8 @@ describe('ListInbox', () => {
       name: 'Bank statement',
       description: '',
       fields: [],
+      taxYears: [],
+      sampleDocumentId: null,
       extractionPrompt: '',
       extractionSchema: {},
       active: true,

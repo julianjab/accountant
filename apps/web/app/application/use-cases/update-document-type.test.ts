@@ -14,6 +14,8 @@ const DOCUMENT_TYPE: DocumentType = {
   name: 'Bancolombia certificate',
   description: 'Yearly bank certificate',
   fields: [],
+  taxYears: [],
+  sampleDocumentId: null,
   extractionPrompt: 'Extract the certificate fields',
   extractionSchema: { properties: { balance: { type: 'string' } } },
   active: true,

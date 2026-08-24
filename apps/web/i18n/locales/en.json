@@ -268,7 +268,11 @@
         "unknown": "The server adjusted the mapping ({change}) at {path}."
       },
       "savePartialTitle": "The type was saved, its mapping was not",
-      "savePartialDescription": "The document changes were stored, but the concept mapping could not be saved. Review the concepts and save again — the rest does not need redoing."
+      "savePartialDescription": "The document changes were stored, but the concept mapping could not be saved. Review the concepts and save again — the rest does not need redoing.",
+      "sample": {
+        "title": "The document this type was configured from",
+        "hint": "The fields below were taken from this paper. Check them against it to confirm the right things are being read."
+      }
     }
   },
   "auth": {

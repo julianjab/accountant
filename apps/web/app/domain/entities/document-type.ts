@@ -40,6 +40,15 @@ export interface DocumentType {
    * this must still render with only paths to work from.
    */
   fields: DocumentTypeField[]
+  /** Empty means the type applies to any tax year. */
+  taxYears: number[]
+  /**
+   * The document the configuration was derived from.
+   *
+   * Kept so whoever revisits the type can read the paper behind the choices:
+   * a field list is only checkable against the document it came from.
+   */
+  sampleDocumentId: string | null
 }
 
 /**

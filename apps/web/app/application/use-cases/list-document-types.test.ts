@@ -41,6 +41,8 @@ describe('ListDocumentTypes', () => {
         name: 'Bancolombia statement',
         description: 'Monthly bank statement',
         fields: [],
+        taxYears: [],
+        sampleDocumentId: null,
         extractionPrompt: 'Extract the statement fields',
         extractionSchema: { properties: { balance: { type: 'number' } } },
         active: true,
