@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { DocumentType, DocumentTypeUpdate } from '~/domain/entities/document-type'
+import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
 import type {
-  DefineDocumentTypeInput,
+  CreateDocumentTypeInput,
+  ProposeDocumentTypeInput,
   DocumentTypeRepository,
   UpdateDocumentTypeInput
 } from '~/application/ports/document-type-repository'
@@ -18,7 +20,11 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
     return Promise.resolve(this.documentTypes)
   }
 
-  define(_input: DefineDocumentTypeInput): Promise<DocumentType> {
+  propose(_input: ProposeDocumentTypeInput): Promise<DocumentTypeProposal> {
+    throw new Error('not implemented')
+  }
+
+  create(_input: CreateDocumentTypeInput): Promise<DocumentTypeUpdate> {
     throw new Error('not implemented')
   }
 
@@ -34,6 +40,7 @@ describe('ListDocumentTypes', () => {
         id: '1',
         name: 'Bancolombia statement',
         description: 'Monthly bank statement',
+        fields: [],
         extractionPrompt: 'Extract the statement fields',
         extractionSchema: { properties: { balance: { type: 'number' } } },
         active: true,

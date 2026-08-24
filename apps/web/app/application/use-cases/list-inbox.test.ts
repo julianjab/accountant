@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { Client } from '~/domain/entities/client'
 import type { ClientDocument } from '~/domain/entities/document'
 import type { DocumentType, DocumentTypeUpdate } from '~/domain/entities/document-type'
+import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
 import type { ClientRepository, ImportSummary, RegisterClientInput } from '~/application/ports/client-repository'
 import type { DocumentListFilter, DocumentRepository,
   ClientDocumentsImport
 } from '~/application/ports/document-repository'
 import type {
-  DefineDocumentTypeInput,
+  CreateDocumentTypeInput,
+  ProposeDocumentTypeInput,
   DocumentTypeRepository,
   UpdateDocumentTypeInput
 } from '~/application/ports/document-type-repository'
@@ -68,7 +70,11 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
     return Promise.resolve(this.types)
   }
 
-  define(_input: DefineDocumentTypeInput): Promise<DocumentType> {
+  propose(_input: ProposeDocumentTypeInput): Promise<DocumentTypeProposal> {
+    throw new Error('not implemented')
+  }
+
+  create(_input: CreateDocumentTypeInput): Promise<DocumentTypeUpdate> {
     throw new Error('not implemented')
   }
 
@@ -329,6 +335,7 @@ describe('ListInbox', () => {
       id: 't1',
       name: 'Bank statement',
       description: '',
+      fields: [],
       extractionPrompt: '',
       extractionSchema: {},
       active: true,

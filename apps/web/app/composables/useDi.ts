@@ -18,7 +18,8 @@ import { ImportClientDocuments } from '~/application/use-cases/import-client-doc
 import { ImportClientsFromDrive } from '~/application/use-cases/import-clients-from-drive'
 import { GetCurrentUser } from '~/application/use-cases/get-current-user'
 import { ListDocumentTypes } from '~/application/use-cases/list-document-types'
-import { DefineDocumentType } from '~/application/use-cases/define-document-type'
+import { ProposeDocumentType } from '~/application/use-cases/propose-document-type'
+import { CreateDocumentType } from '~/application/use-cases/create-document-type'
 import { GetDocumentType } from '~/application/use-cases/get-document-type'
 import { UpdateDocumentType } from '~/application/use-cases/update-document-type'
 import { ListReconciliationKinds } from '~/application/use-cases/list-reconciliation-kinds'
@@ -92,8 +93,12 @@ export function useListDocumentTypesUseCase() {
   return new ListDocumentTypes(useDocumentTypeRepository())
 }
 
-export function useDefineDocumentTypeUseCase() {
-  return new DefineDocumentType(useDocumentTypeRepository())
+export function useProposeDocumentTypeUseCase() {
+  return new ProposeDocumentType(useDocumentTypeRepository())
+}
+
+export function useCreateDocumentTypeUseCase() {
+  return new CreateDocumentType(useDocumentTypeRepository())
 }
 
 export function useGetDocumentTypeUseCase() {

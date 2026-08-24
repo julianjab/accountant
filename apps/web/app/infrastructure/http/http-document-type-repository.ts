@@ -1,11 +1,29 @@
-import type { DocumentType, DocumentTypeUpdate } from '~/domain/entities/document-type'
-import type { MappingChange } from '~/domain/entities/concept-mapping'
-import type { DocumentTypeField, FieldRole } from '~/domain/field-sections'
 import type {
-  DefineDocumentTypeInput,
+  DocumentType,
+  DocumentTypeField,
+  DocumentTypeUpdate,
+  FieldRole
+} from '~/domain/entities/document-type'
+import type { ConceptMappingSign, MappingChange } from '~/domain/entities/concept-mapping'
+import type {
+  DocumentTypeProposal,
+  ProposedField,
+  ProposedFieldMapping,
+  UnmappedField
+} from '~/domain/entities/document-type-proposal'
+import type {
+  CreateDocumentTypeInput,
   DocumentTypeRepository,
+  ProposeDocumentTypeInput,
   UpdateDocumentTypeInput
 } from '~/application/ports/document-type-repository'
+
+interface DocumentTypeFieldDto {
+  path: string
+  label?: string | null
+  role?: string | null
+  section?: string | null
+}
 
 interface DocumentTypeDto {
   id: string
@@ -16,27 +34,6 @@ interface DocumentTypeDto {
   active: boolean
   created_at: string
   fields?: DocumentTypeFieldDto[]
-}
-
-interface DocumentTypeFieldDto {
-  path: string
-  label: string
-  role: string
-  section: string
-}
-
-const ROLES: FieldRole[] = ['identifier', 'amount', 'context']
-
-/**
- * Descriptions as the server stored them.
- *
- * A role the client does not know is read as plain context rather than
- * rejected: the role only orders a screen, and refusing the type over it
- * would leave the accountant unable to open a document at all.
- */
-function toField(dto: DocumentTypeFieldDto): DocumentTypeField {
-  const role = ROLES.find(known => known === dto.role) ?? 'context'
-  return { path: dto.path, label: dto.label || dto.path, role, section: dto.section ?? '' }
 }
 
 interface MappingChangeDto {
@@ -50,6 +47,108 @@ interface MappingChangeDto {
 
 interface UpdatedDocumentTypeDto extends DocumentTypeDto {
   mapping_changes?: MappingChangeDto[]
+}
+
+interface ProposedFieldDto {
+  path: string
+  label?: string | null
+  role?: string | null
+  sample_value?: string | null
+  section?: string | null
+}
+
+interface ProposedFieldMappingDto {
+  field_path: string
+  concept_id: string
+  account_path?: string | null
+  sign?: number | null
+}
+
+interface UnmappedFieldDto {
+  field_path: string
+  reason?: string | null
+}
+
+interface DocumentTypeProposalDto {
+  extraction_prompt: string
+  extraction_schema: Record<string, unknown>
+  fields?: ProposedFieldDto[]
+  field_mappings?: ProposedFieldMappingDto[]
+  unmapped_fields?: UnmappedFieldDto[]
+  kind_id?: string | null
+  reporter_path?: string | null
+  reporter_name_path?: string | null
+  period_path?: string | null
+}
+
+const ROLES: FieldRole[] = ['identifier', 'amount', 'context']
+
+/** An unknown role is read as context: it only decides whether the field
+ * starts selected, and starting a field the app cannot interpret as selected
+ * would push it into the type without the user having chosen it. */
+function toRole(value: string | null | undefined): FieldRole {
+  return ROLES.includes(value as FieldRole) ? (value as FieldRole) : 'context'
+}
+
+function toDocumentTypeField(dto: DocumentTypeFieldDto): DocumentTypeField {
+  return {
+    path: dto.path,
+    // The path is the only label a type saved before descriptions existed can
+    // offer, and a blank line in a list is worse than a technical one.
+    label: dto.label || dto.path,
+    role: toRole(dto.role),
+    section: dto.section ?? ''
+  }
+}
+
+function toFieldDto(field: DocumentTypeField): DocumentTypeFieldDto {
+  return {
+    path: field.path,
+    label: field.label,
+    role: field.role,
+    section: field.section
+  }
+}
+
+function toSign(value: number | null | undefined): ConceptMappingSign {
+  return value === -1 ? -1 : 1
+}
+
+function toProposedField(dto: ProposedFieldDto): ProposedField {
+  return {
+    path: dto.path,
+    label: dto.label ?? '',
+    role: toRole(dto.role),
+    sampleValue: dto.sample_value ?? '',
+    section: dto.section ?? ''
+  }
+}
+
+function toProposedFieldMapping(dto: ProposedFieldMappingDto): ProposedFieldMapping {
+  return {
+    fieldPath: dto.field_path,
+    conceptId: dto.concept_id,
+    accountPath: dto.account_path ?? null,
+    sign: toSign(dto.sign)
+  }
+}
+
+function toUnmappedField(dto: UnmappedFieldDto): UnmappedField {
+  return { fieldPath: dto.field_path, reason: dto.reason ?? '' }
+}
+
+function toProposal(dto: DocumentTypeProposalDto): DocumentTypeProposal {
+  return {
+    extractionPrompt: dto.extraction_prompt,
+    extractionSchema: dto.extraction_schema,
+    fields: (dto.fields ?? []).map(toProposedField),
+    fieldMappings: (dto.field_mappings ?? []).map(toProposedFieldMapping),
+    unmappedFields: (dto.unmapped_fields ?? []).map(toUnmappedField),
+    kindId: dto.kind_id ?? null,
+    reporterPath: dto.reporter_path ?? null,
+    reporterNamePath: dto.reporter_name_path ?? null,
+    periodPath: dto.period_path ?? null
+  }
 }
 
 function toMappingChange(dto: MappingChangeDto): MappingChange {
@@ -72,7 +171,7 @@ function toDocumentType(dto: DocumentTypeDto): DocumentType {
     extractionSchema: dto.extraction_schema,
     active: dto.active,
     createdAt: dto.created_at,
-    fields: (dto.fields ?? []).map(toField)
+    fields: (dto.fields ?? []).map(toDocumentTypeField)
   }
 }
 
@@ -97,19 +196,52 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
     return dtos.map(toDocumentType)
   }
 
-  async define(input: DefineDocumentTypeInput): Promise<DocumentType> {
+  async propose(input: ProposeDocumentTypeInput): Promise<DocumentTypeProposal> {
     const formData = new FormData()
     formData.append('name', input.name)
-    formData.append('description', input.description)
     formData.append('sample_file', input.sampleFile)
+    if (input.kindId) formData.append('kind_id', input.kindId)
 
-    const dto = await $fetch<DocumentTypeDto>('/document-types', {
+    const dto = await $fetch<DocumentTypeProposalDto>('/document-types/proposals', {
       baseURL: this.baseUrl,
       method: 'POST',
       credentials: 'include',
       body: formData
     })
-    return toDocumentType(dto)
+    return toProposal(dto)
+  }
+
+  async create(input: CreateDocumentTypeInput): Promise<DocumentTypeUpdate> {
+    const dto = await $fetch<UpdatedDocumentTypeDto>('/document-types', {
+      baseURL: this.baseUrl,
+      method: 'POST',
+      credentials: 'include',
+      body: {
+        name: input.name,
+        description: input.description,
+        extraction_prompt: input.extractionPrompt,
+        extraction_schema: input.extractionSchema,
+        field_mappings: input.fieldMappings.map(mapping => ({
+          field_path: mapping.fieldPath,
+          concept_id: mapping.conceptId,
+          account_path: mapping.accountPath,
+          sign: mapping.sign
+        })),
+        reporter_path: input.reporterPath,
+        reporter_name_path: input.reporterNamePath,
+        period_path: input.periodPath,
+        tax_years: input.taxYears,
+        fields: input.fields.map(toFieldDto),
+        kind_id: input.kindId,
+        sample_document_id: input.sampleDocumentId
+      }
+    })
+    return {
+      documentType: toDocumentType(dto),
+      // The server reports here what it had to change about the mappings it was
+      // sent, the same way the edit screen's PATCH does.
+      mappingChanges: (dto.mapping_changes ?? []).map(toMappingChange)
+    }
   }
 
   async update(id: string, changes: UpdateDocumentTypeInput): Promise<DocumentTypeUpdate> {
@@ -122,6 +254,7 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
     if (changes.active !== undefined) body.active = changes.active
     if (changes.extractionPrompt !== undefined) body.extraction_prompt = changes.extractionPrompt
     if (changes.extractionSchema !== undefined) body.extraction_schema = changes.extractionSchema
+    if (changes.fields !== undefined) body.fields = changes.fields.map(toFieldDto)
 
     const dto = await $fetch<UpdatedDocumentTypeDto>(`/document-types/${id}`, {
       baseURL: this.baseUrl,

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { DocumentType, DocumentTypeUpdate } from '~/domain/entities/document-type'
+import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
 import type {
-  DefineDocumentTypeInput,
+  CreateDocumentTypeInput,
+  ProposeDocumentTypeInput,
   DocumentTypeRepository,
   UpdateDocumentTypeInput
 } from '~/application/ports/document-type-repository'
@@ -11,6 +13,7 @@ const DOCUMENT_TYPE: DocumentType = {
   id: '1',
   name: 'Bancolombia certificate',
   description: 'Yearly bank certificate',
+  fields: [],
   extractionPrompt: 'Extract the certificate fields',
   extractionSchema: { properties: { balance: { type: 'string' } } },
   active: true,
@@ -30,7 +33,11 @@ class FakeDocumentTypeRepository implements DocumentTypeRepository {
     throw new Error('not implemented')
   }
 
-  define(_input: DefineDocumentTypeInput): Promise<DocumentType> {
+  propose(_input: ProposeDocumentTypeInput): Promise<DocumentTypeProposal> {
+    throw new Error('not implemented')
+  }
+
+  create(_input: CreateDocumentTypeInput): Promise<DocumentTypeUpdate> {
     throw new Error('not implemented')
   }
 
