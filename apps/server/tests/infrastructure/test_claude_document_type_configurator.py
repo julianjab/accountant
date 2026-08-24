@@ -382,3 +382,31 @@ def test_the_field_descriptions_are_demanded_rather_than_hoped_for():
         "sample_value",
         "section",
     ]
+
+
+def test_a_schema_that_arrives_as_json_text_is_still_a_schema():
+    """The schema is the one tool argument whose value is itself JSON, and the
+    model returns it as a string often enough that a 500 here means a paid-for
+    vision call thrown away over a `json.loads`."""
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "Extract it.",
+            "extraction_schema": '{"type": "object", "properties": {"gmf": {"type": "number"}}}',
+            "field_mappings": [{"field_path": "gmf", "concept_id": "bank:cert_gmf_valor"}],
+        }
+    )
+    assert proposal.extraction_schema == {
+        "type": "object",
+        "properties": {"gmf": {"type": "number"}},
+    }
+    # Read as an object, the paths it declares resolve — so the mapping the
+    # model proposed against it survives instead of being rejected.
+    assert [m.field_path for m in proposal.field_mappings] == ["gmf"]
+
+
+@pytest.mark.parametrize("value", [None, "not json at all", ["type", "object"], 7])
+def test_a_schema_that_is_not_an_object_fails_loudly(value):
+    """Every field path is a path into this schema; without one there is
+    nothing to extract, so this is the part worth refusing over."""
+    with pytest.raises(RuntimeError, match="not a JSON object"):
+        _configure({"extraction_prompt": "p", "extraction_schema": value})

@@ -1,4 +1,5 @@
 import base64
+import json
 from collections.abc import Sequence
 
 from server.domain.ports import (
@@ -146,13 +147,13 @@ class ClaudeDocumentTypeConfigurator:
         for block in response["content"]:
             if block["type"] == "tool_use" and block["name"] == _PROPOSE_TOOL_NAME:
                 payload = block["input"]
-                schema = payload.get("extraction_schema")
+                schema = _read_schema(payload)
                 mappings, rejected = _read_mappings(payload, concepts, schema)
                 paths, path_problems = _read_paths(payload, schema)
                 rejected = (*rejected, *path_problems)
                 return ProposedOcrConfig(
                     extraction_prompt=payload["extraction_prompt"],
-                    extraction_schema=payload["extraction_schema"],
+                    extraction_schema=schema,
                     field_mappings=mappings,
                     unmapped_fields=(*_read_unmapped(payload), *rejected),
                     fields=_read_fields(payload),
@@ -162,6 +163,31 @@ class ClaudeDocumentTypeConfigurator:
                 )
         msg = "Claude did not return the expected config proposal tool call"
         raise RuntimeError(msg)
+
+
+def _read_schema(payload: dict) -> dict:
+    """The proposed JSON Schema, as an object whichever shape it arrived in.
+
+    A tool's `input_schema` steers the model, it does not bind it, and this is
+    the one argument whose own value is JSON — so it comes back as a JSON
+    *string* often enough to matter. Passed on as-is it was the only part of
+    this payload nothing checked: it travelled to the HTTP boundary as a
+    `dict[str, Any]` that was not one, and the whole proposal died there with
+    a 500, after the vision call had already been paid for, over a value one
+    `json.loads` away from correct.
+    """
+    schema = payload.get("extraction_schema")
+    if isinstance(schema, str):
+        try:
+            schema = json.loads(schema)
+        except ValueError:
+            schema = None
+    if not isinstance(schema, dict):
+        # Nothing downstream can work without it — the fields are named as
+        # paths into this schema — so this is the one part worth failing on.
+        msg = "Claude proposed an extraction schema that is not a JSON object"
+        raise RuntimeError(msg)
+    return schema
 
 
 def _mapping_properties(concepts: Sequence[ConceptOption]) -> dict:
