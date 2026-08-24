@@ -34,12 +34,12 @@ describe('looksLikeCurrencyKey', () => {
 })
 
 describe('formatAccountingNumber', () => {
-  it('groups thousands and fixes two decimals for the es-CO locale', () => {
-    expect(formatAccountingNumber(9946131)).toBe('9.946.131,00')
+  it('groups thousands, fixes two decimals, and prefixes the COP symbol for the es-CO locale', () => {
+    expect(formatAccountingNumber(9946131)).toBe('$ 9.946.131,00')
   })
 
   it('wraps a negative value in parentheses instead of a leading minus', () => {
-    expect(formatAccountingNumber(-1234.5)).toBe('(1.234,50)')
+    expect(formatAccountingNumber(-1234.5)).toBe('($ 1.234,50)')
   })
 })
 
@@ -64,11 +64,11 @@ describe('formatScalarValue', () => {
   })
 
   it('formats currency-like keys with accounting number format', () => {
-    expect(formatScalarValue('saldo_disponible', 1234567)).toBe('1.234.567,00')
+    expect(formatScalarValue('saldo_disponible', 1234567)).toBe('$ 1.234.567,00')
   })
 
   it('wraps a negative currency-like value in parentheses', () => {
-    expect(formatScalarValue('valor', -512.5)).toBe('(512,50)')
+    expect(formatScalarValue('valor', -512.5)).toBe('($ 512,50)')
   })
 
   it('stringifies non-currency values as-is', () => {

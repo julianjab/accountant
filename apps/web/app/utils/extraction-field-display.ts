@@ -45,14 +45,23 @@ export function looksLikeCurrencyKey(key: string): boolean {
   return CURRENCY_LIKE_KEYWORDS.some(keyword => lower.includes(keyword))
 }
 
-/** Standard accounting number format: a fixed 2 decimals, grouped thousands, and a negative
- * shown as `(1.234,56)` rather than `-1.234,56` — the convention accountants read at a
- * glance, since a lone leading minus sign is easy to miss next to a column of numbers. */
+/** Standard accounting number format: a fixed 2 decimals, grouped thousands, a `$` (COP —
+ * every document this app handles today is Colombian; there is no currency field on
+ * `ExtractedData` to read instead), and a negative shown as `($1.234,56)` rather than
+ * `-1.234,56` — the convention accountants read at a glance, since a lone leading minus sign
+ * is easy to miss next to a column of numbers.
+ *
+ * Display-only: this never touches the stored value, only how `formatScalarValue` renders it. */
 export function formatAccountingNumber(value: number, locale = 'es-CO'): string {
+  // `Intl` inserts a U+00A0 (non-breaking space) between the symbol and the digits — normalized
+  // to a regular space so it doesn't silently break a plain-string comparison or a copy-paste.
   const formatted = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'COP',
+    currencyDisplay: 'symbol',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(Math.abs(value))
+  }).format(Math.abs(value)).replace(' ', ' ')
   return value < 0 ? `(${formatted})` : formatted
 }
 
