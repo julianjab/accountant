@@ -326,7 +326,13 @@ def test_each_proposed_field_says_what_it_is():
             "extraction_prompt": "p",
             "extraction_schema": {},
             "fields": [
-                {"path": "nit", "label": "NIT", "role": "identifier", "sample_value": "800170494"},
+                {
+                    "path": "nit",
+                    "label": "NIT",
+                    "role": "identifier",
+                    "sample_value": "800170494",
+                    "section": "Datos del agente retenedor",
+                },
                 {"path": "total", "label": "Total", "role": "amount", "sample_value": "10499895"},
                 {"path": "ciudad", "label": "Ciudad", "role": "context"},
             ],
@@ -338,6 +344,9 @@ def test_each_proposed_field_says_what_it_is():
         ("ciudad", "context"),
     ]
     assert proposal.fields[2].sample_value == ""
+    # Sections let a selection screen be laid out the way the paper is.
+    assert proposal.fields[0].section == "Datos del agente retenedor"
+    assert proposal.fields[2].section == ""
 
 
 def test_a_field_with_an_unknown_role_is_still_offered():

@@ -62,6 +62,11 @@ class ProposedField:
     #: The value read from the sample, so a person can recognise the field
     #: without opening the document beside the screen.
     sample_value: str = ""
+    #: The part of the document this field came from, named as the document
+    #: names it. A certificate is already divided into blocks on paper —
+    #: withholdings, balances, issuer details — and choosing fields block by
+    #: block is the same act as reading it. Empty when the AI did not say.
+    section: str = ""
 
 
 @dataclass(frozen=True, slots=True)

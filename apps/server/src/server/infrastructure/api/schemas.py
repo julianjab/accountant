@@ -326,6 +326,9 @@ class ProposedFieldResponse(BaseModel):
     #: identifier · amount · context
     role: str
     sample_value: str
+    #: The block of the document this field came from, so a selection screen
+    #: can be laid out the way the paper is.
+    section: str
 
 
 class DocumentTypeProposalResponse(BaseModel):

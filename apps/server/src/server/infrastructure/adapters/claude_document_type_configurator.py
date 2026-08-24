@@ -84,6 +84,14 @@ class ClaudeDocumentTypeConfigurator:
                                             "this sample, so the field is "
                                             "recognisable without the document open.",
                                         },
+                                        "section": {
+                                            "type": "string",
+                                            "description": "The block of the document "
+                                            "this field sits in, named the way the "
+                                            "document names it — the heading above it, "
+                                            "or the table it belongs to. Fields from "
+                                            "one block share one section.",
+                                        },
                                     },
                                     "required": ["path", "label", "role"],
                                 },
@@ -380,6 +388,7 @@ def _read_fields(payload: dict) -> tuple[ProposedField, ...]:
                 label=label if isinstance(label, str) and label else path,
                 role=role,
                 sample_value=str(entry.get("sample_value", "")),
+                section=str(entry.get("section", "")),
             )
         )
     return tuple(fields)
