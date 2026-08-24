@@ -4,6 +4,8 @@ from collections.abc import Sequence
 from server.domain.ports import (
     ConceptOption,
     DocumentContent,
+    FieldRole,
+    ProposedField,
     ProposedFieldMapping,
     ProposedOcrConfig,
 )
@@ -51,6 +53,41 @@ class ClaudeDocumentTypeConfigurator:
                                 "description": "JSON Schema (as an object) describing "
                                 "the fields to extract.",
                             },
+                            "fields": {
+                                "type": "array",
+                                "description": "Every field the schema declares, so a "
+                                "person can be shown the few that matter instead of "
+                                "triaging twenty. Most of a certificate is context.",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "path": {
+                                            "type": "string",
+                                            "description": "Dotted path, `foo[].bar` for a list.",
+                                        },
+                                        "label": {
+                                            "type": "string",
+                                            "description": "How the document itself "
+                                            "names this value, in its own language.",
+                                        },
+                                        "role": {
+                                            "type": "string",
+                                            "enum": ["identifier", "amount", "context"],
+                                            "description": "identifier for a tax, "
+                                            "account or document number; amount for a "
+                                            "monetary figure; context for dates, "
+                                            "names, addresses and notices.",
+                                        },
+                                        "sample_value": {
+                                            "type": "string",
+                                            "description": "The value as it reads in "
+                                            "this sample, so the field is "
+                                            "recognisable without the document open.",
+                                        },
+                                    },
+                                    "required": ["path", "label", "role"],
+                                },
+                            },
                             **_mapping_properties(concepts),
                         },
                         "required": _required_fields(concepts),
@@ -95,6 +132,7 @@ class ClaudeDocumentTypeConfigurator:
                     extraction_schema=payload["extraction_schema"],
                     field_mappings=mappings,
                     unmapped_fields=(*_read_unmapped(payload), *rejected),
+                    fields=_read_fields(payload),
                     reporter_path=paths["reporter_path"],
                     reporter_name_path=paths["reporter_name_path"],
                     period_path=paths["period_path"],
@@ -315,3 +353,33 @@ def _read_paths(
             continue
         paths[key] = value
     return paths, tuple(problems)
+
+
+def _read_fields(payload: dict) -> tuple[ProposedField, ...]:
+    """Reads the field inventory, skipping anything malformed.
+
+    Guarded like every other part of the response: this arrives after the AI
+    call is paid for, and one odd entry must not cost the whole proposal.
+    """
+    fields: list[ProposedField] = []
+    for entry in _entries(payload, "fields"):
+        if not isinstance(entry, dict):
+            continue
+        path, label = entry.get("path"), entry.get("label")
+        if not isinstance(path, str) or not path:
+            continue
+        try:
+            role = FieldRole(entry.get("role"))
+        except ValueError:
+            # An unrecognised role is not a reason to hide the field; it just
+            # loses its head start in the selection.
+            role = FieldRole.CONTEXT
+        fields.append(
+            ProposedField(
+                path=path,
+                label=label if isinstance(label, str) and label else path,
+                role=role,
+                sample_value=str(entry.get("sample_value", "")),
+            )
+        )
+    return tuple(fields)

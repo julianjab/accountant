@@ -316,3 +316,41 @@ def test_a_document_level_path_the_schema_lacks_says_what_actually_went_wrong():
     assert proposal.unmapped_fields == (
         ("emisor.nit", "proposed as reporter_path but the schema does not declare it"),
     )
+
+
+def test_each_proposed_field_says_what_it_is():
+    """So a screen can offer the identifier and the figures already ticked,
+    instead of twenty rows to triage."""
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "p",
+            "extraction_schema": {},
+            "fields": [
+                {"path": "nit", "label": "NIT", "role": "identifier", "sample_value": "800170494"},
+                {"path": "total", "label": "Total", "role": "amount", "sample_value": "10499895"},
+                {"path": "ciudad", "label": "Ciudad", "role": "context"},
+            ],
+        }
+    )
+    assert [(f.path, f.role.value) for f in proposal.fields] == [
+        ("nit", "identifier"),
+        ("total", "amount"),
+        ("ciudad", "context"),
+    ]
+    assert proposal.fields[2].sample_value == ""
+
+
+def test_a_field_with_an_unknown_role_is_still_offered():
+    """Losing its head start in the selection beats disappearing."""
+    proposal, _ = _configure(
+        {
+            "extraction_prompt": "p",
+            "extraction_schema": {},
+            "fields": [
+                {"path": "raro", "label": "Raro", "role": "inventado"},
+                {"label": "sin ruta", "role": "amount"},
+                "no es un objeto",
+            ],
+        }
+    )
+    assert [(f.path, f.role.value) for f in proposal.fields] == [("raro", "context")]

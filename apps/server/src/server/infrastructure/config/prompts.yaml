@@ -23,6 +23,13 @@ document_type_configuration:
     prompt and a JSON Schema that will reliably extract every relevant field
     from future documents of the same type.
 
+    Also list every field you defined and say what each one is: an
+    identifier, a monetary amount, or context. Most of a certificate is
+    context — addresses, cities, legal notices — and the person configuring
+    this needs the identifier that ties the paper to a party and the figures,
+    not the rest. Give each field the name the document itself uses and the
+    value as it reads in this sample.
+
     When a list of concepts is provided, also state where the document gives
     the issuing party's tax identification number — the digits, never the name
     — along with the period it covers and which concept each field you defined

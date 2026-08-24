@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any, Protocol
 
 from server.domain.entities import DocumentType
@@ -32,6 +33,35 @@ class ConceptOption:
     id: str
     label: str
     description: str = ""
+
+
+class FieldRole(StrEnum):
+    """What a proposed field is for, so a person can be shown the few that
+    matter instead of twenty they must triage themselves.
+
+    Most of a certificate is context — addresses, cities, legal notices. What
+    an accountant needs is the identifier that ties the paper to a party, and
+    the figures.
+    """
+
+    #: A tax number, account number or document number.
+    IDENTIFIER = "identifier"
+    #: A monetary figure.
+    AMOUNT = "amount"
+    #: A date, a name, an address, a notice.
+    CONTEXT = "context"
+
+
+@dataclass(frozen=True, slots=True)
+class ProposedField:
+    """One field of the proposed schema, with what it is and what it holds."""
+
+    path: str
+    label: str
+    role: FieldRole
+    #: The value read from the sample, so a person can recognise the field
+    #: without opening the document beside the screen.
+    sample_value: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +100,9 @@ class ProposedOcrConfig:
     #: Where the document states the period it covers, so a certificate for
     #: one year cannot reconcile against another.
     period_path: str | None = None
+    #: Every field the schema declares, classified. Empty when the AI did
+    #: not say, which a caller reads as "offer them all, preselect nothing".
+    fields: tuple[ProposedField, ...] = ()
 
 
 class DocumentTypeConfigurator(Protocol):

@@ -16,7 +16,9 @@ from server.domain.ports.ocr import (
     ConceptOption,
     DocumentClassifier,
     DocumentTypeConfigurator,
+    FieldRole,
     OcrEngine,
+    ProposedField,
     ProposedFieldMapping,
     ProposedOcrConfig,
 )
@@ -31,6 +33,8 @@ from server.domain.ports.repositories import (
 )
 
 __all__ = [
+    "ProposedField",
+    "FieldRole",
     "ProposedFieldMapping",
     "ConceptOption",
     "ClientDirectory",
