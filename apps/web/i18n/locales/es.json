@@ -404,6 +404,7 @@
   "reconciliation": {
     "title": "Conciliación de exógena {period}",
     "summary": "{total} hallazgos · {reconciled} cuadran · {attention} requieren atención",
+    "generatedAt": "Corrido el {moment}. Los estados de cada documento son de esa corrida: si cambiaste la configuración de un tipo, volvé a conciliar.",
     "run": "Conciliar",
     "rerun": "Volver a conciliar",
     "runFailed": "No se pudo ejecutar la conciliación.",

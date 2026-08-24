@@ -404,6 +404,7 @@
   "reconciliation": {
     "title": "Exogena reconciliation {period}",
     "summary": "{total} findings · {reconciled} reconciled · {attention} need attention",
+    "generatedAt": "Run on {moment}. Each document's status comes from that run: if you changed a type's configuration, reconcile again.",
     "run": "Reconcile",
     "rerun": "Reconcile again",
     "runFailed": "The reconciliation could not be run.",

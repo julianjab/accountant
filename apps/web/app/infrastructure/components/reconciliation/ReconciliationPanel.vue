@@ -6,7 +6,7 @@ const props = defineProps<{ clientId: string }>()
 
 const amount = formatAccountingAmountString
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const getReport = useGetReconciliationReportUseCase()
 const runReconciliation = useRunReconciliationUseCase()
 
@@ -17,6 +17,23 @@ const PERIOD = '2025'
 
 const running = ref(false)
 const error = ref<string | null>(null)
+
+/**
+ * When this report was produced.
+ *
+ * Load-bearing rather than decorative: the per-document badges beside the file
+ * list are a snapshot of this run, not of the configuration as it stands now.
+ * Map a type's concepts after a run and every document of that type keeps
+ * reading "type with no mapped concepts" until someone reconciles again —
+ * which looked like the mapping had not been saved.
+ */
+const generatedAt = computed(() =>
+  report.value
+    ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(
+        new Date(report.value.generatedAt)
+      )
+    : ''
+)
 
 const { data: report, refresh } = await useAsyncData<ReconciliationReport | null>(
   `reconciliation:${props.clientId}`,
@@ -103,6 +120,13 @@ const ROW_TONE: Record<FindingStatus, string> = {
             reconciled: report.summary.reconciled,
             attention: report.summary.needingAttention
           }) }}
+        </p>
+        <p
+          v-if="report"
+          class="text-[11px] text-dimmed"
+          data-testid="reconciliation-generated-at"
+        >
+          {{ t('reconciliation.generatedAt', { moment: generatedAt }) }}
         </p>
       </div>
       <UButton
