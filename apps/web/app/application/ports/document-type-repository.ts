@@ -13,7 +13,15 @@ import type {
  * answer is an offer the user trims before a type exists. */
 export interface ProposeDocumentTypeInput {
   name: string
-  sampleFile: File
+  /**
+   * A document already in a client's folder to read as the sample.
+   *
+   * Preferred over `sampleFile`: the type saves this id, so its field list
+   * stays checkable against the paper it was derived from. An uploaded file
+   * is gone once the request ends and leaves nothing to point back at.
+   */
+  documentId?: string | null
+  sampleFile?: File | null
   /** The reconciliation model to propose concepts from; null lets the server
    * pick the one it knows. */
   kindId?: string | null

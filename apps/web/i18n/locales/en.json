@@ -124,7 +124,8 @@
     "viewer": {
       "openInDrive": "Open in Drive",
       "unsupportedMime": "No preview available for this file type"
-    }
+    },
+    "defineTypeFromThis": "Define a type from this document"
   },
   "documentTypes": {
     "title": "Document types",
@@ -190,7 +191,8 @@
         "configure": "Adjust the reconciliation",
         "list": "See all types",
         "unmappedTitle": "These fields will be extracted but never reconciled"
-      }
+      },
+      "sampleDocumentHint": "This is the paper the type will be configured from. It is saved with the type, so the fields can be checked against it later."
     },
     "configure": "Configure",
     "edit": {

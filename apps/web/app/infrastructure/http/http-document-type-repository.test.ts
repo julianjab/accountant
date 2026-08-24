@@ -142,6 +142,35 @@ describe('HttpDocumentTypeRepository.propose', () => {
     expect(body.get('kind_id')).toBe('exogena_dian')
     expect(body.get('sample_file')).toBeInstanceOf(File)
   })
+
+  it('names a stored document rather than uploading it', async () => {
+    const fetcher = stubFetch(() => PROPOSAL_DTO)
+
+    await new HttpDocumentTypeRepository('http://api').propose({
+      name: 'Certificado GMF',
+      documentId: 'doc-1'
+    })
+
+    const body = fetcher.mock.calls[0]![1]!.body as FormData
+    expect(body.get('document_id')).toBe('doc-1')
+    expect(body.get('sample_file')).toBeNull()
+  })
+
+  it('prefers the stored document when both are given', async () => {
+    // The type saves the document id, so this is the sample it can point back
+    // at; uploading the same bytes instead would leave it pointing nowhere.
+    const fetcher = stubFetch(() => PROPOSAL_DTO)
+
+    await new HttpDocumentTypeRepository('http://api').propose({
+      name: 'Certificado GMF',
+      documentId: 'doc-1',
+      sampleFile: sampleFile()
+    })
+
+    const body = fetcher.mock.calls[0]![1]!.body as FormData
+    expect(body.get('document_id')).toBe('doc-1')
+    expect(body.get('sample_file')).toBeNull()
+  })
 })
 
 describe('HttpDocumentTypeRepository.create', () => {

@@ -113,9 +113,25 @@ onUnmounted(() => {
     />
 
     <template v-else-if="document">
-      <h1 class="mb-4 text-xl font-semibold sm:mb-6">
-        {{ t('documents.title') }}
-      </h1>
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-6">
+        <h1 class="text-xl font-semibold">
+          {{ t('documents.title') }}
+        </h1>
+        <!--
+          Offered on a document with no type because that is exactly when it
+          is needed: the classifier had nothing to match this paper against,
+          and this is the paper to teach it from. The type then keeps pointing
+          at it, so its fields stay checkable against the page.
+        -->
+        <UButton
+          v-if="!document.documentTypeId"
+          :to="`/document-types/new?document=${document.id}`"
+          variant="outline"
+          size="sm"
+        >
+          {{ t('documents.defineTypeFromThis') }}
+        </UButton>
+      </div>
       <!-- Preview above the extracted fields on one column, side by side from `lg` up. -->
       <div class="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
         <DocumentViewer

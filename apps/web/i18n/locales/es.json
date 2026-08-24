@@ -124,7 +124,8 @@
     "viewer": {
       "openInDrive": "Abrir en Drive",
       "unsupportedMime": "No hay vista previa disponible para este tipo de archivo"
-    }
+    },
+    "defineTypeFromThis": "Definir un tipo con este documento"
   },
   "documentTypes": {
     "title": "Tipos de documento",
@@ -190,7 +191,8 @@
         "configure": "Ajustar la conciliación",
         "list": "Ver todos los tipos",
         "unmappedTitle": "Estos campos se van a extraer pero no se van a cruzar"
-      }
+      },
+      "sampleDocumentHint": "Este es el papel con el que se va a configurar el tipo. Queda guardado con el tipo, así después se pueden revisar los campos contra él."
     },
     "configure": "Configurar",
     "edit": {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DocumentType } from '~/domain/entities/document-type'
+import type { ClientDocument } from '~/domain/entities/document'
 import type { DocumentTypeProposal, UnmappedField } from '~/domain/entities/document-type-proposal'
 import type { ProposalFieldRow } from '~/domain/document-type-configuration'
 import {
@@ -20,6 +21,7 @@ type Step = 'form' | 'analyzing' | 'select' | 'created'
 
 const { t } = useI18n()
 const proposeDocumentType = useProposeDocumentTypeUseCase()
+const getDocument = useGetDocumentUseCase()
 const createDocumentType = useCreateDocumentTypeUseCase()
 
 // A select cannot hold null, so "no field" travels as a sentinel and is
@@ -74,8 +76,27 @@ function onFileChange(event: Event) {
   sampleFile.value = input.files?.[0] ?? null
 }
 
+/**
+ * The document named in the URL, when the flow was started from one.
+ *
+ * Loaded so the sample can be shown while its fields are chosen, and so the
+ * name of the paper is on screen rather than an opaque id.
+ */
+const { data: sampleDocument } = await useAsyncData<ClientDocument | null>(
+  `document-type-new-sample-${sampleDocumentId.value || 'none'}`,
+  () =>
+    sampleDocumentId.value
+      ? getDocument.execute(sampleDocumentId.value)
+      : Promise.resolve(null),
+  { server: false, default: () => null }
+)
+
+/** Either a document already in Drive or a file from this machine names the
+ * sample; without one there is nothing to read. */
+const canAnalyze = computed(() => Boolean(sampleDocumentId.value || sampleFile.value))
+
 async function analyze() {
-  if (analyzing.value || !sampleFile.value) return
+  if (analyzing.value || !canAnalyze.value) return
 
   step.value = 'analyzing'
   analysisFailed.value = false
@@ -83,6 +104,8 @@ async function analyze() {
   try {
     const proposed = await proposeDocumentType.execute({
       name: name.value,
+      // A stored document wins: it is the one the saved type can point back at.
+      documentId: sampleDocumentId.value || null,
       sampleFile: sampleFile.value
     })
     proposal.value = proposed
@@ -244,7 +267,37 @@ async function save() {
         />
       </UFormField>
 
+      <!--
+        Started from a document, so there is nothing to upload: that paper is
+        the sample, and the type will keep pointing at it.
+      -->
       <UFormField
+        v-if="sampleDocument"
+        :label="t('documentTypes.fields.sampleFile')"
+        :help="t('documentTypes.new.sampleDocumentHint')"
+      >
+        <div
+          class="flex flex-col gap-3"
+          data-testid="sample-document"
+        >
+          <UButton
+            :to="`/documents/${sampleDocument.id}`"
+            variant="link"
+            size="xs"
+            class="w-fit p-0"
+          >
+            {{ sampleDocument.fileName }}
+          </UButton>
+          <DocumentViewer
+            :drive-file-id="sampleDocument.driveFileId"
+            :mime-type="sampleDocument.mimeType"
+            :file-name="sampleDocument.fileName"
+          />
+        </div>
+      </UFormField>
+
+      <UFormField
+        v-else
         :label="t('documentTypes.fields.sampleFile')"
         :help="t('documentTypes.new.sampleFileHint')"
         required
@@ -261,7 +314,7 @@ async function save() {
       <UButton
         type="submit"
         :loading="analyzing"
-        :disabled="analyzing"
+        :disabled="analyzing || !canAnalyze"
         block
         class="sm:w-fit"
       >

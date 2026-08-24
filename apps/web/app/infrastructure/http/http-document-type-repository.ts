@@ -211,7 +211,10 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
   async propose(input: ProposeDocumentTypeInput): Promise<DocumentTypeProposal> {
     const formData = new FormData()
     formData.append('name', input.name)
-    formData.append('sample_file', input.sampleFile)
+    // Multipart either way: the endpoint takes one form, and naming a stored
+    // document is just the other way of saying which sample to read.
+    if (input.documentId) formData.append('document_id', input.documentId)
+    else if (input.sampleFile) formData.append('sample_file', input.sampleFile)
     if (input.kindId) formData.append('kind_id', input.kindId)
 
     const dto = await $fetch<DocumentTypeProposalDto>('/document-types/proposals', {
