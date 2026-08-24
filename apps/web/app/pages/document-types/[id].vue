@@ -13,7 +13,9 @@ import {
   keptPaths,
   mappingChangeSeverity,
   shouldSaveDraft,
-  toMappingDraft
+  readSource,
+  toMappingDraft,
+  writeSource
 } from '~/domain/document-type-configuration'
 import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
 import {
@@ -202,9 +204,29 @@ const reporterNamePath = ref<string | null>(null)
 const periodPath = ref<string | null>(null)
 // Declared values, for the papers that never state them. Empty string rather
 // than null so they can be bound straight to a text input.
-const reporterTaxId = ref('')
-const reporterName = ref('')
-const declaredPeriod = ref('')
+const reporterTaxId = ref<string | null>(null)
+const reporterName = ref<string | null>(null)
+const declaredPeriod = ref<string | null>(null)
+
+/**
+ * Every path this document offers, for the one box that answers "where does
+ * this come from" — pick a field, or type the value yourself.
+ */
+const pathSuggestions = computed(() => keptFieldItems.value.map(item => item.value))
+
+function applySource(
+  answer: string,
+  path: Ref<string | null>,
+  value: Ref<string | null>
+) {
+  const read = readSource(answer, pathSuggestions.value)
+  path.value = read.path
+  value.value = read.value
+}
+
+const setReporter = (answer: string) => applySource(answer, reporterPath, reporterTaxId)
+const setReporterName = (answer: string) => applySource(answer, reporterNamePath, reporterName)
+const setPeriod = (answer: string) => applySource(answer, periodPath, declaredPeriod)
 
 const saving = ref(false)
 const saved = ref(false)
@@ -561,78 +583,50 @@ watch(
 
           <UFormField
             :label="t('documentTypes.edit.reporter.path')"
-            :help="t('documentTypes.edit.reporter.pathHint')"
+            :help="t('documentTypes.edit.reporter.sourceHint')"
             required
           >
-            <USelect
-              :model-value="selectValue(reporterPath)"
-              :items="optionalFieldItems"
+            <UInputMenu
+              :model-value="writeSource(reporterPath, reporterTaxId)"
+              :items="pathSuggestions"
+              create-item
               class="w-full sm:w-96"
               data-testid="reporter-path"
-              @update:model-value="reporterPath = toPath($event as string)"
+              :placeholder="t('documentTypes.edit.reporter.sourcePlaceholder')"
+              @update:model-value="setReporter($event as string)"
+              @create="setReporter($event as string)"
             />
           </UFormField>
 
           <UFormField
             :label="t('documentTypes.edit.reporter.namePath')"
-            :help="t('documentTypes.edit.reporter.nameHint')"
+            :help="t('documentTypes.edit.reporter.nameSourceHint')"
           >
-            <USelect
-              :model-value="selectValue(reporterNamePath)"
-              :items="optionalFieldItems"
+            <UInputMenu
+              :model-value="writeSource(reporterNamePath, reporterName)"
+              :items="pathSuggestions"
+              create-item
               class="w-full sm:w-96"
-              @update:model-value="reporterNamePath = toPath($event as string)"
+              data-testid="reporter-name-path"
+              :placeholder="t('documentTypes.edit.reporter.nameSourcePlaceholder')"
+              @update:model-value="setReporterName($event as string)"
+              @create="setReporterName($event as string)"
             />
           </UFormField>
 
           <UFormField
             :label="t('documentTypes.edit.period.path')"
-            :help="t('documentTypes.edit.period.hint')"
+            :help="t('documentTypes.edit.period.sourceHint')"
           >
-            <USelect
-              :model-value="selectValue(periodPath)"
-              :items="optionalFieldItems"
+            <UInputMenu
+              :model-value="writeSource(periodPath, declaredPeriod)"
+              :items="pathSuggestions"
+              create-item
               class="w-full sm:w-96"
               data-testid="period-path"
-              @update:model-value="periodPath = toPath($event as string)"
-            />
-          </UFormField>
-
-          <!--
-            For the certificates that never print their own issuer: the
-            letterhead says who they are and the text does not repeat it.
-            Without an answer here every figure they certify is discarded
-            and comes back reported as a missing certificate.
-          -->
-          <UFormField
-            :label="t('documentTypes.edit.reporter.declaredTaxId')"
-            :help="t('documentTypes.edit.reporter.declaredTaxIdHint')"
-          >
-            <UInput
-              v-model="reporterTaxId"
-              class="w-full sm:w-80"
-              placeholder="890903938"
-            />
-          </UFormField>
-
-          <UFormField
-            :label="t('documentTypes.edit.reporter.declaredName')"
-            :help="t('documentTypes.edit.reporter.declaredNameHint')"
-          >
-            <UInput
-              v-model="reporterName"
-              class="w-full sm:w-80"
-            />
-          </UFormField>
-
-          <UFormField
-            :label="t('documentTypes.edit.reporter.declaredPeriod')"
-            :help="t('documentTypes.edit.reporter.declaredPeriodHint')"
-          >
-            <UInput
-              v-model="declaredPeriod"
-              class="w-full sm:w-40"
-              placeholder="2025"
+              :placeholder="t('documentTypes.edit.period.sourcePlaceholder')"
+              @update:model-value="setPeriod($event as string)"
+              @create="setPeriod($event as string)"
             />
           </UFormField>
 

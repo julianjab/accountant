@@ -193,7 +193,8 @@
         "list": "Ver todos los tipos",
         "unmappedTitle": "Estos campos se van a extraer pero no se van a cruzar"
       },
-      "sampleDocumentHint": "Este es el papel con el que se va a configurar el tipo. Queda guardado con el tipo, así después se pueden revisar los campos contra él."
+      "sampleDocumentHint": "Este es el papel con el que se va a configurar el tipo. Queda guardado con el tipo, así después se pueden revisar los campos contra él.",
+      "previewUnsupported": "No se puede previsualizar este tipo de archivo acá."
     },
     "configure": "Configurar",
     "edit": {
@@ -223,17 +224,17 @@
         "namePath": "Campo con el nombre de quien reporta",
         "nameHint": "Opcional. Sólo se usa para mostrar de quién es el documento; no reemplaza al NIT.",
         "blocksSave": "Elegí el campo con el NIT de quien reporta para poder guardar las asignaciones.",
-        "declaredTaxId": "O declarar el NIT acá",
-        "declaredTaxIdHint": "Para los documentos que nunca imprimen el NIT de quien los emite. Se usa sólo cuando el documento no lo trae: si el papel lo dice, gana el papel.",
-        "declaredName": "O declarar el nombre acá",
-        "declaredNameHint": "Sólo para mostrar de quién es el documento.",
-        "declaredPeriod": "O declarar el año acá",
-        "declaredPeriodHint": "Para los documentos que no dicen a qué año corresponden. Ojo: hace que todo documento de este tipo cuente para ese año, así que conviene junto con los años del tipo."
+        "sourceHint": "Elegí el campo del documento que trae el NÚMERO de identificación tributaria (NIT). Si el documento nunca lo imprime, escribí el NIT acá y se usa para todos los documentos de este tipo.",
+        "sourcePlaceholder": "Un campo del documento, o un NIT como 890903938",
+        "nameSourceHint": "Sólo se usa para mostrar de quién es el documento; no reemplaza al NIT. Elegí un campo o escribí el nombre.",
+        "nameSourcePlaceholder": "Un campo del documento, o un nombre"
       },
       "period": {
         "path": "Campo con el período",
         "hint": "Elegí el campo con el año o el mes que certifica el documento.",
-        "missing": "Sin período, un certificado de un año puede cruzarse contra otro."
+        "missing": "Sin período, un certificado de un año puede cruzarse contra otro.",
+        "sourceHint": "Elegí el campo con el año que certifica el documento. Si no lo dice, escribí el año acá.",
+        "sourcePlaceholder": "Un campo del documento, o un año como 2025"
       },
       "fields": {
         "title": "Qué dice cada campo del documento",

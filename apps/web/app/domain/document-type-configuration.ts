@@ -403,6 +403,12 @@ export function buildProposalRows(
   }
 
   const described = new Set(proposal.fields.map(field => field.path))
+  // A proposal that described some fields and missed one is a gap: the schema
+  // is already asking the OCR for that field, and dropping it over an omission
+  // in a list the model wrote would be a silent loss. A proposal that
+  // described *nothing* is not a gap — it is the whole screen — and ticking
+  // thirty-five fields there hands the user a list to undo by hand.
+  const describedNothing = proposal.fields.length === 0
   const rows = proposal.fields.map(field =>
     buildRow(
       field.path,
@@ -416,10 +422,60 @@ export function buildProposalRows(
 
   for (const field of schemaFields) {
     if (described.has(field.path)) continue
-    rows.push(buildRow(field.path, field.name, 'context', '', null, true))
+    // Read off the schema rather than defaulted. The schema is required and
+    // always present; the proposal's description list is neither, and when it
+    // came back empty this fallback produced the screen it was meant to
+    // replace — every field named by its path, every one classified as
+    // context, every one ticked, no blocks at all.
+    rows.push(
+      buildRow(
+        field.path,
+        schemaLabel(field),
+        schemaRole(field),
+        '',
+        schemaSection(field.path),
+        describedNothing ? isKeptByDefault(schemaRole(field)) : true
+      )
+    )
   }
 
   return rows
+}
+
+/** What the schema itself says a field is called. Its `description` is a
+ * sentence about the value, which reads better than the property name. */
+function schemaLabel(field: SchemaField): string {
+  return field.description || field.name
+}
+
+const IDENTIFIER_NAME = /nit|identificacion|identification|documento|cuenta|numero|number/i
+
+/**
+ * What a field holds, inferred from the schema.
+ *
+ * A guess, and a cheap one, but the alternative in place was calling every
+ * field context — which starts the whole document unticked or, as it was,
+ * ticked with nothing distinguishing the figures from the letterhead. The
+ * user corrects this in one click; they cannot correct thirty-five.
+ */
+function schemaRole(field: SchemaField): FieldRole {
+  if (field.type === 'number' || field.type === 'integer') return 'amount'
+  if (IDENTIFIER_NAME.test(field.name)) return 'identifier'
+  return 'context'
+}
+
+/**
+ * The block a field belongs to, taken from the object that contains it.
+ *
+ * A schema nests its figures under a heading of its own —
+ * `otra_informacion_tributaria.cuenta_ahorros` — and that nesting is the
+ * document's own grouping, recorded without anyone being asked for it.
+ */
+function schemaSection(path: string): string | null {
+  const cut = path.lastIndexOf('.')
+  if (cut < 0) return null
+  const parent = path.slice(0, cut)
+  return parent.replace(/\[\]/g, '') || null
 }
 
 /** The proposed fields under one heading of the document. */
@@ -535,4 +591,37 @@ export function parseTaxYears(text: string): number[] {
  * failed reconciliation to notice. */
 export function invalidTaxYears(text: string): string[] {
   return tokenizeYears(text).filter(token => !isYear(token))
+}
+
+/**
+ * One answer to "where does this come from", written as one string.
+ *
+ * Two separate controls — a dropdown of paths and a text box beside it —
+ * asked the user to know the difference between a path and a value before
+ * they had a reason to care about it, and left the screen with two places to
+ * look for one answer. One box, offering the paths it knows and accepting
+ * anything else, asks the question the way a person asks it: what fills this,
+ * a field of the document or a value I am telling you?
+ */
+export interface SourceAnswer {
+  /** The chosen path, when what was typed names a field of this document. */
+  path: string | null
+  /** The declared value, when it does not. */
+  value: string | null
+}
+
+export function readSource(answer: string | null, knownPaths: readonly string[]): SourceAnswer {
+  const text = answer?.trim() ?? ''
+  if (text === '') return { path: null, value: null }
+  // A path wins whenever the text names one. Someone who types `issuer_nit`
+  // means the field, not the literal characters — and the two readings differ
+  // wildly: one reads the paper, the other attributes every document to a
+  // party called "issuer_nit".
+  if (knownPaths.includes(text)) return { path: text, value: null }
+  return { path: null, value: text }
+}
+
+/** The single string that shows both answers, for binding to one control. */
+export function writeSource(path: string | null, value: string | null): string {
+  return path ?? value ?? ''
 }

@@ -193,7 +193,8 @@
         "list": "See all types",
         "unmappedTitle": "These fields will be extracted but never reconciled"
       },
-      "sampleDocumentHint": "This is the paper the type will be configured from. It is saved with the type, so the fields can be checked against it later."
+      "sampleDocumentHint": "This is the paper the type will be configured from. It is saved with the type, so the fields can be checked against it later.",
+      "previewUnsupported": "This kind of file cannot be previewed here."
     },
     "configure": "Configure",
     "edit": {
@@ -223,17 +224,17 @@
         "namePath": "Field holding the reporting party's name",
         "nameHint": "Optional. Only used to show whose document it is; it does not replace the tax id.",
         "blocksSave": "Pick the field holding the reporting party's tax id before saving the mappings.",
-        "declaredTaxId": "Or declare the tax id here",
-        "declaredTaxIdHint": "For documents that never print their issuer's tax id. Used only when the document does not state it: if the paper says it, the paper wins.",
-        "declaredName": "Or declare the name here",
-        "declaredNameHint": "Only used to show whose document this is.",
-        "declaredPeriod": "Or declare the year here",
-        "declaredPeriodHint": "For documents that do not say which year they cover. Careful: it makes every document of this type count for that year, so pair it with the type's tax years."
+        "sourceHint": "Pick the field holding the issuer's tax id NUMBER. If the document never prints it, type the tax id here and it is used for every document of this type.",
+        "sourcePlaceholder": "A field of the document, or a tax id like 890903938",
+        "nameSourceHint": "Only used to show whose document this is; it does not replace the tax id. Pick a field or type the name.",
+        "nameSourcePlaceholder": "A field of the document, or a name"
       },
       "period": {
         "path": "Field holding the period",
         "hint": "Pick the field with the year or month the document certifies.",
-        "missing": "Without a period, a certificate for one year can be reconciled against another."
+        "missing": "Without a period, a certificate for one year can be reconciled against another.",
+        "sourceHint": "Pick the field with the year the document certifies. If it does not say, type the year here.",
+        "sourcePlaceholder": "A field of the document, or a year like 2025"
       },
       "fields": {
         "title": "What each field of the document says",

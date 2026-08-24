@@ -612,3 +612,55 @@ describe('a type that declares what its documents never state', () => {
     expect(draft.period).toBe('2025')
   })
 })
+
+describe('buildProposalRows when the proposal describes nothing', () => {
+  // What actually happens: `fields` is optional to the model and it omits it.
+  const BARE = { ...PROPOSAL, fields: [], fieldMappings: [] }
+
+  const SCHEMA_FIELDS = [
+    { path: 'issuer_nit', name: 'issuer_nit', type: 'string', description: 'NIT of the issuing entity', required: true },
+    { path: 'issuer_city', name: 'issuer_city', type: 'string', description: '', required: false },
+    { path: 'saldos.cuenta_ahorros', name: 'cuenta_ahorros', type: 'number', description: '', required: false }
+  ]
+
+  it('names a field with what the schema says it is, not its path', () => {
+    const rows = buildProposalRows(BARE, SCHEMA_FIELDS)
+
+    expect(rows.find(r => r.path === 'issuer_nit')!.label).toBe('NIT of the issuing entity')
+  })
+
+  it('falls back to the property name when the schema describes nothing either', () => {
+    const rows = buildProposalRows(BARE, SCHEMA_FIELDS)
+
+    expect(rows.find(r => r.path === 'issuer_city')!.label).toBe('issuer_city')
+  })
+
+  it('reads a numeric field as an amount, so the figures are told from the letterhead', () => {
+    const rows = buildProposalRows(BARE, SCHEMA_FIELDS)
+
+    expect(rows.find(r => r.path === 'saldos.cuenta_ahorros')!.role).toBe('amount')
+  })
+
+  it('reads a field named after a tax or account number as an identifier', () => {
+    const rows = buildProposalRows(BARE, SCHEMA_FIELDS)
+
+    expect(rows.find(r => r.path === 'issuer_nit')!.role).toBe('identifier')
+  })
+
+  it('groups a nested field under the object that contains it', () => {
+    // The schema's own nesting is the document's grouping, recorded without
+    // anyone having been asked for it.
+    const rows = buildProposalRows(BARE, SCHEMA_FIELDS)
+
+    expect(rows.find(r => r.path === 'saldos.cuenta_ahorros')!.section).toBe('saldos')
+  })
+
+  it('starts the figures and the identification ticked and the rest not', () => {
+    const rows = buildProposalRows(BARE, SCHEMA_FIELDS)
+
+    expect(rows.filter(r => r.kept).map(r => r.path)).toEqual([
+      'issuer_nit',
+      'saldos.cuenta_ahorros'
+    ])
+  })
+})
