@@ -42,6 +42,22 @@ const REPORT_DTO = {
       ],
       evidence_facts: []
     }
+  ],
+  contributions: [
+    {
+      document_id: 'doc-exo',
+      file_name: 'exogena.xlsx',
+      status: 'spine_parsed',
+      fact_count: 41,
+      detail: ''
+    },
+    {
+      document_id: 'doc-cert',
+      file_name: 'certificado.pdf',
+      status: 'no_reporting_party',
+      fact_count: 0,
+      detail: 'nit_entidad'
+    }
   ]
 }
 
@@ -72,6 +88,48 @@ describe('HttpReconciliationRepository', () => {
     // risk showing a discrepancy the engine never found.
     expect(finding!.delta).toBe('-0.17')
     expect(finding!.spineFacts[0]!.locator).toBe('row 38')
+  })
+
+  it('maps what each document contributed', async () => {
+    stubFetch(() => REPORT_DTO)
+
+    const report = await new HttpReconciliationRepository('http://api').getReport(
+      'exogena_dian',
+      'c1',
+      '2025'
+    )
+
+    expect(report!.contributions).toEqual([
+      {
+        documentId: 'doc-exo',
+        fileName: 'exogena.xlsx',
+        status: 'spine_parsed',
+        factCount: 41,
+        detail: ''
+      },
+      {
+        documentId: 'doc-cert',
+        fileName: 'certificado.pdf',
+        status: 'no_reporting_party',
+        factCount: 0,
+        // The field that failed is what turns the status into a fix.
+        detail: 'nit_entidad'
+      }
+    ])
+  })
+
+  it('reads a report with no contributions as an empty list', async () => {
+    const { contributions, ...withoutContributions } = REPORT_DTO
+    void contributions
+    stubFetch(() => withoutContributions)
+
+    const report = await new HttpReconciliationRepository('http://api').getReport(
+      'exogena_dian',
+      'c1',
+      '2025'
+    )
+
+    expect(report!.contributions).toEqual([])
   })
 
   it('sends the session cookie', async () => {

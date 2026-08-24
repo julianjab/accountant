@@ -1,5 +1,7 @@
 import type {
+  ContributionStatus,
   FindingStatus,
+  ReconciliationContribution,
   ReconciliationFact,
   ReconciliationFinding,
   ReconciliationReport
@@ -35,6 +37,14 @@ interface FindingDto {
   evidence_facts: FactDto[]
 }
 
+interface ContributionDto {
+  document_id: string
+  file_name: string
+  status: ContributionStatus
+  fact_count: number
+  detail: string
+}
+
 interface ReportDto {
   id: string
   client_id: string
@@ -48,6 +58,7 @@ interface ReportDto {
     needing_attention: number
   }
   findings: FindingDto[]
+  contributions?: ContributionDto[]
 }
 
 function toFact(dto: FactDto): ReconciliationFact {
@@ -83,6 +94,16 @@ function toFinding(dto: FindingDto): ReconciliationFinding {
   }
 }
 
+function toContribution(dto: ContributionDto): ReconciliationContribution {
+  return {
+    documentId: dto.document_id,
+    fileName: dto.file_name,
+    status: dto.status,
+    factCount: dto.fact_count,
+    detail: dto.detail
+  }
+}
+
 function toReport(dto: ReportDto): ReconciliationReport {
   return {
     id: dto.id,
@@ -96,7 +117,10 @@ function toReport(dto: ReportDto): ReconciliationReport {
       reconciled: dto.summary.reconciled,
       needingAttention: dto.summary.needing_attention
     },
-    findings: dto.findings.map(toFinding)
+    findings: dto.findings.map(toFinding),
+    // A report stored before the server reported contributions has none, and
+    // that reads as "nothing to say about these documents" rather than an error.
+    contributions: (dto.contributions ?? []).map(toContribution)
   }
 }
 
