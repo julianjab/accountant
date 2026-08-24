@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from server.application.use_cases import DefineDocumentType, DefineDocumentTypeInput
@@ -18,6 +20,8 @@ from server.infrastructure.api.schemas import (
 from server.reconciliation.application import SaveConceptMapping, SaveConceptMappingInput
 from server.reconciliation.core.projection import ConceptMapping, ConceptMappingEntry
 from server.reconciliation.core.registry import KindRegistry, UnknownReconciliationKind
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/document-types", tags=["document-types"], dependencies=[Depends(require_session)]
@@ -62,27 +66,46 @@ def create_document_type(
         )
     )
 
+    stored_mappings = defined.field_mappings
+    unmapped = list(defined.unmapped_fields)
     if kind is not None and defined.field_mappings:
         # Stored right away rather than left for a second call: a type saved
         # without its mapping extracts fields that reconcile against nothing,
         # and nothing in the UI would show that it is half-configured.
-        save_mapping.execute(
-            SaveConceptMappingInput(
-                mapping=ConceptMapping(
-                    document_type_id=defined.document_type.id,
-                    kind_id=kind.id,
-                    entries=tuple(
-                        ConceptMappingEntry(
-                            field_path=m.field_path,
-                            concept_id=m.concept_id,
-                            account_path=m.account_path,
-                            sign=m.sign,
-                        )
-                        for m in defined.field_mappings
-                    ),
+        try:
+            save_mapping.execute(
+                SaveConceptMappingInput(
+                    mapping=ConceptMapping(
+                        document_type_id=defined.document_type.id,
+                        kind_id=kind.id,
+                        entries=tuple(
+                            ConceptMappingEntry(
+                                field_path=m.field_path,
+                                concept_id=m.concept_id,
+                                account_path=m.account_path,
+                                sign=m.sign,
+                            )
+                            for m in defined.field_mappings
+                        ),
+                    )
                 )
             )
-        )
+        except Exception:
+            # The document type is already saved and there is no transaction
+            # across the two contexts, so failing the request now would report
+            # an error while leaving the type created — and hide that its
+            # mapping is missing. Reporting the mappings as unstored says
+            # exactly what happened, and the mapping endpoint can set them
+            # later without redoing the AI call.
+            logger.exception(
+                "Saved the document type but could not store its concept mapping",
+                extra={"document_type_id": defined.document_type.id, "kind_id": kind.id},
+            )
+            unmapped.extend(
+                (m.field_path, "the mapping could not be stored; set it again to retry")
+                for m in defined.field_mappings
+            )
+            stored_mappings = ()
 
     return DocumentTypeCreatedResponse(
         **DocumentTypeResponse.model_validate(
@@ -96,11 +119,10 @@ def create_document_type(
                 account_path=m.account_path,
                 sign=m.sign,
             )
-            for m in defined.field_mappings
+            for m in stored_mappings
         ],
         unmapped_fields=[
-            UnmappedFieldResponse(field_path=path, reason=reason)
-            for path, reason in defined.unmapped_fields
+            UnmappedFieldResponse(field_path=path, reason=reason) for path, reason in unmapped
         ],
     )
 

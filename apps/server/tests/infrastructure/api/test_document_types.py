@@ -57,3 +57,69 @@ def test_list_document_types_with_active_only_false(client, document_types) -> N
     assert response.status_code == 200
     ids = {t["id"] for t in response.json()}
     assert ids == {"type-1", "type-2"}
+
+
+class _FailingMappingRepository:
+    def save(self, mapping):
+        raise RuntimeError("Firestore is unavailable")
+
+    def get(self, document_type_id, kind_id):
+        return None
+
+    def list_for_kind(self, kind_id):
+        return []
+
+
+def test_a_mapping_that_cannot_be_stored_is_reported_not_raised() -> None:
+    """The type is already saved and there is no transaction across the two
+    contexts, so a 500 here would report an error while leaving the type
+    created and hide that its mapping is missing."""
+    from server.application.use_cases import DefinedDocumentType, DefineDocumentType
+    from server.domain.ports import ProposedFieldMapping
+    from server.infrastructure.api import deps
+    from server.reconciliation.application import SaveConceptMapping
+
+    document_type = DocumentType(
+        id="t-1",
+        name="Certificado",
+        description="d",
+        extraction_prompt="p",
+        extraction_schema={"type": "object"},
+        active=True,
+        created_at=datetime.now(UTC),
+    )
+
+    class _UseCase(DefineDocumentType):
+        def __init__(self):
+            pass
+
+        def execute(self, data):
+            return DefinedDocumentType(
+                document_type=document_type,
+                field_mappings=(ProposedFieldMapping("saldo", "bank:cert_saldo_cuentas_ahorro"),),
+                unmapped_fields=(),
+            )
+
+    app.dependency_overrides[require_session] = lambda: None
+    app.dependency_overrides[deps.get_define_document_type_use_case] = lambda: _UseCase()
+    app.dependency_overrides[deps.get_save_concept_mapping_use_case] = lambda: SaveConceptMapping(
+        deps.get_reconciliation_registry(), _FailingMappingRepository()
+    )
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/document-types",
+            data={"name": "Certificado", "description": "d"},
+            files={"sample_file": ("s.pdf", b"%PDF-", "application/pdf")},
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["field_mappings"] == []
+        assert body["unmapped_fields"] == [
+            {
+                "field_path": "saldo",
+                "reason": "the mapping could not be stored; set it again to retry",
+            }
+        ]
+    finally:
+        app.dependency_overrides.clear()
