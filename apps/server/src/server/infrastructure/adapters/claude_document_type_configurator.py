@@ -93,7 +93,22 @@ class ClaudeDocumentTypeConfigurator:
                                             "one block share one section.",
                                         },
                                     },
-                                    "required": ["path", "label", "role"],
+                                    # All five, because each one that goes
+                                    # missing degrades the screen silently: no
+                                    # label leaves a dotted path, no section
+                                    # collapses the document into one heap, no
+                                    # sample value means the field cannot be
+                                    # recognised without opening the paper.
+                                    # Empty strings are the way to say "this
+                                    # document has no blocks" or "this field
+                                    # is blank here".
+                                    "required": [
+                                        "path",
+                                        "label",
+                                        "role",
+                                        "sample_value",
+                                        "section",
+                                    ],
                                 },
                             },
                             **_mapping_properties(concepts),
@@ -331,8 +346,13 @@ def _required_fields(concepts: Sequence[ConceptOption]) -> list[str]:
     mappings are worthless without it: a fact that cannot be attributed to a
     reporting party is discarded, so an omitted path throws away every mapping
     the model just produced.
+
+    `fields` is required for the same reason. Omitted, the caller falls back to
+    listing the schema's own leaves: every field arrives unnamed, unsectioned,
+    with no sample value and classified as context — which is the whole screen
+    the descriptions exist to produce, quietly replaced by a worse one.
     """
-    required = ["extraction_prompt", "extraction_schema"]
+    required = ["extraction_prompt", "extraction_schema", "fields"]
     if concepts:
         required.append("reporter_path")
     return required

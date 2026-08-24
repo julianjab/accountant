@@ -266,6 +266,7 @@ def test_the_reporting_party_is_required_whenever_a_vocabulary_is_offered():
     assert provider.request["tools"][0]["input_schema"]["required"] == [
         "extraction_prompt",
         "extraction_schema",
+        "fields",
         "reporter_path",
     ]
     text = provider.request["messages"][0]["content"][-1]["text"]
@@ -277,6 +278,7 @@ def test_no_vocabulary_means_the_reporting_party_is_not_demanded():
     assert provider.request["tools"][0]["input_schema"]["required"] == [
         "extraction_prompt",
         "extraction_schema",
+        "fields",
     ]
 
 
@@ -363,3 +365,20 @@ def test_a_field_with_an_unknown_role_is_still_offered():
         }
     )
     assert [(f.path, f.role.value) for f in proposal.fields] == [("raro", "context")]
+
+
+def test_the_field_descriptions_are_demanded_rather_than_hoped_for():
+    """Left optional the model simply omitted them, and the screen fell back to
+    listing the schema's own leaves: every field unnamed, unsectioned, with no
+    sample value and classified as context."""
+    _, provider = _configure({"extraction_prompt": "p", "extraction_schema": {}})
+
+    schema = provider.request["tools"][0]["input_schema"]
+    assert "fields" in schema["required"]
+    assert schema["properties"]["fields"]["items"]["required"] == [
+        "path",
+        "label",
+        "role",
+        "sample_value",
+        "section",
+    ]
