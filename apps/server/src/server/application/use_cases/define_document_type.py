@@ -2,6 +2,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from server.domain.entities import DocumentType
 from server.domain.ports import (
@@ -10,6 +11,7 @@ from server.domain.ports import (
     DocumentTypeConfigurator,
     DocumentTypeRepository,
     ProposedFieldMapping,
+    ProposedOcrConfig,
 )
 
 
@@ -17,7 +19,19 @@ from server.domain.ports import (
 class DefineDocumentTypeInput:
     name: str
     description: str
-    sample_document: DocumentContent
+    #: The configuration a person approved. Supplied together, these are saved
+    #: as they are and no AI call is made — asking again would store something
+    #: other than what was reviewed, since two runs over one document do not
+    #: agree field for field.
+    extraction_prompt: str | None = None
+    extraction_schema: dict[str, Any] | None = None
+    field_mappings: tuple[ProposedFieldMapping, ...] = ()
+    reporter_path: str | None = None
+    reporter_name_path: str | None = None
+    period_path: str | None = None
+    #: Only needed when no approved configuration is given, in which case this
+    #: proposes one and saves it unreviewed.
+    sample_document: DocumentContent | None = None
     #: The vocabulary extracted fields may be mapped onto. Empty means the
     #: caller wants extraction only, with no reconciliation behind it.
     concepts: Sequence[ConceptOption] = ()
@@ -63,8 +77,30 @@ class DefineDocumentType:
         self._configurator = configurator
         self._document_types = document_types
 
+    @staticmethod
+    def _approved(data: DefineDocumentTypeInput) -> ProposedOcrConfig | None:
+        """What the caller reviewed, when they reviewed anything."""
+        if data.extraction_prompt is None or data.extraction_schema is None:
+            return None
+        return ProposedOcrConfig(
+            extraction_prompt=data.extraction_prompt,
+            extraction_schema=data.extraction_schema,
+            field_mappings=data.field_mappings,
+            reporter_path=data.reporter_path,
+            reporter_name_path=data.reporter_name_path,
+            period_path=data.period_path,
+        )
+
+    def _propose(self, data: DefineDocumentTypeInput) -> ProposedOcrConfig:
+        if data.sample_document is None:
+            raise ValueError(
+                "Defining a document type needs either an approved configuration "
+                "or a sample document to propose one from"
+            )
+        return self._configurator.propose_config(data.sample_document, data.name, data.concepts)
+
     def execute(self, data: DefineDocumentTypeInput) -> DefinedDocumentType:
-        proposal = self._configurator.propose_config(data.sample_document, data.name, data.concepts)
+        proposal = self._approved(data) or self._propose(data)
         document_type = DocumentType(
             id=str(uuid.uuid4()),
             name=data.name,

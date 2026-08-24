@@ -110,8 +110,12 @@ def test_a_mapping_that_cannot_be_stored_is_reported_not_raised() -> None:
         client = TestClient(app)
         response = client.post(
             "/document-types",
-            data={"name": "Certificado", "description": "d"},
-            files={"sample_file": ("s.pdf", b"%PDF-", "application/pdf")},
+            json={
+                "name": "Certificado",
+                "description": "d",
+                "extraction_prompt": "p",
+                "extraction_schema": {"type": "object"},
+            },
         )
         assert response.status_code == 201
         body = response.json()
@@ -163,8 +167,12 @@ def test_a_mapping_with_no_reporting_party_is_not_stored() -> None:
     try:
         response = TestClient(app).post(
             "/document-types",
-            data={"name": "Certificado", "description": "d"},
-            files={"sample_file": ("s.pdf", b"%PDF-", "application/pdf")},
+            json={
+                "name": "Certificado",
+                "description": "d",
+                "extraction_prompt": "p",
+                "extraction_schema": {"type": "object"},
+            },
         )
         assert response.status_code == 201
         body = response.json()

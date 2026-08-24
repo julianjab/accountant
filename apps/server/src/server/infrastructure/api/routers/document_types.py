@@ -11,7 +11,7 @@ from server.application.use_cases import (
     UpdateDocumentType,
     UpdateDocumentTypeInput,
 )
-from server.domain.ports import ConceptOption, DocumentContent
+from server.domain.ports import ConceptOption, DocumentContent, ProposedFieldMapping
 from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import (
     get_define_document_type_use_case,
@@ -24,6 +24,7 @@ from server.infrastructure.api.deps import (
 )
 from server.infrastructure.api.schemas import (
     DocumentTypeCreatedResponse,
+    DocumentTypeCreateRequest,
     DocumentTypeProposalResponse,
     DocumentTypeResponse,
     DocumentTypeUpdatedResponse,
@@ -125,33 +126,43 @@ def propose_document_type(
 
 @router.post("", response_model=DocumentTypeCreatedResponse, status_code=201)
 def create_document_type(
-    name: str = Form(...),
-    description: str = Form(...),
-    sample_file: UploadFile = File(...),
-    kind_id: str | None = Form(None),
-    tax_years: str = Form(""),
-    sample_document_id: str | None = Form(None),
+    payload: DocumentTypeCreateRequest,
     use_case: DefineDocumentType = Depends(get_define_document_type_use_case),
     registry: KindRegistry = Depends(get_reconciliation_registry),
     save_mapping: SaveConceptMapping = Depends(get_save_concept_mapping_use_case),
 ) -> DocumentTypeCreatedResponse:
-    # Sync on purpose: this calls a blocking AIProvider (httpx.Client) — a
-    # `def` handler runs in FastAPI's threadpool instead of on the event
-    # loop, unlike `async def`, which would stall every other request for
-    # as long as the Claude call takes.
-    sample_document = DocumentContent(
-        data=sample_file.file.read(),
-        mime_type=sample_file.content_type or "application/octet-stream",
-        file_name=sample_file.filename or "sample",
-    )
+    """Saves the configuration someone reviewed on /document-types/proposals.
+
+    No AI call: what was approved is what is stored. Re-proposing here would
+    save a different configuration from the one on screen, and would charge
+    for a second run of the model to do it.
+    """
+    name = payload.name
+    description = payload.description
+    kind_id = payload.kind_id
+    tax_years = tuple(sorted(set(payload.tax_years)))
+    sample_document_id = payload.sample_document_id
     kind = _resolve_kind(registry, kind_id)
     defined = use_case.execute(
         DefineDocumentTypeInput(
             name=name,
             description=description,
-            sample_document=sample_document,
+            extraction_prompt=payload.extraction_prompt,
+            extraction_schema=payload.extraction_schema,
+            field_mappings=tuple(
+                ProposedFieldMapping(
+                    field_path=m.field_path,
+                    concept_id=m.concept_id,
+                    account_path=m.account_path,
+                    sign=m.sign,
+                )
+                for m in payload.field_mappings
+            ),
+            reporter_path=payload.reporter_path,
+            reporter_name_path=payload.reporter_name_path,
+            period_path=payload.period_path,
             concepts=_concept_options(kind),
-            tax_years=_parse_years(tax_years),
+            tax_years=tax_years,
             sample_document_id=sample_document_id,
         )
     )

@@ -1,5 +1,7 @@
 """Defining a document type, including how its fields map onto concepts."""
 
+import pytest
+
 from server.application.use_cases import DefineDocumentType, DefineDocumentTypeInput
 from server.domain.ports import (
     ConceptOption,
@@ -94,3 +96,40 @@ def test_a_type_can_be_defined_with_no_vocabulary_at_all():
     _, types, configurator = _run(_proposal(), concepts=())
     assert configurator.seen_concepts == ()
     assert len(types.list_active()) == 1
+
+
+def test_an_approved_configuration_is_saved_without_asking_the_ai_again():
+    """Two runs of the model over one document do not agree field for field,
+    so re-proposing here would store something other than what was reviewed —
+    and charge for a second run to do it."""
+    types = InMemoryDocumentTypeRepository()
+    configurator = _Configurator(_proposal())
+
+    result = DefineDocumentType(configurator, types).execute(
+        DefineDocumentTypeInput(
+            name="Certificado Protección",
+            description="Aportes y retenciones",
+            extraction_prompt="Extract the approved fields.",
+            extraction_schema={"type": "object", "properties": {"nit": {"type": "string"}}},
+            field_mappings=(ProposedFieldMapping("aportes", "bank:cert_cesantias_abonadas"),),
+            reporter_path="nit",
+        )
+    )
+
+    assert configurator.seen_name is None
+    assert result.document_type.extraction_prompt == "Extract the approved fields."
+    assert result.document_type.extraction_schema["properties"] == {"nit": {"type": "string"}}
+    assert result.field_mappings[0].concept_id == "bank:cert_cesantias_abonadas"
+    assert result.reporter_path == "nit"
+
+
+def test_without_an_approved_configuration_it_still_proposes_one():
+    _, _, configurator = _run(_proposal())
+    assert configurator.seen_name == "Certificado Bancolombia"
+
+
+def test_defining_with_neither_a_configuration_nor_a_sample_is_refused():
+    with pytest.raises(ValueError, match="approved configuration"):
+        DefineDocumentType(_Configurator(_proposal()), InMemoryDocumentTypeRepository()).execute(
+            DefineDocumentTypeInput(name="X", description="d")
+        )

@@ -255,6 +255,30 @@ class ConceptMappingResponse(BaseModel):
     period_path: str | None
 
 
+class DocumentTypeCreateRequest(BaseModel):
+    """The configuration a person approved, saved as reviewed.
+
+    The proposal is not re-requested here: two runs of the model over one
+    document do not agree field for field, so asking again would store
+    something other than what was on screen when they said yes.
+    """
+
+    name: str
+    description: str
+    extraction_prompt: str
+    #: Already trimmed to the fields that were kept.
+    extraction_schema: dict[str, Any]
+    field_mappings: list[ConceptMappingEntryPayload] = []
+    reporter_path: str | None = None
+    reporter_name_path: str | None = None
+    period_path: str | None = None
+    tax_years: list[int] = []
+    kind_id: str | None = None
+    #: The document the configuration was derived from, when it came from one
+    #: already in the client's folder.
+    sample_document_id: str | None = None
+
+
 class DocumentTypeUpdateRequest(BaseModel):
     """A partial edit; an omitted field keeps its stored value.
 
