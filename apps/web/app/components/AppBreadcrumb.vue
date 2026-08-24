@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const route = useRoute()
+const { labels: breadcrumbLabels } = useBreadcrumbLabels()
 
 const NAV_LABEL_KEYS: Record<string, string> = {
   'clients': 'nav.clients',
@@ -8,15 +9,23 @@ const NAV_LABEL_KEYS: Record<string, string> = {
   'sheets': 'nav.sheets'
 }
 
-const crumbs = computed(() => {
+interface Crumb {
+  label: string
+  path: string
+}
+
+const crumbs = computed<Crumb[]>(() => {
   const segments = route.path.split('/').filter(Boolean)
 
-  const labels = segments.map((segment) => {
+  let cumulativePath = ''
+  const trail = segments.map((segment) => {
+    cumulativePath += `/${segment}`
     const key = NAV_LABEL_KEYS[segment]
-    return key ? t(key) : segment
+    const label = breadcrumbLabels.value[cumulativePath] ?? (key ? t(key) : segment)
+    return { label, path: cumulativePath }
   })
 
-  return [t('breadcrumb.home'), ...labels]
+  return [{ label: t('breadcrumb.home'), path: '/' }, ...trail]
 })
 </script>
 
@@ -42,7 +51,15 @@ const crumbs = computed(() => {
           v-if="index > 0"
           :class="index === crumbs.length - 1 ? '' : 'hidden sm:inline'"
         >/</span>
-        <span class="truncate">{{ crumb }}</span>
+        <NuxtLink
+          v-if="index < crumbs.length - 1"
+          :to="crumb.path"
+          class="truncate transition-colors duration-[120ms] hover:text-green-600"
+        >{{ crumb.label }}</NuxtLink>
+        <span
+          v-else
+          class="truncate"
+        >{{ crumb.label }}</span>
       </li>
     </ol>
   </nav>

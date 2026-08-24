@@ -22,6 +22,7 @@ const getReconciliationReport = useGetReconciliationReportUseCase()
 const KIND_ID = 'exogena_dian'
 const PERIOD = '2025'
 const { isAuthenticated, isLoading: isAuthLoading } = useGoogleAuth()
+const { setLabel: setBreadcrumbLabel, clearLabel: clearBreadcrumbLabel } = useBreadcrumbLabels()
 
 // Deferred and client-only on purpose: these endpoints need the session
 // cookie, which SSR does not carry (see clients/index.vue).
@@ -58,6 +59,27 @@ watch(
   },
   { immediate: true }
 )
+
+// The breadcrumb only knows the URL (`/clients/<id>`); this is the one place that also has
+// the client's name, so it hands it over rather than leaving the crumb as a raw id.
+//
+// Pinned at setup rather than read from `route` each time: `route` is the global reactive
+// object, so by the time this page unmounts it already points at wherever we navigated to.
+// Clearing that path would wipe the label the *next* page just set for itself, and leave
+// this one's behind forever.
+const ownPath = route.path
+
+watch(
+  client,
+  (loadedClient) => {
+    if (loadedClient) {
+      setBreadcrumbLabel(ownPath, loadedClient.name)
+    }
+  },
+  { immediate: true }
+)
+
+onUnmounted(() => clearBreadcrumbLabel(ownPath))
 
 const tabItems = computed(() => [
   { label: t('clients.detail.tabs.documents'), slot: 'documents' as const },
