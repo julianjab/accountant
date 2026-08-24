@@ -131,6 +131,12 @@ system-level prompts these adapters always send.
     server has no UI-facing strings today.
 - Python identifiers/payload keys: snake_case. TypeScript: camelCase, `PascalCase` for
   types/classes.
+- **Every breadcrumb crumb should be navigable.** `AppBreadcrumb.vue` builds its trail from
+  the URL alone, so a segment with no page of its own (e.g. `/documents` has no index) reads
+  as dead text unless the page that *does* have the context sets a `linkTo` override via
+  `useBreadcrumbLabels().setLabel(path, label, linkTo)` — see `documents/[id].vue`, which
+  points its "documents" crumb at the document's owning client page. Only fall back to a
+  non-clickable crumb when there is truly nowhere sensible to send the reader.
 
 ## Commands
 

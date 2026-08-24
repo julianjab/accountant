@@ -7,16 +7,21 @@ const { labels: breadcrumbLabels } = useBreadcrumbLabels()
 const NAV_LABEL_KEYS: Record<string, string> = {
   'clients': 'nav.clients',
   'document-types': 'nav.documentTypes',
-  'sheets': 'nav.sheets'
+  'sheets': 'nav.sheets',
+  'documents': 'nav.documents'
 }
 
 interface Crumb {
   label: string
   path: string
-  /** False for a segment that is only part of a URL and not a page of its own.
+  /** False for a segment with nowhere to send the reader — no page of its own
+   * (`/documents` has no index) and no `linkTo` override pointing elsewhere.
    *
-   * `/documents/<id>` is the only route under `documents`; there is no index
-   * beneath it, so linking that crumb would send the reader to a 404. */
+   * Convention: every crumb should end up navigable. A segment with no page of its own
+   * should get a `linkTo` override (via `useBreadcrumbLabels().setLabel(path, label, linkTo)`)
+   * from whichever page has the context to pick a sensible target — e.g. `documents/[id].vue`
+   * points its "documents" crumb at the owning client's page. Only fall back to a dead crumb
+   * when truly nothing appropriate exists to link to. */
   navigable: boolean
 }
 
@@ -26,12 +31,14 @@ const crumbs = computed<Crumb[]>(() => {
   let cumulativePath = ''
   const trail = segments.map((segment) => {
     cumulativePath += `/${segment}`
+    const override = breadcrumbLabels.value[cumulativePath]
     const key = NAV_LABEL_KEYS[segment]
-    const label = breadcrumbLabels.value[cumulativePath] ?? (key ? t(key) : segment)
+    const label = override?.label ?? (key ? t(key) : segment)
+    const linkPath = override?.linkTo ?? cumulativePath
     return {
       label,
-      path: cumulativePath,
-      navigable: router.resolve(cumulativePath).matched.length > 0
+      path: linkPath,
+      navigable: router.resolve(linkPath).matched.length > 0
     }
   })
 

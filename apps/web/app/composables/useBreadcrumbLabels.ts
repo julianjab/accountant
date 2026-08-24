@@ -1,3 +1,11 @@
+export interface BreadcrumbOverride {
+  label: string
+  /** Where this crumb should link to, when it differs from its own URL segment — e.g. the
+   * "documents" segment has no index page of its own, so it links to the owning client's
+   * page instead of being a dead crumb. */
+  linkTo?: string
+}
+
 /**
  * Overrides for individual breadcrumb crumbs, keyed by the route path they belong to.
  *
@@ -12,18 +20,18 @@
  * convention used by `useMobileNav`.
  */
 export function useBreadcrumbLabels() {
-  const labels = useState<Record<string, string>>('breadcrumb-labels', () => ({}))
+  const overrides = useState<Record<string, BreadcrumbOverride>>('breadcrumb-labels', () => ({}))
 
-  function setLabel(path: string, label: string) {
-    labels.value = { ...labels.value, [path]: label }
+  function setLabel(path: string, label: string, linkTo?: string) {
+    overrides.value = { ...overrides.value, [path]: { label, linkTo } }
   }
 
   function clearLabel(path: string) {
-    if (!(path in labels.value)) return
-    labels.value = Object.fromEntries(
-      Object.entries(labels.value).filter(([key]) => key !== path)
+    if (!(path in overrides.value)) return
+    overrides.value = Object.fromEntries(
+      Object.entries(overrides.value).filter(([key]) => key !== path)
     )
   }
 
-  return { labels: readonly(labels), setLabel, clearLabel }
+  return { labels: readonly(overrides), setLabel, clearLabel }
 }
