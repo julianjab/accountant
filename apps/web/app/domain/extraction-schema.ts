@@ -56,6 +56,20 @@ function unwrap(property: JsonSchemaNode): { node: JsonSchemaNode, isList: boole
  * Objects and lists of objects are containers, not values, so they are walked
  * into rather than listed: only a leaf can carry an amount worth mapping.
  */
+/**
+ * Whether a path stands for something the document prints more than once.
+ *
+ * `obligaciones_a_cargo[].capital` is not one figure, it is a column: the
+ * certificate prints one per row of the table. Everything that shows a single
+ * "value read from the sample" for such a path is showing one occurrence out
+ * of several, and has to say so — a reader who sees a lone figure under a
+ * column concludes the extraction found a single row, which is exactly the
+ * wrong thing to conclude while deciding whether the table was read right.
+ */
+export function isRepeatedPath(path: string): boolean {
+  return path.includes('[]')
+}
+
 export function listSchemaFields(schema: unknown, prefix = ''): SchemaField[] {
   const node = asNode(schema)
   const properties = propertiesOf(node)

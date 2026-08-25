@@ -21,7 +21,7 @@ import {
   toMappingDraft,
   writeSource
 } from '~/domain/document-type-configuration'
-import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
+import { isRepeatedPath, listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
 import { changesNothing, compareSchemaPaths } from '~/domain/schema-revision'
 import type { SchemaRevision } from '~/domain/schema-revision'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
@@ -1414,9 +1414,12 @@ watch(
                         class="text-toned text-[13px]"
                         data-testid="field-sample-value"
                       >
-                        {{ t('documentTypes.sections.sampleValue', {
-                          value: sampleValueFor(selections[index]!.path)
-                        }) }}
+                        {{ t(
+                          isRepeatedPath(selections[index]!.path)
+                            ? 'documentTypes.sections.sampleValueRow'
+                            : 'documentTypes.sections.sampleValue',
+                          { value: sampleValueFor(selections[index]!.path) }
+                        ) }}
                       </p>
                       <p
                         v-if="!selections[index]!.kept"

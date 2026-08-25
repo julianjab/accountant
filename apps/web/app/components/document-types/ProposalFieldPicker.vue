@@ -18,6 +18,7 @@ import { groupBySection, rowLabel } from '~/domain/document-type-configuration'
 import type { SectionNotes } from '~/domain/proposal-loop'
 import { sectionKey } from '~/domain/proposal-loop'
 import { matchesFieldQuery } from '~/domain/field-search'
+import { isRepeatedPath } from '~/domain/extraction-schema'
 import { formatSampleValue } from '~/utils/extraction-field-display'
 
 const props = defineProps<{
@@ -311,7 +312,12 @@ function setRenamed(row: ProposalFieldRow, value: string) {
                 v-if="row.sampleValue"
                 class="text-toned text-[13px]"
               >
-                {{ t('documentTypes.sections.sampleValue', { value: sampleValueOf(row) }) }}
+                {{ t(
+                  isRepeatedPath(row.path)
+                    ? 'documentTypes.sections.sampleValueRow'
+                    : 'documentTypes.sections.sampleValue',
+                  { value: sampleValueOf(row) }
+                ) }}
               </p>
               <p class="text-dimmed break-all font-mono text-xs">
                 {{ row.path }}

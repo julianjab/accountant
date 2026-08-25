@@ -180,7 +180,8 @@
       "annotate": "Add information",
       "annotateLabel": "What to watch for in this block",
       "annotateHint": "Sent with this block's fields on the next reading.",
-      "annotatePlaceholder": "e.g. this table has one row per obligation; extract each row with its name."
+      "annotatePlaceholder": "e.g. this table has one row per obligation; extract each row with its name.",
+      "sampleValueRow": "In the sample (one row): {value}"
     },
     "new": {
       "title": "Define document type",
