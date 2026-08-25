@@ -288,11 +288,19 @@ async function save() {
       // Sent already trimmed: the create endpoint stores exactly what it gets,
       // so what is not pruned here is what every future document is asked for.
       extractionSchema: pruneSchema(proposal.value.extractionSchema, keptPaths(rows.value)),
+      // The whole reading travels with it. Without this the fields that were
+      // not ticked are gone, and wanting one later means another reading of
+      // the same paper — which may name it differently and take the mappings
+      // keyed by the old name with it.
+      candidateSchema: proposal.value.extractionSchema,
       fieldMappings: toProposedFieldMappings(draft.value),
       // Sent alongside the schema so the type remembers what the document calls
       // each field and which block it sits in — the sections the user just
       // chose by would otherwise be gone as soon as this screen is left.
-      fields: toDocumentTypeFields(rows.value),
+      // Every field the reading identified, not only the ticked ones: an
+      // unticked field is meant to be tickable later, and it can only be
+      // offered by a name.
+      fields: toDocumentTypeFields(rows.value, { keptOnly: false }),
       reporterPath: draft.value.reporterPath,
       reporterNamePath: draft.value.reporterNamePath,
       periodPath: draft.value.periodPath,

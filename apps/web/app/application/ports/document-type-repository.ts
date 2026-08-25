@@ -65,6 +65,10 @@ export interface CreateDocumentTypeInput {
   description: string
   extractionPrompt: string
   extractionSchema: Record<string, unknown>
+  /** Everything the reading identified, of which the schema above is the
+   * ticked subset — stored so an unticked field can be ticked back later
+   * without paying for a second reading. */
+  candidateSchema?: Record<string, unknown> | null
   fieldMappings: ProposedFieldMapping[]
   reporterPath: string | null
   /** What the type declares about itself, for the papers that never say it.
@@ -96,6 +100,8 @@ export interface UpdateDocumentTypeInput {
   active?: boolean
   extractionPrompt?: string
   extractionSchema?: Record<string, unknown>
+  /** Omitted keeps the stored one. */
+  candidateSchema?: Record<string, unknown> | null
   /** Omitted keeps the stored descriptions; sent replaces them wholesale,
    * since an edit that trims the schema is exactly when they change. */
   fields?: DocumentTypeField[]

@@ -36,6 +36,7 @@ interface DocumentTypeDto {
   description: string
   extraction_prompt: string
   extraction_schema: Record<string, unknown>
+  candidate_schema?: Record<string, unknown> | null
   active: boolean
   created_at: string
   fields?: DocumentTypeFieldDto[]
@@ -185,6 +186,7 @@ function toDocumentType(dto: DocumentTypeDto): DocumentType {
     description: dto.description,
     extractionPrompt: dto.extraction_prompt,
     extractionSchema: dto.extraction_schema,
+    candidateSchema: dto.candidate_schema ?? null,
     active: dto.active,
     createdAt: dto.created_at,
     fields: (dto.fields ?? []).map(toDocumentTypeField),
@@ -270,6 +272,7 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
         description: input.description,
         extraction_prompt: input.extractionPrompt,
         extraction_schema: input.extractionSchema,
+        candidate_schema: input.candidateSchema ?? null,
         field_mappings: input.fieldMappings.map(mapping => ({
           field_path: mapping.fieldPath,
           concept_id: mapping.conceptId,
@@ -309,6 +312,9 @@ export class HttpDocumentTypeRepository implements DocumentTypeRepository {
     if (changes.active !== undefined) body.active = changes.active
     if (changes.extractionPrompt !== undefined) body.extraction_prompt = changes.extractionPrompt
     if (changes.extractionSchema !== undefined) body.extraction_schema = changes.extractionSchema
+    // Omitted keeps the stored one: an edit that only trims what is extracted
+    // must not throw away what was on offer.
+    if (changes.candidateSchema !== undefined) body.candidate_schema = changes.candidateSchema
     if (changes.fields !== undefined) body.fields = changes.fields.map(toFieldDto)
     if (changes.sampleDocumentId !== undefined) body.sample_document_id = changes.sampleDocumentId
 

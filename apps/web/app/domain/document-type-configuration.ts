@@ -549,15 +549,23 @@ export function creationBlock(
 }
 
 /**
- * The descriptions to store for the fields that were kept.
+ * The descriptions to store for the fields.
  *
  * Without them the type keeps only paths, and the sections the user just chose
  * by would be gone the moment this screen is left — which would make the
  * choosing itself pointless.
+ *
+ * By default this covers every row the reading identified, including the ones
+ * left unticked: those stay in the type's candidate schema so they can be
+ * ticked back later, and a field can only be offered to someone by name. Pass
+ * `keptOnly` for the callers that describe what is extracted and nothing else.
  */
-export function toDocumentTypeFields(rows: readonly ProposalFieldRow[]): DocumentTypeField[] {
-  return rows
-    .filter(row => row.kept)
+export function toDocumentTypeFields(
+  rows: readonly ProposalFieldRow[],
+  options: { keptOnly?: boolean } = {}
+): DocumentTypeField[] {
+  const included = options.keptOnly ? rows.filter(row => row.kept) : rows
+  return included
     .map(row => ({
       path: row.path,
       label: rowLabel(row),

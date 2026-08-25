@@ -295,10 +295,18 @@ function annotateSection(section: string, note: string) {
   sectionNotes.value = { ...sectionNotes.value, [section]: note }
 }
 
-/** What the type extracts today, in the shape a round's answer takes. */
+/**
+ * What the type extracts today, in the shape a round's answer takes.
+ *
+ * Only what it extracts — a field it merely offers was refused when the type
+ * was configured, and naming it as kept would ask the reading to bring back
+ * something nobody asked for. It is not named as refused either: it sits on
+ * the page, the model is free to propose it again, and if it does it stays
+ * available to tick.
+ */
 function storedRows(): ProposalFieldRow[] {
   return rowsForStoredPaths(
-    schemaFields.value.map(field => field.path),
+    [...extractedPaths.value],
     path => fieldName(path),
     path => sectionByPath.value.get(path) || null
   )
@@ -401,6 +409,9 @@ async function applyRegeneration() {
       // proposed the letterhead should not widen what every future document
       // is asked for just because it came in the same round as the fix.
       extractionSchema: pruneSchema(proposal.extractionSchema, keptPaths(regeneratedRows.value)),
+      // The whole reading, so a field left unticked here can be ticked back
+      // later without paying for another one.
+      candidateSchema: proposal.extractionSchema,
       // The rows win over what is stored: their labels are what the person
       // just decided this field is called. The stored fields only fill in what
       // a row left blank — a section or a sample value this reading missed.
@@ -515,7 +526,24 @@ const saveFailed = ref(false)
 const typeSavedWithoutMapping = ref(false)
 const mappingChanges = ref<MappingChange[]>([])
 
-const schemaFields = computed(() => listSchemaFields(documentType.value?.extractionSchema ?? {}))
+/**
+ * Every field this type offers, extracted or not.
+ *
+ * Read off the candidate schema — the whole reading the type was configured
+ * from — so a field that was un-ticked is still on the screen to be ticked
+ * back. Types stored before that was carried fall back to what they extract,
+ * which is all they ever kept.
+ */
+const offeredSchema = computed(
+  () => documentType.value?.candidateSchema ?? documentType.value?.extractionSchema ?? {}
+)
+
+const schemaFields = computed(() => listSchemaFields(offeredSchema.value))
+
+/** What the type asks the OCR for today, which is what starts ticked. */
+const extractedPaths = computed(
+  () => new Set(listSchemaFields(documentType.value?.extractionSchema ?? {}).map(f => f.path))
+)
 
 function syncDetailsForm() {
   if (!documentType.value) return
@@ -525,7 +553,12 @@ function syncDetailsForm() {
 }
 
 function syncMappingForm() {
-  selections.value = buildFieldSelections(schemaFields.value, mapping.value)
+  selections.value = buildFieldSelections(schemaFields.value, mapping.value).map(selection => ({
+    ...selection,
+    // A field the type offers but does not extract starts unticked — which is
+    // exactly the state it was left in.
+    kept: extractedPaths.value.has(selection.path)
+  }))
   reporterPath.value = mapping.value?.reporterPath ?? null
   reporterNamePath.value = mapping.value?.reporterNamePath ?? null
   periodPath.value = mapping.value?.periodPath ?? null
@@ -558,7 +591,9 @@ const status = computed(() => configurationStatus(draft.value))
 const canSave = computed(() => !saving.value && isDraftSavable(draft.value))
 
 const prunedSchema = computed(() =>
-  pruneSchema(documentType.value?.extractionSchema ?? {}, keptPaths(selections.value))
+  // Pruned from everything on offer rather than from what is extracted today,
+  // so ticking a field back actually puts it in the schema again.
+  pruneSchema(offeredSchema.value, keptPaths(selections.value))
 )
 
 // PATCH re-checks the mapping against any schema it is given, so an unchanged
@@ -1421,11 +1456,22 @@ watch(
                           { value: sampleValueFor(selections[index]!.path) }
                         ) }}
                       </p>
+                      <!--
+                        Two different states read the same on a checkbox: a
+                        field about to be dropped from the schema, and one the
+                        type never extracted but still offers. Saying which is
+                        which is the whole point of keeping the second around.
+                      -->
                       <p
                         v-if="!selections[index]!.kept"
                         class="text-warning text-xs"
+                        data-testid="field-not-extracted"
                       >
-                        {{ t('documentTypes.edit.fields.removed') }}
+                        {{ t(
+                          extractedPaths.has(selections[index]!.path)
+                            ? 'documentTypes.edit.fields.removed'
+                            : 'documentTypes.edit.fields.notExtracted'
+                        ) }}
                       </p>
                     </div>
                   </div>

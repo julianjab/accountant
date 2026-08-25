@@ -302,7 +302,8 @@
         "accountPathMissingCount": "{count} field is marked as detailing each account with no account-number field: it will be compared as a total. | {count} fields are marked as detailing each account with no account-number field: they will be compared as totals.",
         "searchConcept": "Search for the concept…",
         "searchSpine": "Search for the line…",
-        "searchField": "Search for the field…"
+        "searchField": "Search for the field…",
+        "notExtracted": "Not extracted — tick it and save to start extracting it"
       },
       "mappingChanges": {
         "title": "What happened to the mappings",

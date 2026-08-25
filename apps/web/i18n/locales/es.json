@@ -302,7 +302,8 @@
         "accountPathMissingCount": "Hay {count} campo marcado como \"detalla cada cuenta\" sin campo de número de cuenta: se va a comparar como total. | Hay {count} campos marcados como \"detalla cada cuenta\" sin campo de número de cuenta: se van a comparar como total.",
         "searchConcept": "Buscá el concepto…",
         "searchSpine": "Buscá el renglón…",
-        "searchField": "Buscá el campo…"
+        "searchField": "Buscá el campo…",
+        "notExtracted": "No se extrae — marcalo y guardá para empezar a extraerlo"
       },
       "mappingChanges": {
         "title": "Qué pasó con las asignaciones",

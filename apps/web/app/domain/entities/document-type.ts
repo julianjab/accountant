@@ -40,6 +40,20 @@ export interface DocumentType {
   description: string
   extractionPrompt: string
   extractionSchema: Record<string, unknown>
+  /**
+   * Everything the reading of the sample identified, of which
+   * `extractionSchema` is the ticked subset.
+   *
+   * Kept because trimming used to be destructive: a field left unticked was
+   * gone, and getting it back meant another reading of the same paper — with
+   * the model free to name it differently and take every concept mapping keyed
+   * by the old name with it. With the whole reading stored, ticking a field
+   * back is a local edit.
+   *
+   * Null on a type configured before this was carried, which reads as "the
+   * extraction schema is all there is".
+   */
+  candidateSchema: Record<string, unknown> | null
   active: boolean
   createdAt: string
   /**
