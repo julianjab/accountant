@@ -31,3 +31,16 @@ def test_prompt_rejects_an_empty_system() -> None:
 
     with pytest.raises(ValidationError, match="system"):
         PromptsConfig.model_validate(data)
+
+
+def test_the_extraction_prompt_asks_for_everything_the_document_states() -> None:
+    """The completeness rule lived only in the configurator's prompt — at
+    design time. At extraction time the engine was told to follow the type's
+    instructions and return the requested fields, and nothing said that
+    omitting a value is itself a claim about the document."""
+    system = get_prompts().ocr_extraction.system
+
+    assert "Account for everything the document states" in system
+    # The failure this was written for: a table entry left out because two of
+    # its columns did not apply to it, though a third carried a real figure.
+    assert "never a reason to leave the entry out" in system
