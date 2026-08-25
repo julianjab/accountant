@@ -11,6 +11,9 @@ import {
   withRowWordings,
   setRowLabelPath,
   pathsAnsweringALine,
+  blockLabelPaths,
+  addRow,
+  removeRow,
   selectionKey,
   buildProposalRows,
   configurationStatus,
@@ -682,20 +685,45 @@ function blockRowLabelItems(indices: readonly number[]) {
  * read from.
  */
 function setBlockRowLabelPath(indices: readonly number[], rowLabelPath: string | null) {
-  const paths = [
-    ...new Set(
-      indices
-        .map(index => selections.value[index]?.path)
-        .filter((path): path is string => Boolean(path))
-    )
-  ]
+  const fields = indices
+    .map(index => selections.value[index])
+    .filter((selection): selection is FieldSelection => Boolean(selection))
+    .filter(selection => selection.rowLabel === null)
+
   let next = selections.value
-  for (const path of paths) {
-    // The field that names the rows is not one of the rows: expanding it would
-    // ask which concept "Pagos por salarios" is, sixteen times over.
-    next = setRowLabelPath(next, path, path === rowLabelPath ? null : rowLabelPath, wordingsFor)
+  for (const field of [...new Set(fields.map(selection => selection.path))]) {
+    // The field naming the rows is not one of them — expanding it would ask
+    // which concept "Pagos por salarios" is, sixteen times over — and a field
+    // the type does not extract has no rows to show either.
+    const expand
+      = field !== rowLabelPath
+        && fields.some(selection => selection.path === field && selection.kept)
+    next = setRowLabelPath(next, field, expand ? rowLabelPath : null, wordingsFor)
   }
   selections.value = next
+}
+
+/** The columns naming the rows of their block. They stay extracted — the
+ * matching needs them — but carry no figure to map. */
+const labelPaths = computed(() => blockLabelPaths(selections.value))
+
+const newRowLabel = reactive<Record<string, string>>({})
+
+function addTableRow(path: string) {
+  selections.value = addRow(selections.value, path, newRowLabel[path] ?? '')
+  newRowLabel[path] = ''
+}
+
+function removeTableRow(path: string, rowLabel: string) {
+  selections.value = removeRow(selections.value, path, rowLabel)
+}
+
+/** The rows of one table, so the field entry can say how many it has and offer
+ * the empty state when it has none. */
+function rowCountFor(path: string): number {
+  return selections.value.filter(
+    selection => selection.path === path && selection.rowLabel !== null
+  ).length
 }
 
 // The wordings only arrive once the sample's extracted data does, and the list
@@ -1640,16 +1668,26 @@ watch(
 
                     <div
                       v-if="selections[index]!.rowLabel !== null"
-                      class="min-w-0"
+                      class="flex min-w-0 flex-1 items-start gap-2"
                     >
-                      <p class="text-highlighted text-sm font-medium">
-                        {{ selections[index]!.rowLabel }}
-                      </p>
-                      <p class="text-dimmed text-xs">
-                        {{ t('documentTypes.edit.fields.rows.rowOf', {
-                          field: fieldName(selections[index]!.path)
-                        }) }}
-                      </p>
+                      <div class="min-w-0 flex-1">
+                        <p class="text-highlighted text-sm font-medium">
+                          {{ selections[index]!.rowLabel }}
+                        </p>
+                        <p class="text-dimmed text-xs">
+                          {{ t('documentTypes.edit.fields.rows.rowOf', {
+                            field: fieldName(selections[index]!.path)
+                          }) }}
+                        </p>
+                      </div>
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="ghost"
+                        icon="i-lucide-x"
+                        :aria-label="t('documentTypes.edit.fields.rows.remove')"
+                        @click="removeTableRow(selections[index]!.path, selections[index]!.rowLabel!)"
+                      />
                     </div>
 
                     <div
@@ -1708,8 +1746,52 @@ watch(
                     </div>
                   </div>
 
+                  <p
+                    v-if="selections[index]!.rowLabel === null && labelPaths.has(selections[index]!.path)"
+                    class="text-toned text-xs sm:pl-8"
+                    data-testid="block-label-field"
+                  >
+                    {{ t('documentTypes.edit.fields.rows.isTheLabel') }}
+                  </p>
+
+                  <!--
+                    The rows of this table, or the way out when there are none:
+                    the sample's reading fills them in, and a type read before
+                    extractions were kept has nothing to fill them from.
+                  -->
                   <div
-                    v-if="!selections[index]!.rowLabelPath"
+                    v-else-if="selections[index]!.rowLabelPath"
+                    class="flex flex-col gap-2 sm:pl-8"
+                    data-testid="table-row-adder"
+                  >
+                    <p
+                      v-if="rowCountFor(selections[index]!.path) === 0"
+                      class="text-warning text-xs"
+                    >
+                      {{ t('documentTypes.edit.fields.rows.empty') }}
+                    </p>
+                    <div class="flex items-center gap-2">
+                      <UInput
+                        v-model="newRowLabel[selections[index]!.path]"
+                        :placeholder="t('documentTypes.edit.fields.rows.addPlaceholder')"
+                        class="w-full sm:w-96"
+                        @keydown.enter.prevent="addTableRow(selections[index]!.path)"
+                      />
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="subtle"
+                        icon="i-lucide-plus"
+                        :disabled="!newRowLabel[selections[index]!.path]?.trim()"
+                        @click="addTableRow(selections[index]!.path)"
+                      >
+                        {{ t('documentTypes.edit.fields.rows.add') }}
+                      </UButton>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="!selections[index]!.rowLabelPath && !labelPaths.has(selections[index]!.path)"
                     class="grid gap-3 sm:grid-cols-2"
                     :class="selections[index]!.rowLabel === null ? 'sm:pl-8' : ''"
                   >

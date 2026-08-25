@@ -222,6 +222,75 @@ export function withRowWordings(
 }
 
 /**
+ * The fields that name the rows of a block, rather than carrying a figure.
+ *
+ * Derived rather than flagged: a field is the label of its block exactly when
+ * something in the block points at it. Storing it twice would let the two
+ * drift, and a label field still offering its own concept box is a figure the
+ * mapping would ask the projection to read off a column of words.
+ */
+export function blockLabelPaths(selections: readonly FieldSelectionInput[]): Set<string> {
+  return new Set(
+    selections
+      .map(selection => selection.rowLabelPath)
+      .filter((path): path is string => Boolean(path))
+  )
+}
+
+/**
+ * The list with one more row on a table, named as the reader typed it.
+ *
+ * The sample's own reading fills this list in almost every case, but it cannot
+ * be the only way in: a type configured before extractions were kept, or from a
+ * document whose reading was never stored, would otherwise reach "each row is
+ * different" with nothing to answer and no way to get there.
+ */
+export function addRow(
+  selections: readonly FieldSelection[],
+  path: string,
+  rowLabel: string
+): FieldSelection[] {
+  const label = rowLabel.trim()
+  const field = selections.find(
+    selection => selection.path === path && selection.rowLabel === null
+  )
+  if (label === '' || !field?.rowLabelPath) return [...selections]
+  const folded = foldLabel(label)
+  const exists = selections.some(
+    selection => selection.path === path && foldLabel(selection.rowLabel) === folded
+  )
+  if (exists) return [...selections]
+
+  const lastOfField = selections.reduce(
+    (found, selection, index) => (selection.path === path ? index : found),
+    -1
+  )
+  const inserted = [...selections]
+  inserted.splice(lastOfField + 1, 0, {
+    path,
+    rowLabel: label,
+    kept: field.kept,
+    conceptId: null,
+    spineConceptId: null,
+    perAccount: field.perAccount,
+    accountPath: field.accountPath,
+    rowLabelPath: null
+  })
+  return inserted
+}
+
+/** The list without one row of a table, and without the answer it held. */
+export function removeRow(
+  selections: readonly FieldSelection[],
+  path: string,
+  rowLabel: string
+): FieldSelection[] {
+  return selections.filter(
+    selection => !(selection.path === path && selection.rowLabel === rowLabel)
+  )
+}
+
+/**
  * The list after answering, for one field, whether each of its rows says what
  * it is.
  *
@@ -307,6 +376,7 @@ export function toMappingDraft(
       .filter(selection => (selection.rowLabel ?? null) === null)
       .map(selection => [selection.path, selection])
   )
+  const labels = blockLabelPaths(selections)
 
   const entries: ConceptMappingEntry[] = selections.flatMap((selection) => {
     const rowLabel = selection.rowLabel ?? null
@@ -317,6 +387,10 @@ export function toMappingDraft(
     // are. Emitting one here would claim every row of the table at once,
     // filing sixteen different figures under a single concept.
     if (rowLabel === null && rowLabelPath !== null) return []
+    // The column of words that tells the rows apart is not a figure. It is
+    // still extracted — the projection needs it to match on — but mapping it
+    // would ask the engine to read an amount off a wording.
+    if (labels.has(selection.path)) return []
     // A row whose field was trimmed away, or whose labelling field was. The
     // second must not fall back to an undiscriminated entry: that is the same
     // over-claim, arrived at by a different route.

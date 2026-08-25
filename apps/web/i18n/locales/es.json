@@ -312,7 +312,12 @@
           "eachHint": "Cada fila se mapea aparte — por ejemplo salarios, cesantías y prestaciones en una misma tabla.",
           "labelField": "¿Qué campo nombra cada fila?",
           "labelFieldHint": "La columna con la que se distingue una fila de otra. Ese campo deja de mapearse por sí solo.",
-          "rowOf": "fila de {field}"
+          "rowOf": "fila de {field}",
+          "isTheLabel": "Esta columna nombra las filas del bloque — se extrae, pero no se mapea por sí sola.",
+          "empty": "No se leyó ninguna fila del documento de muestra. Agregalas abajo, o volvé a leer el documento.",
+          "add": "Agregar fila",
+          "addPlaceholder": "La redacción tal como la imprime el papel",
+          "remove": "Quitar esta fila"
         }
       },
       "mappingChanges": {

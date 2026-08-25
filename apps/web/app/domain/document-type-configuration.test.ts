@@ -21,6 +21,9 @@ import {
   mappingChangeSeverity,
   withRowWordings,
   setRowLabelPath,
+  blockLabelPaths,
+  addRow,
+  removeRow,
   parseTaxYears,
   proposalMappingBaseline,
   shouldSaveDraft,
@@ -905,5 +908,118 @@ describe('withRowWordings', () => {
     )
 
     expect(merged).toHaveLength(2)
+  })
+})
+
+describe('the column that names the rows', () => {
+  const VALOR = 'ingresos[].valor'
+  const CONCEPTO = 'ingresos[].concepto'
+  const ROLES = { ...NO_ROLES, reporterPath: 'nit' }
+
+  function block(): FieldSelection[] {
+    const base = {
+      kept: true,
+      spineConceptId: null,
+      perAccount: false,
+      accountPath: null,
+      rowLabel: null
+    }
+    return setRowLabelPath(
+      [
+        // Answered before anyone said the block was a table, which is the
+        // state this comes out of: the label column had a concept of its own.
+        { ...base, path: CONCEPTO, conceptId: 'payroll:cert_otros_pagos', rowLabelPath: null },
+        { ...base, path: VALOR, conceptId: null, rowLabelPath: null }
+      ],
+      VALOR,
+      CONCEPTO,
+      () => ['Pagos por salarios']
+    )
+  }
+
+  it('is recognised as the block\'s label, so the screen can stop offering it', () => {
+    expect([...blockLabelPaths(block())]).toEqual([CONCEPTO])
+  })
+
+  it('is never mapped as a figure, however it was answered before', () => {
+    // The projection would be asked to read an amount off a column of words.
+    const draft = toMappingDraft(block(), ROLES, null)
+
+    expect(draft.entries.map(entry => entry.fieldPath)).not.toContain(CONCEPTO)
+  })
+
+  it('stays in the schema, because matching each row needs it', () => {
+    expect(keptPaths(block()).has(CONCEPTO)).toBe(true)
+  })
+})
+
+describe('adding a row by hand', () => {
+  const VALOR = 'ingresos[].valor'
+  const CONCEPTO = 'ingresos[].concepto'
+
+  function table(wordings: string[] = []): FieldSelection[] {
+    const base = {
+      kept: true,
+      conceptId: null,
+      spineConceptId: null,
+      perAccount: false,
+      accountPath: null,
+      rowLabel: null
+    }
+    return setRowLabelPath(
+      [{ ...base, path: CONCEPTO, rowLabelPath: null }, { ...base, path: VALOR, rowLabelPath: null }],
+      VALOR,
+      CONCEPTO,
+      () => wordings
+    )
+  }
+
+  it('gives a type whose sample was never read a way to answer at all', () => {
+    // Without this the screen is a dead end: "each row is different", no rows.
+    const added = addRow(table(), VALOR, 'Pagos por salarios')
+
+    expect(added.map(selection => selection.rowLabel)).toEqual([null, null, 'Pagos por salarios'])
+  })
+
+  it('puts a hand-typed row alongside the ones read from the paper', () => {
+    const added = addRow(table(['Pagos por salarios']), VALOR, 'Pagos por comisiones')
+
+    expect(added.filter(s => s.rowLabel !== null).map(s => s.rowLabel)).toEqual([
+      'Pagos por salarios',
+      'Pagos por comisiones'
+    ])
+  })
+
+  it('refuses a row the table already has, however it was typed', () => {
+    const added = addRow(table(['Auxilio de cesantía']), VALOR, 'AUXILIO DE  CESANTIA ')
+
+    expect(added.filter(s => s.rowLabel !== null)).toHaveLength(1)
+  })
+
+  it('refuses a blank wording, which would match every row nobody named', () => {
+    expect(addRow(table(), VALOR, '   ').filter(s => s.rowLabel !== null)).toEqual([])
+  })
+
+  it('refuses a row on a field that is not a table', () => {
+    const plain: FieldSelection[] = [
+      {
+        path: 'gmf',
+        rowLabel: null,
+        kept: true,
+        conceptId: null,
+        spineConceptId: null,
+        perAccount: false,
+        accountPath: null,
+        rowLabelPath: null
+      }
+    ]
+
+    expect(addRow(plain, 'gmf', 'Lo que sea')).toEqual(plain)
+  })
+
+  it('takes a row back off, along with the answer it held', () => {
+    const removed = removeRow(table(['Pagos por salarios']), VALOR, 'Pagos por salarios')
+
+    expect(removed.filter(s => s.rowLabel !== null)).toEqual([])
   })
 })

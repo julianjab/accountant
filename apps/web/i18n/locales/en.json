@@ -312,7 +312,12 @@
           "eachHint": "Each row is mapped on its own — salaries, severance and social benefits in one table, say.",
           "labelField": "Which field names each row?",
           "labelFieldHint": "The column that tells one row from another. That field stops being mapped on its own.",
-          "rowOf": "row of {field}"
+          "rowOf": "row of {field}",
+          "isTheLabel": "This column names the block's rows — it is extracted, but not mapped on its own.",
+          "empty": "No rows were read from the sample document. Add them below, or read the document again.",
+          "add": "Add row",
+          "addPlaceholder": "The wording exactly as the paper prints it",
+          "remove": "Remove this row"
         }
       },
       "mappingChanges": {
