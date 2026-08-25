@@ -75,14 +75,3 @@ export function listPrefixOf(path: string): string | null {
   const cut = path.lastIndexOf('[]')
   return cut < 0 ? null : path.slice(0, cut + 2)
 }
-
-/** The fields that could say what each row of `path`'s table is: its siblings
- * inside the same repeated block, and never the field itself — an amount
- * cannot label the row it sits on. */
-export function rowLabelCandidates(path: string, allPaths: readonly string[]): string[] {
-  const prefix = listPrefixOf(path)
-  if (prefix === null) return []
-  return allPaths.filter(
-    candidate => candidate !== path && listPrefixOf(candidate) === prefix
-  )
-}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { distinctRowWordings, foldLabel, listPrefixOf, rowLabelCandidates } from './table-rows'
+import { distinctRowWordings, foldLabel, listPrefixOf } from './table-rows'
 
 const CERT_220 = {
   ingresos: [
@@ -44,21 +44,16 @@ describe('foldLabel', () => {
   })
 })
 
-describe('rowLabelCandidates', () => {
-  it('offers the siblings inside the same block, and never the field itself', () => {
-    const paths = ['nit', 'ingresos[].concepto', 'ingresos[].linea', 'ingresos[].valor', 'retenciones[].valor']
-
-    expect(rowLabelCandidates('ingresos[].valor', paths)).toEqual([
-      'ingresos[].concepto',
-      'ingresos[].linea'
-    ])
-  })
-
-  it('offers nothing for a field that is not inside a list — it has no rows', () => {
-    expect(rowLabelCandidates('gmf', ['gmf', 'nit'])).toEqual([])
-  })
-
+describe('listPrefixOf', () => {
   it('reads the innermost block as the one whose rows are being told apart', () => {
     expect(listPrefixOf('a[].b[].c')).toBe('a[].b[]')
+  })
+
+  it('reads a field outside any list as belonging to no block', () => {
+    expect(listPrefixOf('gmf')).toBeNull()
+  })
+
+  it('gives the fields of one block the same answer, which is what groups them', () => {
+    expect(listPrefixOf('ingresos[].concepto')).toBe(listPrefixOf('ingresos[].valor'))
   })
 })

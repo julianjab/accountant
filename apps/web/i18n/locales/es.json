@@ -305,10 +305,14 @@
         "searchField": "Buscá el campo…",
         "notExtracted": "No se extrae — marcalo y guardá para empezar a extraerlo",
         "rows": {
-          "question": "¿Cada fila dice qué es?",
-          "hint": "Cuando el documento imprime una tabla, el concepto cambia fila por fila. Elegí el campo que nombra cada fila para responderlas una por una.",
-          "notATable": "No, todas las filas son lo mismo",
-          "empty": "Todavía no se leyó ninguna fila del documento de muestra. Volvé a leer el documento para traerlas."
+          "question": "¿Todos los campos de este bloque son lo mismo?",
+          "same": "Sí, todos son lo mismo",
+          "sameHint": "Un solo mapeo cubre todas las filas — por ejemplo un saldo por cada cuenta.",
+          "each": "No, cada uno es distinto",
+          "eachHint": "Cada fila se mapea aparte — por ejemplo salarios, cesantías y prestaciones en una misma tabla.",
+          "labelField": "¿Qué campo nombra cada fila?",
+          "labelFieldHint": "La columna con la que se distingue una fila de otra. Ese campo deja de mapearse por sí solo.",
+          "rowOf": "fila de {field}"
         }
       },
       "mappingChanges": {

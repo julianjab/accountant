@@ -209,6 +209,6 @@ function rowsForPaths(
     // each mean something different is answered on the configuration screen,
     // where the sample's own rows can be read back.
     rowLabelPath: null,
-    rows: []
+    rowLabel: null
   }))
 }

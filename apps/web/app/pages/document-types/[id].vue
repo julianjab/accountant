@@ -5,10 +5,12 @@ import type { ClientDocument } from '~/domain/entities/document'
 import { DocumentTypeInUseError } from '~/domain/errors/document-type-in-use-error'
 import type { ReconciliationKind } from '~/domain/entities/reconciliation-kind'
 import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
-import type { FieldSelection, ProposalFieldRow, RowSelection } from '~/domain/document-type-configuration'
+import type { FieldSelection, ProposalFieldRow } from '~/domain/document-type-configuration'
 import {
   buildFieldSelections,
-  mergeRowWordings,
+  withRowWordings,
+  setRowLabelPath,
+  pathsAnsweringALine,
   selectionKey,
   buildProposalRows,
   configurationStatus,
@@ -24,7 +26,7 @@ import {
   writeSource
 } from '~/domain/document-type-configuration'
 import { isRepeatedPath, listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
-import { distinctRowWordings, rowLabelCandidates } from '~/domain/table-rows'
+import { distinctRowWordings, listPrefixOf } from '~/domain/table-rows'
 import { changesNothing, compareSchemaPaths } from '~/domain/schema-revision'
 import type { SchemaRevision } from '~/domain/schema-revision'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
@@ -581,9 +583,9 @@ function syncMappingForm() {
     ...selection,
     // A field the type offers but does not extract starts unticked — which is
     // exactly the state it was left in.
-    kept: extractedPaths.value.has(selection.path),
-    rows: rowsFor(selection.path, selection.rowLabelPath, selection.rows)
+    kept: extractedPaths.value.has(selection.path)
   }))
+  selections.value = withRowWordings(selections.value, wordingsFor)
   reporterPath.value = mapping.value?.reporterPath ?? null
   reporterNamePath.value = mapping.value?.reporterNamePath ?? null
   periodPath.value = mapping.value?.periodPath ?? null
@@ -592,53 +594,115 @@ function syncMappingForm() {
   declaredPeriod.value = mapping.value?.period ?? ''
 }
 
+/** Both halves spelled out as sentences: the reader decides this by looking at
+ * the paper, not by knowing what a repeated block is. */
+const blockSamenessItems = computed(() => [
+  {
+    label: t('documentTypes.edit.fields.rows.same'),
+    value: 'same',
+    description: t('documentTypes.edit.fields.rows.sameHint')
+  },
+  {
+    label: t('documentTypes.edit.fields.rows.each'),
+    value: 'each',
+    description: t('documentTypes.edit.fields.rows.eachHint')
+  }
+])
+
 /**
- * The rows to show for a table: what the mapping already answers, then every
- * wording the sample printed that nobody has answered yet.
+ * Answering the block's own question.
  *
- * The unanswered half is the point. A row the paper states and the
- * configuration ignores used to be invisible — the field looked mapped and its
- * figure quietly went nowhere — and listing it is what turns that into a
- * question somebody can decline on purpose.
+ * Saying the rows differ needs a field that says how, so one is proposed
+ * straight away — the block's first field that is not a figure, which on every
+ * certificate that prints a table is the column naming its lines. It stays
+ * changeable right below; without a proposal the answer would land the reader
+ * on an empty second question with nothing yet expanded.
  */
-function rowsFor(path: string, rowLabelPath: string | null, curated: RowSelection[]) {
-  if (!rowLabelPath) return []
-  return mergeRowWordings(curated, distinctRowWordings(sampleFields.value ?? {}, rowLabelPath))
+function setBlockSameness(indices: readonly number[], answer: string) {
+  if (answer === 'same') {
+    setBlockRowLabelPath(indices, null)
+    return
+  }
+  const candidates = blockRowLabelItems(indices)
+  const proposed
+    = candidates.find(candidate => roleByPath.value.get(candidate.value) !== 'amount')
+      ?? candidates[0]
+  if (proposed) setBlockRowLabelPath(indices, proposed.value)
 }
 
-/** The siblings inside the same repeated block, which are the only fields that
- * could say what each row of this one is. */
-function rowLabelItems(path: string) {
-  return [
-    { label: t('documentTypes.edit.fields.rows.notATable'), value: UNMAPPED },
-    ...rowLabelCandidates(path, schemaFields.value.map(field => field.path)).map(candidate => ({
-      label: fieldName(candidate),
-      value: candidate
-    }))
+/** The wordings the sample document printed for one labelling field. */
+function wordingsFor(rowLabelPath: string): string[] {
+  return distinctRowWordings(sampleFields.value ?? {}, rowLabelPath)
+}
+
+/**
+ * The repeated block a section stands for, when it is one.
+ *
+ * Sections are named after the object that contains their fields, and for a
+ * repeated block that is exactly the `[]` prefix its fields share — which is
+ * what makes "is this block a list of the same thing, or a table?" a question
+ * about the section rather than about each field in it.
+ */
+function blockPrefixOf(paths: readonly string[]): string | null {
+  const prefixes = new Set(paths.map(listPrefixOf))
+  const only = [...prefixes]
+  return only.length === 1 && only[0] ? only[0] : null
+}
+
+/** The field naming each row of this block, when someone has said it is a
+ * table. Null while the block is still read as a list of the same thing. */
+function blockRowLabelPath(indices: readonly number[]): string | null {
+  for (const index of indices) {
+    const selection = selections.value[index]
+    if (selection && selection.rowLabel === null && selection.rowLabelPath) {
+      return selection.rowLabelPath
+    }
+  }
+  return null
+}
+
+/** The fields of this block that could say what each row is: any of them but
+ * the amounts they would be labelling. */
+function blockRowLabelItems(indices: readonly number[]) {
+  const paths = new Set(
+    indices
+      .map(index => selections.value[index])
+      .filter(selection => selection && selection.rowLabel === null)
+      .map(selection => selection!.path)
+  )
+  return [...paths].map(path => ({ label: fieldName(path), value: path }))
+}
+
+/**
+ * Answering the block's question.
+ *
+ * "Every field is the same thing" is the list of one repeated shape — one
+ * balance per account — and one mapping covers all of it. Answering "no" makes
+ * each row of the block its own question, loaded from the paper the type was
+ * read from.
+ */
+function setBlockRowLabelPath(indices: readonly number[], rowLabelPath: string | null) {
+  const paths = [
+    ...new Set(
+      indices
+        .map(index => selections.value[index]?.path)
+        .filter((path): path is string => Boolean(path))
+    )
   ]
-}
-
-/** Answering "each row says what it is" reloads the row list from the paper;
- * answering "no" drops it, along with the per-row curation it held. */
-function setRowLabelPath(selection: FieldSelection, value: string) {
-  selection.rowLabelPath = toPath(value)
-  selection.rows = rowsFor(selection.path, selection.rowLabelPath, [])
-  // A table has no single concept, so the field-level answer would sit there
-  // contradicting the rows and be sent as an entry claiming all of them.
-  if (selection.rowLabelPath) {
-    selection.conceptId = null
-    selection.spineConceptId = null
+  let next = selections.value
+  for (const path of paths) {
+    // The field that names the rows is not one of the rows: expanding it would
+    // ask which concept "Pagos por salarios" is, sixteen times over.
+    next = setRowLabelPath(next, path, path === rowLabelPath ? null : rowLabelPath, wordingsFor)
   }
+  selections.value = next
 }
 
-// The wordings only arrive once the sample's extracted data does, and the rows
-// are built before that. Rebuilt rather than patched: `mergeRowWordings` keeps
-// every answer already given, so this can only ever add the rows nobody had
-// seen yet.
+// The wordings only arrive once the sample's extracted data does, and the list
+// is built before that. Merged rather than rebuilt: `withRowWordings` keeps
+// every answer already given, so this can only ever add rows nobody had seen.
 watch(sampleFields, () => {
-  for (const selection of selections.value) {
-    selection.rows = rowsFor(selection.path, selection.rowLabelPath, selection.rows)
-  }
+  selections.value = withRowWordings(selections.value, wordingsFor)
 })
 
 watch(documentType, syncDetailsForm, { immediate: true })
@@ -767,7 +831,8 @@ const visibleEntries = computed(() =>
         descriptionByPath.value.get(entry.selection.path),
         sampleValueByPath.value.get(entry.selection.path),
         sectionFor(entry.selection.path, describedFields.value),
-        entry.selection.path
+        entry.selection.path,
+        entry.selection.rowLabel
       ])
     )
 )
@@ -777,11 +842,23 @@ const sections = computed(() =>
     visibleEntries.value,
     entry => entry.selection.path,
     describedFields.value
-  ).map(section => ({
-    name: section.name,
-    indices: section.items.map(entry => entry.index),
-    keptCount: section.items.filter(entry => entry.selection.kept).length
-  }))
+  ).map((section) => {
+    const indices = section.items.map(entry => entry.index)
+    const paths = section.items
+      .filter(entry => entry.selection.rowLabel === null)
+      .map(entry => entry.selection.path)
+    return {
+      name: section.name,
+      indices,
+      blockPrefix: blockPrefixOf(paths),
+      rowLabelPath: blockRowLabelPath(indices),
+      // Counts fields, not rows: a row is not something the OCR can be asked
+      // for on its own, so it is not part of what "marcados" has ever meant.
+      keptCount: section.items.filter(
+        entry => entry.selection.rowLabel === null && entry.selection.kept
+      ).length
+    }
+  })
 )
 
 /**
@@ -816,10 +893,7 @@ function spineFactsFor(path: string, rowLabel: string | null = null) {
  * answer, or through any row of its table. Gates the comparison controls, which
  * are a decision about the block either way. */
 function answersALine(selection: FieldSelection): boolean {
-  if (selection.rowLabelPath) {
-    return selection.rows.some(row => Boolean(row.conceptId && row.spineConceptId))
-  }
-  return Boolean(selection.conceptId && selection.spineConceptId)
+  return pathsAnsweringALine(selections.value).has(selection.path)
 }
 
 /** Whole blocks are kept or dropped together: a certificate's useless half is
@@ -1500,20 +1574,88 @@ watch(
                   </div>
                 </div>
 
+                <!--
+                  Asked once per repeated block, which is the level where it is
+                  actually decidable. "Every field is the same thing" is the
+                  block that lists one balance per account, and one mapping
+                  covers all of it. An employment certificate's income block is
+                  the other kind: sixteen lines, each a different DIAN concept,
+                  and one mapping for all of them files fifteen figures wrong.
+                -->
+                <div
+                  v-if="section.blockPrefix"
+                  class="border-default flex flex-col gap-3 rounded-lg border border-dashed p-3"
+                  data-testid="block-sameness"
+                >
+                  <URadioGroup
+                    :model-value="section.rowLabelPath === null ? 'same' : 'each'"
+                    :items="blockSamenessItems"
+                    :legend="t('documentTypes.edit.fields.rows.question')"
+                    @update:model-value="setBlockSameness(section.indices, $event as string)"
+                  />
+                  <UFormField
+                    v-if="section.rowLabelPath !== null"
+                    :label="t('documentTypes.edit.fields.rows.labelField')"
+                    :help="t('documentTypes.edit.fields.rows.labelFieldHint')"
+                  >
+                    <UInputMenu
+                      :model-value="section.rowLabelPath"
+                      :items="blockRowLabelItems(section.indices)"
+                      value-key="value"
+                      data-testid="row-label-path"
+                      :placeholder="t('documentTypes.edit.fields.searchField')"
+                      class="w-full sm:w-96"
+                      @update:model-value="setBlockRowLabelPath(section.indices, $event as string)"
+                    />
+                  </UFormField>
+                </div>
+
+                <!--
+                  Fields and the rows of a table are peers here, so everything
+                  the list already does — searching it, grouping it under the
+                  block of the page it came from, reading it top to bottom
+                  against the paper — works for a row unchanged. They differ in
+                  one thing only: a field can be dropped from the schema and a
+                  row cannot, because the OCR reads the whole array or none of
+                  it. That is why a row carries no checkbox — declining one is
+                  leaving it with no concept.
+                -->
                 <div
                   v-for="index in section.indices"
-                  :key="selections[index]!.path"
+                  :key="selectionKey(selections[index]!.path, selections[index]!.rowLabel)"
                   class="border-default flex flex-col gap-3 rounded-lg border p-3"
-                  :class="selections[index]!.kept ? '' : 'opacity-60'"
+                  :class="[
+                    selections[index]!.kept ? '' : 'opacity-60',
+                    selections[index]!.rowLabel === null ? '' : 'border-dashed sm:ml-6'
+                  ]"
+                  :data-testid="selections[index]!.rowLabel === null ? 'field-row' : 'table-row'"
                 >
                   <div class="flex items-start gap-3">
                     <UCheckbox
+                      v-if="selections[index]!.rowLabel === null"
                       v-model="selections[index]!.kept"
                       :aria-label="t('documentTypes.edit.fields.keep')"
                       class="mt-1"
                     />
 
-                    <div class="min-w-0">
+                    <div
+                      v-if="selections[index]!.rowLabel !== null"
+                      class="min-w-0"
+                    >
+                      <p class="text-highlighted text-sm font-medium">
+                        {{ selections[index]!.rowLabel }}
+                      </p>
+                      <p class="text-dimmed text-xs">
+                        {{ t('documentTypes.edit.fields.rows.rowOf', {
+                          field: fieldName(selections[index]!.path)
+                        }) }}
+                      </p>
+                    </div>
+
+                    <div
+                      v-else
+                      class="min-w-0"
+                    >
                       <p
                         class="text-sm font-medium"
                         :class="selections[index]!.kept ? 'text-highlighted' : 'text-muted line-through'"
@@ -1566,89 +1708,10 @@ watch(
                     </div>
                   </div>
 
-                  <!--
-                    Asked only where it can be true: a field inside a repeated
-                    block, with siblings that could name each row. Answering it
-                    is what turns one concept box into one per line of the
-                    table — an employment certificate states sixteen different
-                    figures under `ingresos[].valor`, and a single answer files
-                    all sixteen under one concept.
-                  -->
-                  <UFormField
-                    v-if="selections[index]!.kept && rowLabelItems(selections[index]!.path).length > 1"
-                    :label="t('documentTypes.edit.fields.rows.question')"
-                    :help="t('documentTypes.edit.fields.rows.hint')"
-                    class="sm:pl-8"
-                  >
-                    <UInputMenu
-                      :model-value="selectValue(selections[index]!.rowLabelPath)"
-                      :items="rowLabelItems(selections[index]!.path)"
-                      value-key="value"
-                      data-testid="row-label-path"
-                      :placeholder="t('documentTypes.edit.fields.searchField')"
-                      class="w-full sm:w-96"
-                      @update:model-value="setRowLabelPath(selections[index]!, $event as string)"
-                    />
-                  </UFormField>
-
-                  <!-- One question per row of the table. -->
                   <div
-                    v-if="selections[index]!.rowLabelPath"
-                    class="flex flex-col gap-3 sm:pl-8"
-                    data-testid="table-rows"
-                  >
-                    <p
-                      v-if="selections[index]!.rows.length === 0"
-                      class="text-muted text-xs"
-                    >
-                      {{ t('documentTypes.edit.fields.rows.empty') }}
-                    </p>
-                    <div
-                      v-for="row in selections[index]!.rows"
-                      :key="row.label"
-                      class="border-default flex flex-col gap-2 rounded-md border border-dashed p-3"
-                    >
-                      <p class="text-highlighted text-sm font-medium">
-                        {{ row.label }}
-                      </p>
-                      <div class="grid gap-3 sm:grid-cols-2">
-                        <UFormField :label="t('documentTypes.edit.fields.conceptQuestion')">
-                          <UInputMenu
-                            :model-value="row.conceptId ?? UNMAPPED"
-                            :items="conceptItems"
-                            value-key="value"
-                            :placeholder="t('documentTypes.edit.fields.searchConcept')"
-                            class="w-full"
-                            @update:model-value="row.conceptId = toPath($event as string)"
-                          />
-                        </UFormField>
-                        <UFormField :label="t('documentTypes.edit.fields.spineQuestion')">
-                          <UInputMenu
-                            :model-value="row.spineConceptId ?? UNMAPPED"
-                            :items="spineItems"
-                            value-key="value"
-                            :disabled="!row.conceptId"
-                            :placeholder="t('documentTypes.edit.fields.searchSpine')"
-                            class="w-full"
-                            @update:model-value="row.spineConceptId = toPath($event as string)"
-                          />
-                        </UFormField>
-                      </div>
-                      <p
-                        v-if="spineFactsFor(selections[index]!.path, row.label)?.summed"
-                        class="text-primary text-xs"
-                        data-testid="summed-note"
-                      >
-                        {{ t('documentTypes.edit.fields.summed', {
-                          count: spineFactsFor(selections[index]!.path, row.label)!.summed
-                        }) }}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    v-else
-                    class="grid gap-3 sm:grid-cols-2 sm:pl-8"
+                    v-if="!selections[index]!.rowLabelPath"
+                    class="grid gap-3 sm:grid-cols-2"
+                    :class="selections[index]!.rowLabel === null ? 'sm:pl-8' : ''"
                   >
                     <UFormField
                       :label="t('documentTypes.edit.fields.conceptQuestion')"
@@ -1687,16 +1750,16 @@ watch(
                     and that the sum is being built out of mismatched parts.
                   -->
                   <p
-                    v-if="!selections[index]!.rowLabelPath && spineFactsFor(selections[index]!.path)?.summed"
+                    v-if="spineFactsFor(selections[index]!.path, selections[index]!.rowLabel)?.summed"
                     class="text-primary text-xs sm:pl-8"
                     data-testid="summed-note"
                   >
                     {{ t('documentTypes.edit.fields.summed', {
-                      count: spineFactsFor(selections[index]!.path)!.summed
+                      count: spineFactsFor(selections[index]!.path, selections[index]!.rowLabel)!.summed
                     }) }}
                   </p>
                   <p
-                    v-if="spineFactsFor(selections[index]!.path)?.mixed"
+                    v-if="selections[index]!.rowLabel === null && spineFactsFor(selections[index]!.path)?.mixed"
                     class="text-warning text-xs sm:pl-8"
                     data-testid="mixed-comparison"
                   >
@@ -1704,7 +1767,7 @@ watch(
                   </p>
 
                   <div
-                    v-if="selections[index]!.kept && answersALine(selections[index]!)"
+                    v-if="selections[index]!.rowLabel === null && selections[index]!.kept && answersALine(selections[index]!)"
                     class="flex flex-col gap-3 sm:pl-8"
                   >
                     <UFormField :label="t('documentTypes.edit.fields.comparison.question')">

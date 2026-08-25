@@ -19,7 +19,8 @@ import {
   fieldsMissingAccountPath,
   groupBySpineConcept,
   mappingChangeSeverity,
-  mergeRowWordings,
+  withRowWordings,
+  setRowLabelPath,
   parseTaxYears,
   proposalMappingBaseline,
   shouldSaveDraft,
@@ -242,7 +243,7 @@ describe('toMappingDraft, spine line and comparison', () => {
       perAccount: false,
       accountPath: null,
       rowLabelPath: null,
-      rows: [],
+      rowLabel: null,
       ...overrides
     }
   }
@@ -694,164 +695,215 @@ describe('buildProposalRows when the proposal describes nothing', () => {
 })
 
 /* ------------------------------------------------------------------ *
- * A field the document prints as a table
+ * A block the document prints as a table
  *
  * An employment certificate states sixteen income lines in one repeated
  * block. One answer for `ingresos[].valor` files all sixteen under one
- * concept; these pin that the screen asks once per row instead.
+ * concept; these pin that each row becomes its own row of the list instead.
  * ------------------------------------------------------------------ */
 
-describe('a table, answered row by row', () => {
+describe('a table, listed row by row', () => {
   const SALARIOS = 'payroll:cert_pagos_salarios'
   const CESANTIAS = 'payroll:cert_cesantias_consignadas'
+  const VALOR = 'ingresos[].valor'
+  const CONCEPTO = 'ingresos[].concepto'
+  const ROLES = { ...NO_ROLES, reporterPath: 'nit' }
 
-  function tableSelection(overrides: Partial<FieldSelection> = {}): FieldSelection {
+  const WORDINGS = ['Pagos por salarios', 'Cesantías al fondo', 'Pagos por viáticos']
+  const wordingsFor = (path: string) => (path === CONCEPTO ? WORDINGS : [])
+
+  function entry(overrides: Partial<FieldSelection> & { path: string }): FieldSelection {
     return {
-      path: 'ingresos[].valor',
+      rowLabel: null,
       kept: true,
       conceptId: null,
       spineConceptId: null,
       perAccount: false,
       accountPath: null,
-      rowLabelPath: 'ingresos[].concepto',
-      rows: [
-        { label: 'Pagos por salarios', conceptId: SALARIOS, spineConceptId: 'dian:pagos-salarios' },
-        { label: 'Cesantías al fondo', conceptId: CESANTIAS, spineConceptId: null },
-        { label: 'Pagos por viáticos', conceptId: null, spineConceptId: null }
-      ],
+      rowLabelPath: null,
       ...overrides
     }
   }
 
-  const ROLES = { ...NO_ROLES, reporterPath: 'nit' }
-
-  function label(selection: FieldSelection) {
-    return toMappingDraft(
-      [selection, { path: 'ingresos[].concepto', kept: true, conceptId: null }],
-      ROLES,
-      null
+  /** The block as the screen holds it once someone says its rows differ. */
+  function table(): FieldSelection[] {
+    return setRowLabelPath(
+      [entry({ path: CONCEPTO }), entry({ path: VALOR })],
+      VALOR,
+      CONCEPTO,
+      wordingsFor
     )
   }
 
-  it('stores one entry per answered row, all on the same path', () => {
-    const draft = label(tableSelection())
+  function answered(): FieldSelection[] {
+    return table().map((selection) => {
+      if (selection.rowLabel === 'Pagos por salarios') {
+        return { ...selection, conceptId: SALARIOS, spineConceptId: 'dian:pagos-salarios' }
+      }
+      if (selection.rowLabel === 'Cesantías al fondo') {
+        return { ...selection, conceptId: CESANTIAS }
+      }
+      return selection
+    })
+  }
 
-    expect(draft.entries.map(entry => [entry.fieldPath, entry.rowLabel, entry.conceptId])).toEqual([
-      ['ingresos[].valor', 'Pagos por salarios', SALARIOS],
-      ['ingresos[].valor', 'Cesantías al fondo', CESANTIAS]
+  it('lists every row the paper printed as a peer of the fields', () => {
+    expect(table().map(selection => [selection.path, selection.rowLabel])).toEqual([
+      [CONCEPTO, null],
+      [VALOR, null],
+      [VALOR, 'Pagos por salarios'],
+      [VALOR, 'Cesantías al fondo'],
+      [VALOR, 'Pagos por viáticos']
     ])
-    expect(draft.entries[0]!.rowLabelPath).toBe('ingresos[].concepto')
+  })
+
+  it('stores one entry per answered row, all on the same path', () => {
+    const draft = toMappingDraft(answered(), ROLES, null)
+
+    expect(draft.entries.map(e => [e.fieldPath, e.rowLabel, e.conceptId])).toEqual([
+      [VALOR, 'Pagos por salarios', SALARIOS],
+      [VALOR, 'Cesantías al fondo', CESANTIAS]
+    ])
+    expect(draft.entries[0]!.rowLabelPath).toBe(CONCEPTO)
+  })
+
+  it('never sends the field itself once its rows are the answers', () => {
+    // One entry for `ingresos[].valor` with no row would claim all sixteen
+    // lines at once — the exact misreading this whole shape exists to prevent.
+    const draft = toMappingDraft(answered(), ROLES, null)
+
+    expect(draft.entries.every(e => e.rowLabel !== null)).toBe(true)
   })
 
   it('leaves a row nobody answered out, rather than sweeping it into a neighbour', () => {
-    expect(label(tableSelection()).entries.map(e => e.rowLabel)).not.toContain('Pagos por viáticos')
+    const draft = toMappingDraft(answered(), ROLES, null)
+
+    expect(draft.entries.map(e => e.rowLabel)).not.toContain('Pagos por viáticos')
   })
 
   it('keeps each row answering its own line of the base report', () => {
-    const draft = label(tableSelection())
+    const draft = toMappingDraft(answered(), ROLES, null)
 
-    expect(draft.entries.map(entry => entry.spineConceptId)).toEqual(['dian:pagos-salarios', null])
+    expect(draft.entries.map(e => e.spineConceptId)).toEqual(['dian:pagos-salarios', null])
   })
 
   it('drops the whole table once the field naming its rows is trimmed away', () => {
-    // Never degraded to one entry claiming every row: that files viáticos and
-    // cesantías under the salary concept, which is a wrong answer nobody sees.
-    const draft = toMappingDraft(
-      [tableSelection(), { path: 'ingresos[].concepto', kept: false, conceptId: null }],
-      ROLES,
-      null
+    const trimmed = answered().map(selection =>
+      selection.path === CONCEPTO ? { ...selection, kept: false } : selection
     )
 
-    expect(draft.entries).toEqual([])
+    expect(toMappingDraft(trimmed, ROLES, null).entries).toEqual([])
   })
 
-  it('ignores a field-level concept left over from before the table was declared', () => {
-    const draft = label(tableSelection({ conceptId: 'payroll:cert_otros_pagos' }))
-
-    expect(draft.entries.map(entry => entry.conceptId)).toEqual([SALARIOS, CESANTIAS])
+  it('counts a row out of the schema, which reads the whole array or none of it', () => {
+    expect([...keptPaths(answered())]).toEqual([CONCEPTO, VALOR])
   })
 
-  it('reads stored per-row entries back as the rows of one field', () => {
+  it('goes back to one mapping for the block when the rows turn out to be alike', () => {
+    const flattened = setRowLabelPath(answered(), VALOR, null, wordingsFor)
+
+    expect(flattened.every(selection => selection.rowLabel === null)).toBe(true)
+    expect(flattened.find(s => s.path === VALOR)!.rowLabelPath).toBeNull()
+  })
+
+  it('reads stored per-row entries back as rows of the list', () => {
     const mapping: ConceptMapping = {
       ...MAPPING,
       entries: [
         {
-          fieldPath: 'ingresos[].valor',
+          fieldPath: VALOR,
           conceptId: SALARIOS,
           accountPath: null,
           sign: 1,
           spineConceptId: 'dian:pagos-salarios',
           perAccount: false,
-          rowLabelPath: 'ingresos[].concepto',
+          rowLabelPath: CONCEPTO,
           rowLabel: 'Pagos por salarios'
         },
         {
-          fieldPath: 'ingresos[].valor',
+          fieldPath: VALOR,
           conceptId: CESANTIAS,
           accountPath: null,
           sign: 1,
           spineConceptId: null,
           perAccount: false,
-          rowLabelPath: 'ingresos[].concepto',
+          rowLabelPath: CONCEPTO,
           rowLabel: 'Cesantías al fondo'
         }
       ]
     }
 
-    const selections = buildFieldSelections([field('ingresos[].valor')], mapping)
+    const selections = buildFieldSelections([field(VALOR)], mapping)
 
-    expect(selections[0]!.rowLabelPath).toBe('ingresos[].concepto')
-    expect(selections[0]!.rows.map(row => [row.label, row.conceptId])).toEqual([
+    expect(selections.map(s => [s.rowLabel, s.conceptId])).toEqual([
+      [null, null],
       ['Pagos por salarios', SALARIOS],
       ['Cesantías al fondo', CESANTIAS]
     ])
     // The table has no single concept, and offering one would contradict its rows.
-    expect(selections[0]!.conceptId).toBeNull()
+    expect(selections[0]!.rowLabelPath).toBe(CONCEPTO)
   })
 
   it('adds up the rows of one table that answer the same line', () => {
-    const groups = groupBySpineConcept([
-      tableSelection({
-        rows: [
-          { label: 'Cesantías pagadas', conceptId: CESANTIAS, spineConceptId: 'dian:cesantias' },
-          { label: 'Cesantías al fondo', conceptId: CESANTIAS, spineConceptId: 'dian:cesantias' }
-        ]
-      })
-    ])
+    const both = table().map(selection =>
+      selection.rowLabel === null
+        ? selection
+        : { ...selection, conceptId: CESANTIAS, spineConceptId: 'dian:cesantias' }
+    )
+
+    const groups = groupBySpineConcept(both)
 
     expect(groups[0]).toMatchObject({ spineConceptId: 'dian:cesantias', summed: true })
-    expect(groups[0]!.keys).toHaveLength(2)
+    expect(groups[0]!.keys).toHaveLength(3)
   })
 })
 
-describe('mergeRowWordings', () => {
+describe('withRowWordings', () => {
+  const CONCEPTO = 'ingresos[].concepto'
+  const VALOR = 'ingresos[].valor'
+
+  function table(rows: { rowLabel: string, conceptId: string | null }[]): FieldSelection[] {
+    const base = {
+      kept: true,
+      conceptId: null,
+      spineConceptId: null,
+      perAccount: false,
+      accountPath: null
+    }
+    return [
+      { ...base, path: VALOR, rowLabel: null, rowLabelPath: CONCEPTO },
+      ...rows.map(row => ({ ...base, ...row, path: VALOR, rowLabelPath: null }))
+    ]
+  }
+
   it('offers every row the paper printed that nobody has answered yet', () => {
-    const merged = mergeRowWordings(
-      [{ label: 'Pagos por salarios', conceptId: 'payroll:x', spineConceptId: null }],
-      ['Pagos por salarios', 'Pagos por viáticos']
+    const merged = withRowWordings(
+      table([{ rowLabel: 'Pagos por salarios', conceptId: 'payroll:x' }]),
+      () => ['Pagos por salarios', 'Pagos por viáticos']
     )
 
-    expect(merged.map(row => [row.label, row.conceptId])).toEqual([
+    expect(merged.map(s => [s.rowLabel, s.conceptId])).toEqual([
+      [null, null],
       ['Pagos por salarios', 'payroll:x'],
       ['Pagos por viáticos', null]
     ])
   })
 
   it('keeps an answer for a row this sample happened not to print', () => {
-    const merged = mergeRowWordings(
-      [{ label: 'Pagos por comisiones', conceptId: 'payroll:x', spineConceptId: null }],
-      []
+    const merged = withRowWordings(
+      table([{ rowLabel: 'Pagos por comisiones', conceptId: 'payroll:x' }]),
+      () => []
     )
 
-    expect(merged.map(row => row.label)).toEqual(['Pagos por comisiones'])
+    expect(merged.map(s => s.rowLabel)).toEqual([null, 'Pagos por comisiones'])
   })
 
   it('does not ask twice for a row worded differently from the answer given', () => {
-    const merged = mergeRowWordings(
-      [{ label: 'Auxilio de cesantía', conceptId: 'payroll:x', spineConceptId: null }],
-      ['AUXILIO DE CESANTIA']
+    const merged = withRowWordings(
+      table([{ rowLabel: 'Auxilio de cesantía', conceptId: 'payroll:x' }]),
+      () => ['AUXILIO DE  CESANTIA']
     )
 
-    expect(merged).toHaveLength(1)
+    expect(merged).toHaveLength(2)
   })
 })
