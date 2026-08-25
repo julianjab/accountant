@@ -280,4 +280,22 @@ test.describe('Regenerar un tipo de documento', () => {
 
     await expect(page.getByTestId('field-rows')).toContainText('$ 2.241.275,17')
   })
+
+  test('names the stored fields as kept on the very first reading', async ({ page, baseURL }) => {
+    // The press that has no round behind it is the one that used to send
+    // nothing, leaving a prose instruction as the only thing asking the model
+    // not to drop a field the type already declares.
+    const proposals: string[] = []
+    await stubServer(page, baseURL!, proposals)
+    await regenerate(page)
+
+    await expect.poll(() => proposals.length).toBe(1)
+    const selection = JSON.parse(/name="selection"\r\n\r\n(.*?)\r\n/s.exec(proposals[0]!)![1]!)
+    expect(selection.kept.map((field: { path: string }) => field.path)).toEqual([
+      'nit_entidad',
+      'gmf',
+      'base_gravable'
+    ])
+    expect(selection.dropped).toEqual([])
+  })
 })

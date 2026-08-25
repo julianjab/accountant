@@ -4,6 +4,7 @@ import {
   carryChoices,
   isEmptySelection,
   rowsForRemovedPaths,
+  rowsForStoredPaths,
   toFieldSelection
 } from '~/domain/proposal-loop'
 
@@ -160,5 +161,31 @@ describe('block instructions', () => {
     })
 
     expect(selection.sections).toEqual([{ section: '', note: 'esto es el pie de página' }])
+  })
+})
+
+describe('rowsForStoredPaths', () => {
+  it('names what the type declares today as kept, which is what protects it', () => {
+    // The first regeneration of an existing type used to send no selection at
+    // all: the only thing between it and a lost field was a sentence in the
+    // revision text asking the model not to drop what the schema declares.
+    const rows = rowsForStoredPaths(['gmf.valor', 'saldo'], path => path)
+
+    expect(toFieldSelection(rows).kept.map(field => field.path)).toEqual([
+      'gmf.valor',
+      'saldo'
+    ])
+    expect(toFieldSelection(rows).dropped).toEqual([])
+  })
+
+  it('carries the type’s own name and block for each field', () => {
+    const rows = rowsForStoredPaths(
+      ['gmf.valor'],
+      () => 'GMF retenido',
+      () => 'Gravamen a los movimientos financieros'
+    )
+
+    expect(rows[0]!.label).toBe('GMF retenido')
+    expect(rows[0]!.section).toBe('Gravamen a los movimientos financieros')
   })
 })
