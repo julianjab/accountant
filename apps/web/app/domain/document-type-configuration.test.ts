@@ -22,6 +22,7 @@ import {
   withRowWordings,
   setRowLabelPath,
   blockLabelPaths,
+  startsKept,
   addRow,
   removeRow,
   parseTaxYears,
@@ -1021,5 +1022,29 @@ describe('adding a row by hand', () => {
     const removed = removeRow(table(['Pagos por salarios']), VALOR, 'Pagos por salarios')
 
     expect(removed.filter(s => s.rowLabel !== null)).toEqual([])
+  })
+})
+
+describe('the column naming a table starts kept', () => {
+  const AMOUNT_BLOCKS = new Set(['ingresos[]'])
+
+  it('keeps a text field sitting beside an amount in the same block', () => {
+    // Without this the column is dropped from the schema before anyone reaches
+    // the screen that asks whether the block is a table — and declaring one
+    // needs exactly that column.
+    expect(startsKept('context', 'ingresos[].concepto', AMOUNT_BLOCKS)).toBe(true)
+  })
+
+  it('still drops the letterhead, which is what the role rule is for', () => {
+    expect(startsKept('context', 'direccion', AMOUNT_BLOCKS)).toBe(false)
+  })
+
+  it('drops a text field in a block that holds no figure at all', () => {
+    expect(startsKept('context', 'notas[].texto', AMOUNT_BLOCKS)).toBe(false)
+  })
+
+  it('leaves the identification and the figures exactly as they were', () => {
+    expect(startsKept('identifier', 'nit', AMOUNT_BLOCKS)).toBe(true)
+    expect(startsKept('amount', 'ingresos[].valor', AMOUNT_BLOCKS)).toBe(true)
   })
 })

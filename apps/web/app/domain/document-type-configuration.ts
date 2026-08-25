@@ -21,7 +21,7 @@ import type {
   ProposedFieldMapping
 } from './entities/document-type-proposal'
 import type { SchemaField } from './extraction-schema'
-import { foldLabel } from './table-rows'
+import { foldLabel, listPrefixOf } from './table-rows'
 
 /**
  * One row of the field table.
@@ -701,6 +701,43 @@ export function proposalMappingBaseline(proposal: DocumentTypeProposal): Concept
 }
 
 /**
+ * The repeated blocks that hold a figure.
+ *
+ * A block with an amount in it is the shape a document prints as a table, and
+ * the words beside that amount are what tell its rows apart.
+ */
+function blocksHoldingAmounts(rows: readonly { path: string, role: FieldRole }[]): Set<string> {
+  const blocks = new Set<string>()
+  for (const row of rows) {
+    const prefix = listPrefixOf(row.path)
+    if (prefix !== null && row.role === 'amount') blocks.add(prefix)
+  }
+  return blocks
+}
+
+/**
+ * Whether a field starts selected, given what else the document holds.
+ *
+ * The role rule above is the whole answer except for one shape: a text field
+ * sitting in a repeated block beside an amount. That is the column naming the
+ * rows of a table — `ingresos[].concepto` next to `ingresos[].valor` — and as
+ * plain context it started unticked, which quietly made the table impossible
+ * to configure at all: declaring one needs the column that tells its rows
+ * apart, and it was gone from the schema before anyone reached the screen that
+ * asks. A guess, like the role it overrides, and wrong in one click rather
+ * than in a trip back through the whole flow.
+ */
+export function startsKept(
+  role: FieldRole,
+  path: string,
+  amountBlocks: ReadonlySet<string>
+): boolean {
+  if (isKeptByDefault(role)) return true
+  const prefix = listPrefixOf(path)
+  return prefix !== null && amountBlocks.has(prefix)
+}
+
+/**
  * The rows to put in front of the user.
  *
  * Fields the schema declares but the proposal forgot to describe are listed
@@ -741,6 +778,10 @@ export function buildProposalRows(
     }
   }
 
+  const amountBlocks = blocksHoldingAmounts([
+    ...proposal.fields.map(field => ({ path: field.path, role: field.role })),
+    ...schemaFields.map(field => ({ path: field.path, role: schemaRole(field) }))
+  ])
   const described = new Set(proposal.fields.map(field => field.path))
   // A proposal that described some fields and missed one is a gap: the schema
   // is already asking the OCR for that field, and dropping it over an omission
@@ -755,7 +796,7 @@ export function buildProposalRows(
       field.role,
       field.sampleValue,
       field.section || null,
-      isKeptByDefault(field.role)
+      startsKept(field.role, field.path, amountBlocks)
     )
   )
 
@@ -773,7 +814,7 @@ export function buildProposalRows(
         schemaRole(field),
         '',
         schemaSection(field.path),
-        describedNothing ? isKeptByDefault(schemaRole(field)) : true
+        describedNothing ? startsKept(schemaRole(field), field.path, amountBlocks) : true
       )
     )
   }
