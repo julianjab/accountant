@@ -200,6 +200,10 @@ class FirestoreDocumentTypeRepository:
                 "description": document_type.description,
                 "extraction_prompt": document_type.extraction_prompt,
                 "extraction_schema": document_type.extraction_schema,
+                # Everything the reading offered, of which the extraction
+                # schema is the ticked subset. Without it, un-ticking a field
+                # is destructive and only another vision call gets it back.
+                "candidate_schema": document_type.candidate_schema,
                 "active": document_type.active,
                 "created_at": document_type.created_at,
                 "tax_years": list(document_type.tax_years),
@@ -244,6 +248,9 @@ class FirestoreDocumentTypeRepository:
             tax_years=tuple(data.get("tax_years") or ()),
             sample_document_id=data.get("sample_document_id"),
             fields=_document_type_fields(data.get("fields")),
+            # Absent on every type stored before this was carried, which reads
+            # as "the extraction schema is all there is".
+            candidate_schema=data.get("candidate_schema"),
         )
 
 

@@ -40,10 +40,14 @@ class DefineDocumentTypeInput:
     #: The document the configuration was derived from, kept so whoever
     #: revisits it can read the paper behind the choices.
     sample_document_id: str | None = None
-    #: What the kept fields are called and which block of the document they
-    #: came from. Saved with the type because a schema records a path and a
-    #: JSON type, and no screen can name a field from those.
+    #: What the fields are called and which block of the document they came
+    #: from. Saved with the type because a schema records a path and a JSON
+    #: type, and no screen can name a field from those.
     fields: tuple[DocumentTypeField, ...] = ()
+    #: Everything the reading identified, of which `extraction_schema` is the
+    #: ticked subset. Stored so a field left out can be ticked back later
+    #: without paying for a second reading of the same paper.
+    candidate_schema: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +120,7 @@ class DefineDocumentType:
             tax_years=data.tax_years,
             sample_document_id=data.sample_document_id,
             fields=data.fields,
+            candidate_schema=data.candidate_schema,
         )
         self._document_types.save(document_type)
         return DefinedDocumentType(

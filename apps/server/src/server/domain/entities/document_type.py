@@ -63,5 +63,19 @@ class DocumentType:
     #: The document this type was configured from, so whoever revisits the
     #: configuration can read the paper it was derived from.
     sample_document_id: str | None = None
-    #: What each extracted field is called and where it sits on the page.
+    #: What each field is called and where it sits on the page — including the
+    #: ones this type identified but does not extract.
     fields: tuple[DocumentTypeField, ...] = field(default_factory=tuple)
+    #: Everything the reading of the sample identified, extracted or not.
+    #:
+    #: `extraction_schema` is a pruning of this: what the accountant ticked out
+    #: of what the page offered. Kept because trimming used to be destructive —
+    #: a field left unticked was gone, and getting it back meant another vision
+    #: call over the same paper, with the model free to name it differently and
+    #: take every concept mapping keyed by the old name with it. With the whole
+    #: reading stored, ticking a field back is a local edit.
+    #:
+    #: None for every type configured before this was carried, which reads as
+    #: "the extraction schema is all there is" — nothing to offer, nothing
+    #: lost.
+    candidate_schema: dict[str, Any] | None = None

@@ -260,6 +260,7 @@ def create_document_type(
             tax_years=tax_years,
             sample_document_id=sample_document_id,
             fields=_fields_from_payload(payload.fields),
+            candidate_schema=payload.candidate_schema,
         )
     )
 
@@ -364,6 +365,7 @@ def update_document_type(
                 active=payload.active,
                 extraction_prompt=payload.extraction_prompt,
                 extraction_schema=payload.extraction_schema,
+                candidate_schema=payload.candidate_schema,
                 # Tuple because the entity and the Firestore adapter both
                 # assume one, and None must keep meaning "untouched" so that
                 # an empty list can mean "applies to any year".
@@ -514,16 +516,22 @@ def _edited_fields(
     """What the type should describe after this edit, or None to leave it be.
 
     An edit that trims the schema without resending the descriptions would
-    otherwise leave labels for fields that are no longer extracted, and the
-    document detail would show sections whose rows are always empty. So the
-    stored descriptions are realigned with the new schema here — the same
-    place, and the same reason, as pruning the concept mappings.
+    otherwise leave labels for fields nothing declares at all, and the document
+    detail would show sections whose rows are always empty. So the stored
+    descriptions are realigned here — the same place, and the same reason, as
+    pruning the concept mappings.
+
+    Realigned against everything the type still offers, not only what it
+    extracts: a field that was un-ticked is meant to be tickable again later,
+    and it can only be offered by a name. Dropping its description would leave
+    the screen a dotted path to choose by.
     """
     if payload.fields is not None:
         return _fields_from_payload(payload.fields)
     if payload.extraction_schema is None or stored is None or not stored.fields:
         return None
-    kept = tuple(f for f in stored.fields if path_resolves_in(f.path, payload.extraction_schema))
+    offered = payload.candidate_schema or stored.candidate_schema or payload.extraction_schema
+    kept = tuple(f for f in stored.fields if path_resolves_in(f.path, offered))
     return kept if len(kept) != len(stored.fields) else None
 
 

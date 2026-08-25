@@ -142,6 +142,9 @@ class DocumentTypeResponse(BaseModel):
     description: str
     extraction_prompt: str
     extraction_schema: dict[str, Any]
+    #: Everything the reading identified. Null on a type configured before it
+    #: was carried, which reads as "the extraction schema is all there is".
+    candidate_schema: dict[str, Any] | None = None
     active: bool
     created_at: datetime
     #: Empty means the type applies to any tax year.
@@ -367,6 +370,10 @@ class DocumentTypeCreateRequest(BaseModel):
     extraction_prompt: str
     #: Already trimmed to the fields that were kept.
     extraction_schema: dict[str, Any]
+    #: Everything the reading identified, of which the above is the ticked
+    #: subset. Stored so a field left out can be ticked back later without
+    #: paying for a second reading of the same paper.
+    candidate_schema: dict[str, Any] | None = None
     field_mappings: list[ConceptMappingEntryPayload] = []
     reporter_path: str | None = None
     reporter_name_path: str | None = None
@@ -406,6 +413,9 @@ class DocumentTypeUpdateRequest(BaseModel):
     tax_years: list[int] | None = None
     extraction_prompt: str | None = None
     extraction_schema: dict[str, Any] | None = None
+    #: Omitted keeps the stored one: an edit that only trims what is extracted
+    #: must not throw away what was on offer.
+    candidate_schema: dict[str, Any] | None = None
     #: Omitted keeps the stored descriptions; sent replaces them wholesale,
     #: since an edit that trims the schema is exactly when they change.
     fields: list[DocumentTypeFieldPayload] | None = None

@@ -25,6 +25,10 @@ class UpdateDocumentTypeInput:
     active: bool | None = None
     extraction_prompt: str | None = None
     extraction_schema: dict[str, Any] | None = None
+    #: Everything a reading identified, of which the extraction schema is the
+    #: ticked subset. None leaves the stored one alone — an edit that only
+    #: trims what is extracted must not throw away what was on offer.
+    candidate_schema: dict[str, Any] | None = None
     #: Tuple, not None, is the "set it" signal here — an empty tuple means
     #: "applies to any year", which is a real choice a caller must be able to
     #: make, so None cannot double as it.
@@ -64,6 +68,7 @@ class UpdateDocumentType:
                 ("active", data.active),
                 ("extraction_prompt", data.extraction_prompt),
                 ("extraction_schema", data.extraction_schema),
+                ("candidate_schema", data.candidate_schema),
                 ("tax_years", data.tax_years),
                 ("fields", data.fields),
                 ("sample_document_id", data.sample_document_id),
