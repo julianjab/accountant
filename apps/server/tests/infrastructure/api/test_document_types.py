@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 
-from server.domain.entities import DocumentType
+from server.domain.entities import DocumentType, DocumentTypeField
 from server.infrastructure.api.auth_dependency import require_session
 from server.infrastructure.api.deps import get_document_type_repository
 from server.main import app
@@ -762,3 +762,101 @@ def test_a_block_instruction_survives_the_multipart_boundary() -> None:
     note = received.selection.sections[0]
     assert note.section == "Obligaciones a Cargo"
     assert note.note == "una fila por obligación"
+
+
+def test_the_whole_reading_is_stored_beside_the_trimmed_schema(client, document_types) -> None:
+    """Trimming used to be destructive: a field left unticked was gone, and
+    getting it back meant a second vision call over the same paper — with the
+    model free to name it differently and take every mapping keyed by the old
+    name with it."""
+    response = client.post(
+        "/document-types",
+        json={
+            "name": "Certificado",
+            "description": "",
+            "extraction_prompt": "Leelo",
+            "extraction_schema": {"type": "object", "properties": {"saldo": {"type": "number"}}},
+            "candidate_schema": {
+                "type": "object",
+                "properties": {
+                    "saldo": {"type": "number"},
+                    "direccion": {"type": "string"},
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 201
+    stored = document_types.get(response.json()["id"])
+    assert "direccion" in stored.candidate_schema["properties"]
+    # What is asked of the OCR stays exactly what was ticked.
+    assert "direccion" not in stored.extraction_schema["properties"]
+
+
+def test_a_description_survives_a_field_being_unticked(client, document_types) -> None:
+    """The un-ticked field is meant to be tickable again later, and it can only
+    be offered by a name."""
+    document_types.save(
+        DocumentType(
+            id="type-1",
+            name="Certificado",
+            description="",
+            extraction_prompt="Leelo",
+            extraction_schema={
+                "type": "object",
+                "properties": {"saldo": {"type": "number"}, "direccion": {"type": "string"}},
+            },
+            candidate_schema={
+                "type": "object",
+                "properties": {"saldo": {"type": "number"}, "direccion": {"type": "string"}},
+            },
+            active=True,
+            created_at=datetime.now(UTC),
+            fields=(
+                DocumentTypeField(path="saldo", label="Saldo"),
+                DocumentTypeField(path="direccion", label="Dirección"),
+            ),
+        )
+    )
+
+    response = client.patch(
+        "/document-types/type-1",
+        json={"extraction_schema": {"type": "object", "properties": {"saldo": {"type": "number"}}}},
+    )
+
+    assert response.status_code == 200
+    stored = document_types.get("type-1")
+    assert [f.path for f in stored.fields] == ["saldo", "direccion"]
+
+
+def test_a_description_for_a_field_nothing_offers_any_more_is_dropped(
+    client, document_types
+) -> None:
+    """A label for a path no schema declares describes nothing, and leaves the
+    document detail showing a section whose rows are always empty."""
+    document_types.save(
+        DocumentType(
+            id="type-1",
+            name="Certificado",
+            description="",
+            extraction_prompt="Leelo",
+            extraction_schema={
+                "type": "object",
+                "properties": {"saldo": {"type": "number"}, "direccion": {"type": "string"}},
+            },
+            active=True,
+            created_at=datetime.now(UTC),
+            fields=(
+                DocumentTypeField(path="saldo", label="Saldo"),
+                DocumentTypeField(path="direccion", label="Dirección"),
+            ),
+        )
+    )
+
+    response = client.patch(
+        "/document-types/type-1",
+        json={"extraction_schema": {"type": "object", "properties": {"saldo": {"type": "number"}}}},
+    )
+
+    assert response.status_code == 200
+    assert [f.path for f in document_types.get("type-1").fields] == ["saldo"]
