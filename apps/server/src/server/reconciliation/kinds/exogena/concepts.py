@@ -8,11 +8,11 @@ module; it only ever sees opaque concept ids.
 from __future__ import annotations
 
 import re
-import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 
 from server.reconciliation.core.concepts import Concept, ConceptCatalog
+from server.reconciliation.core.text import fold
 from server.shared import FactRole
 
 #: Trailing `(Concepto: 2276)` in an exogena detail. The code is kept as
@@ -352,13 +352,11 @@ UNCURATED_PREFIX = "dian:x-"
 def normalize(text: str) -> str:
     """Fold a detail wording down to something matchable.
 
-    The same concept reaches us with different accents, casing, double spaces
-    and a trailing concept code, so all four are removed before comparison.
+    The shared folding — accents, casing, spacing — plus the one thing only an
+    exogena detail carries: the trailing `(Concepto: 2276)` code, which varies
+    between rows that say the same thing.
     """
-    without_code = CONCEPT_CODE.sub(" ", text or "")
-    decomposed = unicodedata.normalize("NFKD", without_code)
-    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
-    return re.sub(r"\s+", " ", stripped).strip().lower()
+    return fold(CONCEPT_CODE.sub(" ", text or ""))
 
 
 def concept_id_for(detail: str) -> str:

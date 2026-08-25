@@ -143,6 +143,27 @@ def _prune(
                 )
             )
             continue
+        if entry.row_label_path is not None and not path_resolves_in(entry.row_label_path, schema):
+            # Dropped, not degraded. This entry answers one row of a table, and
+            # the field that told the rows apart is gone: keeping it without the
+            # discriminator would silently widen it to claim *every* row, filing
+            # severance and social benefits under the salary concept. Losing one
+            # line is a gap the report shows; a mapping that quietly claims
+            # fifteen lines it was never given is a wrong answer nobody sees.
+            changes.append(
+                MappingChange(
+                    kind_id=mapping.kind_id,
+                    change=MappingChangeKind.ENTRY_DROPPED,
+                    path=entry.row_label_path,
+                    field_path=entry.field_path,
+                    concept_id=entry.concept_id,
+                    reason=(
+                        "the schema no longer declares the field that says what each row of "
+                        "this table is, so this row can no longer be told from the others"
+                    ),
+                )
+            )
+            continue
         account_path = entry.account_path
         if account_path is not None and not path_resolves_in(account_path, schema):
             # The amount still reconciles; it just can no longer be tied to an
@@ -176,6 +197,11 @@ def _prune(
                 # took that path away, the comparison degrades to totals
                 # rather than becoming a pairing that can never happen.
                 per_account=entry.per_account and account_path is not None,
+                # Carried untouched: which row of the table this entry answers
+                # is not something a schema edit can partially invalidate. It
+                # either still resolves, checked above, or the entry is gone.
+                row_label_path=entry.row_label_path,
+                row_label=entry.row_label,
             )
         )
 

@@ -289,3 +289,40 @@ def test_pruning_keeps_the_values_a_type_declares_for_itself():
     kept = mappings.get("type-1", KIND_ID)
     assert kept.reporter_name == "JFK Cooperativa Financiera"
     assert kept.period == "2025"
+
+
+# --- Trimming the field that tells a table's rows apart ----------------------
+
+
+def _row_mapping() -> ConceptMapping:
+    """Two entries over one repeated field, told apart by what each row says."""
+    return _mapping(
+        entries=(
+            ConceptMappingEntry(
+                "cuentas[].saldo",
+                SALDO,
+                row_label_path="cuentas[].numero",
+                row_label="Ahorros",
+            ),
+            ConceptMappingEntry("gmf", GMF),
+        )
+    )
+
+
+def test_losing_the_field_that_names_each_row_drops_the_entry():
+    """Not degraded to an undiscriminated entry: without the discriminator this
+    entry would claim every row of the table, filing figures it was never given
+    under its concept. A dropped entry is a gap the report shows; a silently
+    widened one is a wrong answer nobody can see."""
+    changes, pruned = _prune(_schema_without("cuentas[].numero"), _row_mapping())
+
+    assert [e.field_path for e in pruned.entries] == ["gmf"]
+    assert [c.change for c in changes] == [MappingChangeKind.ENTRY_DROPPED]
+    assert changes[0].concept_id == SALDO
+
+
+def test_an_edit_elsewhere_leaves_the_row_wording_untouched():
+    _, pruned = _prune(_schema_without("razon_social"), _row_mapping())
+
+    entry = next(e for e in pruned.entries if e.field_path == "cuentas[].saldo")
+    assert (entry.row_label_path, entry.row_label) == ("cuentas[].numero", "Ahorros")

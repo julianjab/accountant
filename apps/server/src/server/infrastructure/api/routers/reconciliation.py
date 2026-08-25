@@ -193,6 +193,8 @@ def _entry_from_payload(payload: ConceptMappingEntryPayload) -> ConceptMappingEn
         sign=payload.sign,
         spine_concept_id=payload.spine_concept_id,
         per_account=payload.per_account,
+        row_label_path=payload.row_label_path,
+        row_label=payload.row_label,
     )
 
 
@@ -295,6 +297,8 @@ def _to_mapping_response(mapping: ConceptMapping) -> ConceptMappingResponse:
                 sign=e.sign,
                 spine_concept_id=e.spine_concept_id,
                 per_account=e.per_account,
+                row_label_path=e.row_label_path,
+                row_label=e.row_label,
             )
             for e in mapping.entries
         ],

@@ -5,6 +5,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from server.reconciliation.core.text import fold
 from server.shared import (
     AccountRef,
     FactRole,
@@ -41,8 +42,39 @@ class ConceptMappingEntry:
     #: consolidates has no account to pair against, and asking for one turns
     #: a figure it does back into "no certificate found".
     per_account: bool = False
+    #: Where a repeated field says what its row is *about*, when the document
+    #: prints a table rather than a labelled box.
+    #:
+    #: Without this, `ingresos[].valor` is one path claiming every row, so an
+    #: employment certificate's sixteen lines — salaries, severance, social
+    #: benefits, each a different concept the DIAN reports separately — all
+    #: project under whichever single concept the mapping named. The table then
+    #: looks mapped and reconciles almost nothing.
+    #:
+    #: Resolved in the same iteration as `field_path`, exactly like
+    #: `account_path`, so `ingresos[].concepto` pairs element-wise with
+    #: `ingresos[].valor`. One entry per row wording is what a table needs.
+    row_label_path: str | None = None
+    #: The wording this entry answers to. Compared folded (accents, casing,
+    #: spacing) but not loosened beyond that: matching by prefix would let two
+    #: entries both claim one row and count its amount twice, under two
+    #: different concepts, with nothing downstream able to notice.
+    row_label: str | None = None
 
     def __post_init__(self) -> None:
+        # Half an answer is worse than none here. A path with no wording claims
+        # every row of the table — the very collapse this pair exists to stop —
+        # and a wording with no path has nothing to compare against, so it
+        # would be quietly ignored and claim every row too.
+        if (self.row_label_path is None) != (self.row_label is None):
+            raise ValueError(
+                f"{self.field_path}: a row wording and the field stating it only mean "
+                "something together"
+            )
+        # A blank wording folds to the empty string, which matches every row a
+        # document left empty — and reads on screen as a row nobody named.
+        if self.row_label is not None and not self.row_label.strip():
+            raise ValueError(f"{self.field_path}: a row wording cannot be blank")
         # Comparing account by account needs an account to compare on. Without
         # one this entry asks for a pairing that can never happen, and the
         # figure it carries — which the certificate does state — comes back
@@ -150,6 +182,11 @@ def project_facts(
     facts: list[FinancialFact] = []
     for entry in mapping.entries:
         for value, indices in _resolve(fields, entry.field_path):
+            # A table row this entry does not claim. Checked before the amount
+            # so a row that is plainly somebody else's — severance, when this
+            # entry is the salary line — never reaches the fact list at all.
+            if not _row_claimed_by(entry, fields, indices):
+                continue
             amount = Money.parse(value)
             # A field the document did not state is not a zero. Emitting zeros
             # here would turn "the bank never mentioned this" into "the bank
@@ -205,6 +242,29 @@ def path_resolves_in(path: str, schema: object) -> bool:
                 return False
             node = node.get("items", {})
     return True
+
+
+def _row_claimed_by(
+    entry: ConceptMappingEntry, fields: Mapping[str, Any], indices: tuple[int, ...]
+) -> bool:
+    """Whether the row just reached is the one this entry describes.
+
+    An entry that names no row wording claims every element it walks, which is
+    the right answer for a repeated field whose elements are all the same thing
+    — one balance per account. It is the wrong answer for a table, and naming a
+    wording is how a mapping says which of the two it is looking at.
+
+    A row whose wording is missing or unreadable is claimed by nobody rather
+    than by everybody: the alternative attributes a figure to a concept on no
+    evidence, and a figure quietly filed under the wrong DIAN line is worse
+    than one reported as unexplained.
+    """
+    if entry.row_label_path is None:
+        return True
+    stated = _lookup(fields, _with_indices(entry.row_label_path, indices))
+    if stated is None:
+        return False
+    return fold(str(stated)) == fold(entry.row_label)
 
 
 def _resolve(node: Any, path: str) -> list[tuple[Any, tuple[int, ...]]]:

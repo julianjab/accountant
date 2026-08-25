@@ -324,3 +324,113 @@ class TestValuesTheDocumentNeverStates:
     def test_a_declared_period_with_no_year_in_it_is_refused(self):
         with pytest.raises(ValueError, match="does not contain a year"):
             _mapping([], reporter_tax_id="890903938", period="vigencia actual")
+
+
+# --- A document that prints a table, not labelled boxes ---------------------
+#
+# An employment certificate (DIAN form 220) states sixteen income lines in one
+# repeated block: each row says what it is and how much. One path claiming
+# every row is the wrong reading of that block, and these pin the right one.
+
+_CERT_220 = {
+    "nit": "890903938",
+    "ingresos": [
+        {"concepto": "Pagos por salarios", "valor": "80.000.000"},
+        {"concepto": "Pagos por prestaciones sociales", "valor": "7.000.000"},
+        {"concepto": "Auxilio de cesantía consignado al fondo de cesantías", "valor": "6.500.000"},
+        {"concepto": "Pagos por viáticos", "valor": "1.200.000"},
+    ],
+}
+
+
+def _row_entry(label, concept):
+    return ConceptMappingEntry(
+        "ingresos[].valor",
+        concept,
+        row_label_path="ingresos[].concepto",
+        row_label=label,
+    )
+
+
+def test_each_row_of_a_table_projects_under_its_own_concept():
+    facts = _project(
+        _mapping(
+            [
+                _row_entry("Pagos por salarios", "payroll:salarios"),
+                _row_entry(
+                    "Auxilio de cesantía consignado al fondo de cesantías",
+                    "payroll:cesantias_consignadas",
+                ),
+            ],
+            reporter_path="nit",
+        ),
+        _CERT_220,
+    )
+    assert {(f.concept_id, f.amount) for f in facts} == {
+        ("payroll:salarios", Money.of("80000000")),
+        ("payroll:cesantias_consignadas", Money.of("6500000")),
+    }
+
+
+def test_a_row_nobody_mapped_contributes_nothing():
+    """Viáticos are stated on the paper and mapped to no concept, so they must
+    not be swept into the concept of the row above them."""
+    facts = _project(
+        _mapping([_row_entry("Pagos por salarios", "payroll:salarios")], reporter_path="nit"),
+        _CERT_220,
+    )
+    assert [f.amount for f in facts] == [Money.of("80000000")]
+
+
+def test_a_row_wording_is_matched_past_accents_casing_and_spacing():
+    """The same box, printed by two payroll systems."""
+    facts = _project(
+        _mapping(
+            [_row_entry("Auxilio de cesantía consignado al fondo de cesantías", "payroll:cons")],
+            reporter_path="nit",
+        ),
+        {
+            "nit": "890903938",
+            "ingresos": [
+                {"concepto": "AUXILIO DE  CESANTIA CONSIGNADO AL FONDO DE CESANTIAS ", "valor": "9"}
+            ],
+        },
+    )
+    assert [f.concept_id for f in facts] == ["payroll:cons"]
+
+
+def test_a_row_that_does_not_say_what_it_is_belongs_to_nobody():
+    """Better an unexplained figure than one filed under a concept on no
+    evidence: a wrong DIAN line reconciles quietly and reads as correct."""
+    facts = _project(
+        _mapping([_row_entry("Pagos por salarios", "payroll:salarios")], reporter_path="nit"),
+        {"nit": "890903938", "ingresos": [{"valor": "80.000.000"}]},
+    )
+    assert facts == ()
+
+
+def test_an_undiscriminated_entry_still_claims_every_element():
+    """The repeated block whose elements are all the same thing — one balance
+    per account — must keep working exactly as it did."""
+    facts = _project(
+        _mapping([ConceptMappingEntry("ingresos[].valor", "ev:todo")], reporter_path="nit"),
+        _CERT_220,
+    )
+    assert len(facts) == 4
+
+
+def test_a_row_wording_without_the_field_stating_it_is_refused():
+    with pytest.raises(ValueError, match="only mean something together"):
+        ConceptMappingEntry("ingresos[].valor", "ev:x", row_label="Pagos por salarios")
+
+
+def test_a_field_stating_the_row_without_a_wording_is_refused():
+    with pytest.raises(ValueError, match="only mean something together"):
+        ConceptMappingEntry("ingresos[].valor", "ev:x", row_label_path="ingresos[].concepto")
+
+
+def test_a_blank_row_wording_is_refused():
+    with pytest.raises(ValueError, match="cannot be blank"):
+        ConceptMappingEntry(
+            "ingresos[].valor", "ev:x", row_label_path="ingresos[].concepto", row_label="  "
+        )

@@ -250,6 +250,8 @@ class FirestoreConceptMappingRepository:
                         "sign": e.sign,
                         "spine_concept_id": e.spine_concept_id,
                         "per_account": e.per_account,
+                        "row_label_path": e.row_label_path,
+                        "row_label": e.row_label,
                     }
                     for e in mapping.entries
                 ],
@@ -314,6 +316,13 @@ def _mapping_entry_from_doc(data: dict[str, Any]) -> ConceptMappingEntry:
     actually do.
     """
     account_path = data.get("account_path")
+    # Both or neither, applied on the way in as well: a row saved with only
+    # half the pair would otherwise make the whole mapping unreadable, and a
+    # lone path would widen this entry to claim every row of its table.
+    row_label_path = data.get("row_label_path")
+    row_label = data.get("row_label")
+    if not row_label_path or not (row_label or "").strip():
+        row_label_path = row_label = None
     return ConceptMappingEntry(
         field_path=data["field_path"],
         concept_id=data["concept_id"],
@@ -321,6 +330,8 @@ def _mapping_entry_from_doc(data: dict[str, Any]) -> ConceptMappingEntry:
         sign=data.get("sign", 1),
         spine_concept_id=data.get("spine_concept_id"),
         per_account=bool(data.get("per_account")) and account_path is not None,
+        row_label_path=row_label_path,
+        row_label=row_label,
     )
 
 

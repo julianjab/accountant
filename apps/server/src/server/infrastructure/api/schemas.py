@@ -311,6 +311,12 @@ class ConceptMappingEntryPayload(BaseModel):
     spine_concept_id: str | None = None
     #: Compare account by account instead of totalling per reporting party.
     per_account: bool = False
+    #: Where a repeated field says what each of its rows is about, and the
+    #: wording this entry answers to. Only together do they mean anything: a
+    #: table needs one entry per row wording, and an entry with half the pair
+    #: silently claims every row.
+    row_label_path: str | None = None
+    row_label: str | None = None
 
     @field_validator("sign")
     @classmethod
@@ -326,6 +332,16 @@ class ConceptMappingEntryPayload(BaseModel):
         # cannot act on for a mistake they can fix.
         if self.per_account and not self.account_path:
             raise ValueError("per_account requires account_path")
+        return self
+
+    @model_validator(mode="after")
+    def _row_wording_needs_the_field_stating_it(self) -> "ConceptMappingEntryPayload":
+        # Same reason as above: rejected here so the caller reads a 422 naming
+        # what they sent, rather than a 500 from the entity refusing it later.
+        if (self.row_label_path is None) != (self.row_label is None):
+            raise ValueError("row_label and row_label_path are only meaningful together")
+        if self.row_label is not None and not self.row_label.strip():
+            raise ValueError("row_label cannot be blank")
         return self
 
 
