@@ -21,6 +21,24 @@ import type {
   ProposedFieldMapping
 } from './entities/document-type-proposal'
 import type { SchemaField } from './extraction-schema'
+import { foldLabel } from './table-rows'
+
+/**
+ * One row of a table the document prints, with the answers that belong to it
+ * rather than to the field as a whole.
+ *
+ * A certificate that states sixteen income lines in one repeated block asks
+ * sixteen questions, not one: the concept and the base-report line differ row
+ * by row, while keeping the field, and how it is compared, stay decisions
+ * about the block.
+ */
+export interface RowSelection {
+  /** The wording as the document printed it. This is the answer's identity —
+   * it is what the projection matches each row against. */
+  label: string
+  conceptId: string | null
+  spineConceptId: string | null
+}
 
 /** One row of the field table: what the schema declares, plus what the user
  * decided about it. */
@@ -40,6 +58,24 @@ export interface FieldSelection {
   /** The field carrying the account number, without which there is no account
    * to pair against. */
   accountPath: string | null
+  /**
+   * Set when this field is a table and each of its rows says what it is: the
+   * sibling field stating it. Null on the ordinary field, where one answer
+   * covers every value the path reaches.
+   *
+   * While it is set, `conceptId` and `spineConceptId` above are not the
+   * field's answer — `rows` is — because a table has no single one.
+   */
+  rowLabelPath: string | null
+  /** One entry per row wording, meaningful only alongside `rowLabelPath`. */
+  rows: RowSelection[]
+}
+
+/** The identity of one answer: a plain field, or one row of a table. Used
+ * wherever answers have to be looked up, since a table's path is no longer
+ * unique across them. */
+export function selectionKey(path: string, rowLabel: string | null = null): string {
+  return rowLabel === null ? path : `${path}\u0000${rowLabel}`
 }
 
 /**
@@ -84,18 +120,59 @@ export function buildFieldSelections(
   fields: SchemaField[],
   mapping: ConceptMapping | null
 ): FieldSelection[] {
-  const entryByPath = new Map((mapping?.entries ?? []).map(entry => [entry.fieldPath, entry]))
+  const entriesByPath = new Map<string, ConceptMappingEntry[]>()
+  for (const entry of mapping?.entries ?? []) {
+    const existing = entriesByPath.get(entry.fieldPath)
+    if (existing) existing.push(entry)
+    else entriesByPath.set(entry.fieldPath, [entry])
+  }
+
   return fields.map((field) => {
-    const entry = entryByPath.get(field.path)
+    const entries = entriesByPath.get(field.path) ?? []
+    // A table's entries all name the same labelling field; the first one is
+    // what the mapping says this field is. A path with no entries, or with a
+    // plain one, is the ordinary field and answers with a single concept.
+    const discriminated = entries.filter(entry => entry.rowLabelPath && entry.rowLabel)
+    const plain = discriminated.length > 0 ? undefined : entries[0]
     return {
       path: field.path,
       kept: true,
-      conceptId: entry?.conceptId ?? null,
-      spineConceptId: entry?.spineConceptId ?? null,
-      perAccount: entry?.perAccount ?? false,
-      accountPath: entry?.accountPath ?? null
+      conceptId: plain?.conceptId ?? null,
+      spineConceptId: plain?.spineConceptId ?? null,
+      // Read off the first entry either way: how a figure is compared is a
+      // decision about the block, so a table's rows share it.
+      perAccount: entries[0]?.perAccount ?? false,
+      accountPath: entries[0]?.accountPath ?? null,
+      rowLabelPath: discriminated[0]?.rowLabelPath ?? null,
+      rows: discriminated.map(entry => ({
+        label: entry.rowLabel as string,
+        conceptId: entry.conceptId,
+        spineConceptId: entry.spineConceptId
+      }))
     }
   })
+}
+
+/**
+ * The rows to put in front of the user: the ones the mapping already answers,
+ * then every wording the sample document printed that nobody has answered yet.
+ *
+ * Both halves are needed. The stored answers alone would hide a row the paper
+ * states and the configuration ignores — the silence this whole feature exists
+ * to end — and the document's wordings alone would drop curation for a row a
+ * later sample happened not to print.
+ */
+export function mergeRowWordings(
+  rows: readonly RowSelection[],
+  wordings: readonly string[]
+): RowSelection[] {
+  const answered = new Set(rows.map(row => foldLabel(row.label)))
+  return [
+    ...rows,
+    ...wordings
+      .filter(wording => !answered.has(foldLabel(wording)))
+      .map(wording => ({ label: wording, conceptId: null, spineConceptId: null }))
+  ]
 }
 
 export function keptPaths(selections: readonly FieldSelectionInput[]): Set<string> {
@@ -125,28 +202,70 @@ export function toMappingDraft(
   existing: ConceptMappingDraft | null
 ): ConceptMappingDraft {
   const kept = keptPaths(selections)
-  const previousByPath = new Map((existing?.entries ?? []).map(entry => [entry.fieldPath, entry]))
+  const previousByKey = new Map(
+    (existing?.entries ?? []).map(entry => [
+      selectionKey(entry.fieldPath, entry.rowLabel ?? null),
+      entry
+    ])
+  )
 
   const entries: ConceptMappingEntry[] = selections
-    .filter(selection => selection.kept && selection.conceptId)
-    .map((selection) => {
-      const previous = previousByPath.get(selection.path)
-      const claimed = chosen(selection.accountPath, previous?.accountPath, null)
+    .filter(selection => selection.kept)
+    .flatMap((selection) => {
+      // The field's own account curation, shared by every row of a table: how
+      // a figure is compared is a decision about the block, not about which
+      // line of it this is.
+      const fieldPrevious = previousByKey.get(selection.path)
+      const claimed = chosen(selection.accountPath, fieldPrevious?.accountPath, null)
       // A trimmed field cannot name an account any more than it can carry an
       // amount, so a stale account path is dropped rather than sent back.
       const accountPath = claimed && kept.has(claimed) ? claimed : null
-      return {
-        fieldPath: selection.path,
-        conceptId: selection.conceptId as string,
-        accountPath,
-        sign: previous?.sign ?? 1,
-        spineConceptId: chosen(selection.spineConceptId, previous?.spineConceptId, null),
-        // Comparing account by account when this side names no account pairs
-        // every certified figure against nothing, which reports a figure the
-        // document does state as missing. A total is the answer that at least
-        // compares something.
-        perAccount: chosen(selection.perAccount, previous?.perAccount, false) && accountPath !== null
+      // Comparing account by account when this side names no account pairs
+      // every certified figure against nothing, which reports a figure the
+      // document does state as missing. A total is the answer that at least
+      // compares something.
+      const perAccount
+        = chosen(selection.perAccount, fieldPrevious?.perAccount, false) && accountPath !== null
+
+      const build = (
+        conceptId: string,
+        spineExplicit: string | null | undefined,
+        rowLabel: string | null
+      ): ConceptMappingEntry => {
+        const previous = previousByKey.get(selectionKey(selection.path, rowLabel))
+        return {
+          fieldPath: selection.path,
+          conceptId,
+          accountPath,
+          // Carried over from the entry that already described the same answer:
+          // it is curation this screen has no control for, and rebuilding an
+          // entry from scratch would quietly flip a certificate configured to
+          // state its figures with the opposite sign.
+          sign: previous?.sign ?? 1,
+          spineConceptId: chosen(spineExplicit, previous?.spineConceptId, null),
+          perAccount,
+          rowLabelPath: rowLabel === null ? null : (selection.rowLabelPath ?? null),
+          rowLabel
+        }
       }
+
+      const rowLabelPath = selection.rowLabelPath ?? null
+      // A field the screen never showed the table question for keeps whatever
+      // it had, so an editor that only touches concepts cannot flatten a table
+      // back into one entry behind the user.
+      if (rowLabelPath !== null && kept.has(rowLabelPath)) {
+        return (selection.rows ?? [])
+          .filter(row => row.conceptId && row.label.trim() !== '')
+          .map(row => build(row.conceptId as string, row.spineConceptId, row.label))
+      }
+      // Either an ordinary field, or a table whose labelling field was just
+      // trimmed away. The second must not fall back to one entry claiming every
+      // row: that files every line of the table under one concept, which is the
+      // exact wrong answer this pairing exists to prevent.
+      if (rowLabelPath !== null) return []
+      return selection.conceptId
+        ? [build(selection.conceptId, selection.spineConceptId, null)]
+        : []
     })
 
   const rolePath = (path: string | null) => (path && kept.has(path) ? path : null)
@@ -231,7 +350,10 @@ export interface SpineGroup {
   /** Null gathers everything that answers no line: dropped fields, fields with
    * no concept, and concepts left uncompared on purpose. */
   spineConceptId: string | null
-  paths: string[]
+  /** One `selectionKey` per answer feeding this line. Keys rather than paths
+   * because a table's rows share a path and answer different lines — the very
+   * case where knowing what is summed matters most. */
+  keys: string[]
   /** More than one field feeds this line, so the comparison is made on a sum. */
   summed: boolean
   /** Part of the sum is stated account by account and part as a total, so the
@@ -239,10 +361,34 @@ export interface SpineGroup {
   mixedComparison: boolean
 }
 
-/** The line a selection actually feeds, or null when it feeds none. */
-function answeredSpine(selection: FieldSelectionInput): string | null {
-  if (!selection.kept || !selection.conceptId) return null
-  return selection.spineConceptId ?? null
+/** One answer the comparison will read: a plain field, or one row of a table. */
+interface SpineMember {
+  key: string
+  spineConceptId: string | null
+  perAccount: boolean
+}
+
+/** Every answer a selection contributes, which is one per row once the field is
+ * a table and one otherwise. */
+function spineMembersOf(selection: FieldSelectionInput): SpineMember[] {
+  const perAccount = selection.perAccount === true
+  if (!selection.kept) return [{ key: selection.path, spineConceptId: null, perAccount }]
+  if (selection.rowLabelPath) {
+    const rows = selection.rows ?? []
+    if (rows.length === 0) return [{ key: selection.path, spineConceptId: null, perAccount }]
+    return rows.map(row => ({
+      key: selectionKey(selection.path, row.label),
+      spineConceptId: row.conceptId ? row.spineConceptId : null,
+      perAccount
+    }))
+  }
+  return [
+    {
+      key: selection.path,
+      spineConceptId: selection.conceptId ? (selection.spineConceptId ?? null) : null,
+      perAccount
+    }
+  ]
 }
 
 /**
@@ -253,13 +399,12 @@ function answeredSpine(selection: FieldSelectionInput): string | null {
  * it is the leftovers, not a line of the report.
  */
 export function groupBySpineConcept(selections: readonly FieldSelectionInput[]): SpineGroup[] {
-  const groups = new Map<string | null, FieldSelectionInput[]>()
+  const groups = new Map<string | null, SpineMember[]>()
 
-  for (const selection of selections) {
-    const key = answeredSpine(selection)
-    const members = groups.get(key)
-    if (members) members.push(selection)
-    else groups.set(key, [selection])
+  for (const member of selections.flatMap(spineMembersOf)) {
+    const members = groups.get(member.spineConceptId)
+    if (members) members.push(member)
+    else groups.set(member.spineConceptId, [member])
   }
 
   const unanswered = groups.get(null)
@@ -268,12 +413,12 @@ export function groupBySpineConcept(selections: readonly FieldSelectionInput[]):
 
   return [...groups].map(([spineConceptId, members]) => ({
     spineConceptId,
-    paths: members.map(member => member.path),
+    keys: members.map(member => member.key),
     summed: spineConceptId !== null && members.length > 1,
     mixedComparison:
       spineConceptId !== null
-      && members.some(member => member.perAccount === true)
-      && members.some(member => member.perAccount !== true)
+      && members.some(member => member.perAccount)
+      && members.some(member => !member.perAccount)
   }))
 }
 
@@ -294,12 +439,19 @@ export function fieldsMissingAccountPath(
   // perAccount still true (e.g. the user answered it, then cleared the spine concept) can't
   // be fixed from the UI — it must not count as "missing", or the warning it prints below
   // would stay stuck on forever with no control on screen to clear it.
+  const answersALine = (selection: FieldSelectionInput) =>
+    selection.rowLabelPath
+      // A table answers lines through its rows; the field-level concept box is
+      // not even shown for one, so reading it here would report a field whose
+      // warning has no control on screen to clear.
+      ? (selection.rows ?? []).some(row => row.conceptId && row.spineConceptId)
+      : Boolean(selection.conceptId && selection.spineConceptId)
+
   return selections
     .filter(
       selection =>
         selection.kept
-        && selection.conceptId
-        && selection.spineConceptId
+        && answersALine(selection)
         && selection.perAccount === true
         && !selection.accountPath
     )
@@ -360,11 +512,14 @@ export function proposalMappingBaseline(proposal: DocumentTypeProposal): Concept
       conceptId: mapping.conceptId,
       accountPath: mapping.accountPath,
       sign: mapping.sign,
-      // Neither is proposed: which line of the base report a figure answers,
-      // and whether it is compared account by account, are decided on the
-      // configuration screen once the type exists.
+      // None of these is proposed: which line of the base report a figure
+      // answers, whether it is compared account by account, and whether the
+      // field is a table whose rows each mean something different, are all
+      // decided on the configuration screen once the type exists.
       spineConceptId: null,
-      perAccount: false
+      perAccount: false,
+      rowLabelPath: null,
+      rowLabel: null
     })),
     reporterPath: proposal.reporterPath,
     reporterNamePath: proposal.reporterNamePath,
@@ -412,7 +567,9 @@ export function buildProposalRows(
       conceptId: mapping?.conceptId ?? null,
       accountPath: mapping?.accountPath ?? null,
       spineConceptId: null,
-      perAccount: false
+      perAccount: false,
+      rowLabelPath: null,
+      rows: []
     }
   }
 

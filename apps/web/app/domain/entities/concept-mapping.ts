@@ -36,6 +36,21 @@ export interface ConceptMappingEntry {
    * turns a figure it does certify into a missing one.
    */
   perAccount: boolean
+  /**
+   * Where a repeated field says what each of its rows is about, and the wording
+   * this entry answers to.
+   *
+   * A document that prints a table — an employment certificate's sixteen income
+   * lines — states one concept per row, so `ingresos[].valor` on its own claims
+   * every one of them and files them all under a single concept. Naming the
+   * sibling that labels each row, and the row this entry is, is what lets one
+   * table carry sixteen different meanings.
+   *
+   * Both null on the ordinary field, and only ever meaningful together: half
+   * the pair silently widens the entry back to claiming every row.
+   */
+  rowLabelPath: string | null
+  rowLabel: string | null
 }
 
 export interface ConceptMappingDraft {

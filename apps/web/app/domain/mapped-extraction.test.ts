@@ -10,6 +10,8 @@ function entry(overrides: Partial<ConceptMappingEntry> & { fieldPath: string }):
     sign: 1,
     spineConceptId: null,
     perAccount: false,
+    rowLabelPath: null,
+    rowLabel: null,
     ...overrides
   }
 }

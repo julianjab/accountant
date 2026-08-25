@@ -204,6 +204,11 @@ function rowsForPaths(
     conceptId: null,
     spineConceptId: null,
     perAccount: false,
-    accountPath: null
+    accountPath: null,
+    // A proposal describes fields, not tables: whether a repeated field's rows
+    // each mean something different is answered on the configuration screen,
+    // where the sample's own rows can be read back.
+    rowLabelPath: null,
+    rows: []
   }))
 }

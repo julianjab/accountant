@@ -18,6 +18,8 @@ function row(overrides: Partial<ProposalFieldRow> & { path: string }): ProposalF
     conceptId: null,
     spineConceptId: null,
     perAccount: false,
+    rowLabelPath: null,
+    rows: [],
     accountPath: null,
     ...overrides
   }

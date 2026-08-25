@@ -303,7 +303,13 @@
         "searchConcept": "Buscá el concepto…",
         "searchSpine": "Buscá el renglón…",
         "searchField": "Buscá el campo…",
-        "notExtracted": "No se extrae — marcalo y guardá para empezar a extraerlo"
+        "notExtracted": "No se extrae — marcalo y guardá para empezar a extraerlo",
+        "rows": {
+          "question": "¿Cada fila dice qué es?",
+          "hint": "Cuando el documento imprime una tabla, el concepto cambia fila por fila. Elegí el campo que nombra cada fila para responderlas una por una.",
+          "notATable": "No, todas las filas son lo mismo",
+          "empty": "Todavía no se leyó ninguna fila del documento de muestra. Volvé a leer el documento para traerlas."
+        }
       },
       "mappingChanges": {
         "title": "Qué pasó con las asignaciones",

@@ -28,6 +28,8 @@ interface MappingEntryDto {
   sign: number
   spine_concept_id?: string | null
   per_account?: boolean
+  row_label_path?: string | null
+  row_label?: string | null
 }
 
 interface MappingDto {
@@ -67,7 +69,12 @@ function toEntry(dto: MappingEntryDto): ConceptMappingEntry {
     // A mapping stored before the server knew about these reads as "extracted
     // but compared against nothing", which is what it did back then.
     spineConceptId: dto.spine_concept_id ?? null,
-    perAccount: dto.per_account === true
+    perAccount: dto.per_account === true,
+    // Both or neither. Half the pair would widen the entry to claim every row
+    // of its table, which is the misreading the pair exists to prevent — and a
+    // mapping stored before the server knew about tables has neither.
+    rowLabelPath: dto.row_label && dto.row_label_path ? dto.row_label_path : null,
+    rowLabel: dto.row_label && dto.row_label_path ? dto.row_label : null
   }
 }
 
@@ -136,7 +143,9 @@ export class HttpConceptMappingRepository implements ConceptMappingRepository {
           account_path: entry.accountPath,
           sign: entry.sign,
           spine_concept_id: entry.spineConceptId,
-          per_account: entry.perAccount
+          per_account: entry.perAccount,
+          row_label_path: entry.rowLabelPath,
+          row_label: entry.rowLabel
         })),
         reporter_path: draft.reporterPath,
         reporter_name_path: draft.reporterNamePath,

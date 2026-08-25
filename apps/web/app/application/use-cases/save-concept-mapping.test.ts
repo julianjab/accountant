@@ -13,7 +13,9 @@ const DRAFT: ConceptMappingDraft = {
       accountPath: 'accounts[].number',
       sign: 1,
       spineConceptId: 'dian:saldo-cuentas-bancarias',
-      perAccount: true
+      perAccount: true,
+      rowLabelPath: null,
+      rowLabel: null
     }
   ],
   reporterPath: 'bank_tax_id',

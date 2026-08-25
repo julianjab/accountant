@@ -76,7 +76,9 @@ describe('HttpConceptMappingRepository', () => {
       accountPath: 'accounts[].number',
       sign: -1,
       spineConceptId: 'dian:saldo-cuentas-bancarias',
-      perAccount: true
+      perAccount: true,
+      rowLabelPath: null,
+      rowLabel: null
     })
   })
 
@@ -114,7 +116,9 @@ describe('HttpConceptMappingRepository', () => {
           accountPath: null,
           sign: 1,
           spineConceptId: 'dian:saldo-cuentas-bancarias',
-          perAccount: false
+          perAccount: false,
+          rowLabelPath: null,
+          rowLabel: null
         }
       ],
       reporterPath: 'bank_tax_id',
@@ -136,7 +140,9 @@ describe('HttpConceptMappingRepository', () => {
           account_path: null,
           sign: 1,
           spine_concept_id: 'dian:saldo-cuentas-bancarias',
-          per_account: false
+          per_account: false,
+          row_label_path: null,
+          row_label: null
         }
       ],
       reporter_path: 'bank_tax_id',
@@ -189,5 +195,66 @@ describe('HttpConceptMappingRepository', () => {
     // Not a failure: that mapping did feed a fact, it simply had nothing to be
     // compared against, and inventing a line here would fabricate a comparison.
     expect(mapping!.entries[0]).toMatchObject({ spineConceptId: null, perAccount: false })
+  })
+})
+
+describe('HttpConceptMappingRepository, a table answered row by row', () => {
+  it('carries which row of the table each entry answers, both ways', async () => {
+    const dto = {
+      document_type_id: 'dt-1',
+      kind_id: 'exogena_dian',
+      reporter_path: 'nit',
+      reporter_name_path: null,
+      period_path: null,
+      entries: [
+        {
+          field_path: 'ingresos[].valor',
+          concept_id: 'payroll:cert_pagos_salarios',
+          account_path: null,
+          sign: 1,
+          spine_concept_id: 'dian:pagos-salarios',
+          per_account: false,
+          row_label_path: 'ingresos[].concepto',
+          row_label: 'Pagos por salarios'
+        }
+      ]
+    }
+    stubFetch(() => dto)
+
+    const mapping = await new HttpConceptMappingRepository('http://api').get(
+      'exogena_dian',
+      'dt-1'
+    )
+
+    expect(mapping!.entries[0]!.rowLabelPath).toBe('ingresos[].concepto')
+    expect(mapping!.entries[0]!.rowLabel).toBe('Pagos por salarios')
+  })
+
+  it('reads half a pair as no pair, since a lone path claims every row', async () => {
+    const dto = {
+      document_type_id: 'dt-1',
+      kind_id: 'exogena_dian',
+      reporter_path: 'nit',
+      reporter_name_path: null,
+      period_path: null,
+      entries: [
+        {
+          field_path: 'ingresos[].valor',
+          concept_id: 'payroll:cert_pagos_salarios',
+          account_path: null,
+          sign: 1,
+          row_label_path: 'ingresos[].concepto'
+        }
+      ]
+    }
+    stubFetch(() => dto)
+
+    const mapping = await new HttpConceptMappingRepository('http://api').get(
+      'exogena_dian',
+      'dt-1'
+    )
+
+    expect(mapping!.entries[0]!.rowLabelPath).toBeNull()
+    expect(mapping!.entries[0]!.rowLabel).toBeNull()
   })
 })

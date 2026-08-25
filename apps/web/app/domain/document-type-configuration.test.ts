@@ -19,6 +19,7 @@ import {
   fieldsMissingAccountPath,
   groupBySpineConcept,
   mappingChangeSeverity,
+  mergeRowWordings,
   parseTaxYears,
   proposalMappingBaseline,
   shouldSaveDraft,
@@ -43,7 +44,9 @@ const MAPPING: ConceptMapping = {
       accountPath: 'nit',
       sign: -1,
       spineConceptId: 'dian:gmf',
-      perAccount: true
+      perAccount: true,
+      rowLabelPath: null,
+      rowLabel: null
     }
   ],
   reporterPath: 'nit',
@@ -95,7 +98,9 @@ describe('toMappingDraft', () => {
         accountPath: null,
         sign: 1,
         spineConceptId: null,
-        perAccount: false
+        perAccount: false,
+        rowLabelPath: null,
+        rowLabel: null
       }
     ])
   })
@@ -236,6 +241,8 @@ describe('toMappingDraft, spine line and comparison', () => {
       spineConceptId: null,
       perAccount: false,
       accountPath: null,
+      rowLabelPath: null,
+      rows: [],
       ...overrides
     }
   }
@@ -344,7 +351,7 @@ describe('groupBySpineConcept', () => {
   it('flags the line several fields feed as a sum', () => {
     const [deuda, gmf] = groupBySpineConcept([CAPITAL, INTERES, GMF])
 
-    expect(deuda).toMatchObject({ spineConceptId: 'dian:deuda', paths: ['capital', 'intereses'], summed: true })
+    expect(deuda).toMatchObject({ spineConceptId: 'dian:deuda', keys: ['capital', 'intereses'], summed: true })
     expect(gmf).toMatchObject({ summed: false })
   })
 
@@ -355,7 +362,7 @@ describe('groupBySpineConcept', () => {
       { path: 'notas', kept: false, conceptId: 'c', spineConceptId: 'dian:deuda' }
     ])
 
-    expect(groups.at(-1)).toMatchObject({ spineConceptId: null, paths: ['nit', 'notas'] })
+    expect(groups.at(-1)).toMatchObject({ spineConceptId: null, keys: ['nit', 'notas'] })
   })
 
   it('flags a line summing a per-account figure with a total', () => {
@@ -683,5 +690,168 @@ describe('buildProposalRows when the proposal describes nothing', () => {
       'issuer_nit',
       'saldos.cuenta_ahorros'
     ])
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * A field the document prints as a table
+ *
+ * An employment certificate states sixteen income lines in one repeated
+ * block. One answer for `ingresos[].valor` files all sixteen under one
+ * concept; these pin that the screen asks once per row instead.
+ * ------------------------------------------------------------------ */
+
+describe('a table, answered row by row', () => {
+  const SALARIOS = 'payroll:cert_pagos_salarios'
+  const CESANTIAS = 'payroll:cert_cesantias_consignadas'
+
+  function tableSelection(overrides: Partial<FieldSelection> = {}): FieldSelection {
+    return {
+      path: 'ingresos[].valor',
+      kept: true,
+      conceptId: null,
+      spineConceptId: null,
+      perAccount: false,
+      accountPath: null,
+      rowLabelPath: 'ingresos[].concepto',
+      rows: [
+        { label: 'Pagos por salarios', conceptId: SALARIOS, spineConceptId: 'dian:pagos-salarios' },
+        { label: 'Cesantías al fondo', conceptId: CESANTIAS, spineConceptId: null },
+        { label: 'Pagos por viáticos', conceptId: null, spineConceptId: null }
+      ],
+      ...overrides
+    }
+  }
+
+  const ROLES = { ...NO_ROLES, reporterPath: 'nit' }
+
+  function label(selection: FieldSelection) {
+    return toMappingDraft(
+      [selection, { path: 'ingresos[].concepto', kept: true, conceptId: null }],
+      ROLES,
+      null
+    )
+  }
+
+  it('stores one entry per answered row, all on the same path', () => {
+    const draft = label(tableSelection())
+
+    expect(draft.entries.map(entry => [entry.fieldPath, entry.rowLabel, entry.conceptId])).toEqual([
+      ['ingresos[].valor', 'Pagos por salarios', SALARIOS],
+      ['ingresos[].valor', 'Cesantías al fondo', CESANTIAS]
+    ])
+    expect(draft.entries[0]!.rowLabelPath).toBe('ingresos[].concepto')
+  })
+
+  it('leaves a row nobody answered out, rather than sweeping it into a neighbour', () => {
+    expect(label(tableSelection()).entries.map(e => e.rowLabel)).not.toContain('Pagos por viáticos')
+  })
+
+  it('keeps each row answering its own line of the base report', () => {
+    const draft = label(tableSelection())
+
+    expect(draft.entries.map(entry => entry.spineConceptId)).toEqual(['dian:pagos-salarios', null])
+  })
+
+  it('drops the whole table once the field naming its rows is trimmed away', () => {
+    // Never degraded to one entry claiming every row: that files viáticos and
+    // cesantías under the salary concept, which is a wrong answer nobody sees.
+    const draft = toMappingDraft(
+      [tableSelection(), { path: 'ingresos[].concepto', kept: false, conceptId: null }],
+      ROLES,
+      null
+    )
+
+    expect(draft.entries).toEqual([])
+  })
+
+  it('ignores a field-level concept left over from before the table was declared', () => {
+    const draft = label(tableSelection({ conceptId: 'payroll:cert_otros_pagos' }))
+
+    expect(draft.entries.map(entry => entry.conceptId)).toEqual([SALARIOS, CESANTIAS])
+  })
+
+  it('reads stored per-row entries back as the rows of one field', () => {
+    const mapping: ConceptMapping = {
+      ...MAPPING,
+      entries: [
+        {
+          fieldPath: 'ingresos[].valor',
+          conceptId: SALARIOS,
+          accountPath: null,
+          sign: 1,
+          spineConceptId: 'dian:pagos-salarios',
+          perAccount: false,
+          rowLabelPath: 'ingresos[].concepto',
+          rowLabel: 'Pagos por salarios'
+        },
+        {
+          fieldPath: 'ingresos[].valor',
+          conceptId: CESANTIAS,
+          accountPath: null,
+          sign: 1,
+          spineConceptId: null,
+          perAccount: false,
+          rowLabelPath: 'ingresos[].concepto',
+          rowLabel: 'Cesantías al fondo'
+        }
+      ]
+    }
+
+    const selections = buildFieldSelections([field('ingresos[].valor')], mapping)
+
+    expect(selections[0]!.rowLabelPath).toBe('ingresos[].concepto')
+    expect(selections[0]!.rows.map(row => [row.label, row.conceptId])).toEqual([
+      ['Pagos por salarios', SALARIOS],
+      ['Cesantías al fondo', CESANTIAS]
+    ])
+    // The table has no single concept, and offering one would contradict its rows.
+    expect(selections[0]!.conceptId).toBeNull()
+  })
+
+  it('adds up the rows of one table that answer the same line', () => {
+    const groups = groupBySpineConcept([
+      tableSelection({
+        rows: [
+          { label: 'Cesantías pagadas', conceptId: CESANTIAS, spineConceptId: 'dian:cesantias' },
+          { label: 'Cesantías al fondo', conceptId: CESANTIAS, spineConceptId: 'dian:cesantias' }
+        ]
+      })
+    ])
+
+    expect(groups[0]).toMatchObject({ spineConceptId: 'dian:cesantias', summed: true })
+    expect(groups[0]!.keys).toHaveLength(2)
+  })
+})
+
+describe('mergeRowWordings', () => {
+  it('offers every row the paper printed that nobody has answered yet', () => {
+    const merged = mergeRowWordings(
+      [{ label: 'Pagos por salarios', conceptId: 'payroll:x', spineConceptId: null }],
+      ['Pagos por salarios', 'Pagos por viáticos']
+    )
+
+    expect(merged.map(row => [row.label, row.conceptId])).toEqual([
+      ['Pagos por salarios', 'payroll:x'],
+      ['Pagos por viáticos', null]
+    ])
+  })
+
+  it('keeps an answer for a row this sample happened not to print', () => {
+    const merged = mergeRowWordings(
+      [{ label: 'Pagos por comisiones', conceptId: 'payroll:x', spineConceptId: null }],
+      []
+    )
+
+    expect(merged.map(row => row.label)).toEqual(['Pagos por comisiones'])
+  })
+
+  it('does not ask twice for a row worded differently from the answer given', () => {
+    const merged = mergeRowWordings(
+      [{ label: 'Auxilio de cesantía', conceptId: 'payroll:x', spineConceptId: null }],
+      ['AUXILIO DE CESANTIA']
+    )
+
+    expect(merged).toHaveLength(1)
   })
 })

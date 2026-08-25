@@ -5,9 +5,11 @@ import type { ClientDocument } from '~/domain/entities/document'
 import { DocumentTypeInUseError } from '~/domain/errors/document-type-in-use-error'
 import type { ReconciliationKind } from '~/domain/entities/reconciliation-kind'
 import type { DocumentTypeProposal } from '~/domain/entities/document-type-proposal'
-import type { FieldSelection, ProposalFieldRow } from '~/domain/document-type-configuration'
+import type { FieldSelection, ProposalFieldRow, RowSelection } from '~/domain/document-type-configuration'
 import {
   buildFieldSelections,
+  mergeRowWordings,
+  selectionKey,
   buildProposalRows,
   configurationStatus,
   fieldsMissingAccountPath,
@@ -22,6 +24,7 @@ import {
   writeSource
 } from '~/domain/document-type-configuration'
 import { isRepeatedPath, listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
+import { distinctRowWordings, rowLabelCandidates } from '~/domain/table-rows'
 import { changesNothing, compareSchemaPaths } from '~/domain/schema-revision'
 import type { SchemaRevision } from '~/domain/schema-revision'
 import DocumentViewer from '~/components/documents/DocumentViewer.vue'
@@ -51,6 +54,7 @@ const documentTypeId = route.params.id as string
 
 const getDocumentType = useGetDocumentTypeUseCase()
 const getDocument = useGetDocumentUseCase()
+const getDocumentExtractedData = useGetDocumentExtractedDataUseCase()
 const deleteDocumentType = useDeleteDocumentTypeUseCase()
 const describeDocumentTypeFields = useDescribeDocumentTypeFieldsUseCase()
 const proposeDocumentType = useProposeDocumentTypeUseCase()
@@ -130,6 +134,26 @@ const { data: offeredDocument, refresh: refreshOfferedDocument } = await useAsyn
  * with the very document it was configured from loaded right beside it.
  */
 const documentToReadAgain = computed(() => offeredDocument.value ?? sampleDocument.value)
+
+/**
+ * What the sample document actually said, field by field.
+ *
+ * Needed for one question the schema cannot answer: when a field is a table,
+ * *which rows* does it have? The schema declares `ingresos[].concepto` exists;
+ * only the reading of the paper knows it printed "Pagos por salarios" and
+ * fifteen others. Absent for a type with no sample, which is what makes the
+ * table controls fall back to whatever the mapping already curates.
+ */
+const { data: sampleFields } = await useAsyncData<Record<string, unknown>>(
+  `document-type-sample-fields-${documentTypeId}`,
+  async () => {
+    const id = documentType.value?.sampleDocumentId
+    if (!id) return {}
+    const extracted = await getDocumentExtractedData.execute(id)
+    return extracted?.fields ?? {}
+  },
+  { immediate: false, server: false, default: () => ({}), watch: [documentType] }
+)
 
 /**
  * Fields a re-reading of the paper could still tell us something about. Zero
@@ -557,7 +581,8 @@ function syncMappingForm() {
     ...selection,
     // A field the type offers but does not extract starts unticked — which is
     // exactly the state it was left in.
-    kept: extractedPaths.value.has(selection.path)
+    kept: extractedPaths.value.has(selection.path),
+    rows: rowsFor(selection.path, selection.rowLabelPath, selection.rows)
   }))
   reporterPath.value = mapping.value?.reporterPath ?? null
   reporterNamePath.value = mapping.value?.reporterNamePath ?? null
@@ -566,6 +591,55 @@ function syncMappingForm() {
   reporterName.value = mapping.value?.reporterName ?? ''
   declaredPeriod.value = mapping.value?.period ?? ''
 }
+
+/**
+ * The rows to show for a table: what the mapping already answers, then every
+ * wording the sample printed that nobody has answered yet.
+ *
+ * The unanswered half is the point. A row the paper states and the
+ * configuration ignores used to be invisible — the field looked mapped and its
+ * figure quietly went nowhere — and listing it is what turns that into a
+ * question somebody can decline on purpose.
+ */
+function rowsFor(path: string, rowLabelPath: string | null, curated: RowSelection[]) {
+  if (!rowLabelPath) return []
+  return mergeRowWordings(curated, distinctRowWordings(sampleFields.value ?? {}, rowLabelPath))
+}
+
+/** The siblings inside the same repeated block, which are the only fields that
+ * could say what each row of this one is. */
+function rowLabelItems(path: string) {
+  return [
+    { label: t('documentTypes.edit.fields.rows.notATable'), value: UNMAPPED },
+    ...rowLabelCandidates(path, schemaFields.value.map(field => field.path)).map(candidate => ({
+      label: fieldName(candidate),
+      value: candidate
+    }))
+  ]
+}
+
+/** Answering "each row says what it is" reloads the row list from the paper;
+ * answering "no" drops it, along with the per-row curation it held. */
+function setRowLabelPath(selection: FieldSelection, value: string) {
+  selection.rowLabelPath = toPath(value)
+  selection.rows = rowsFor(selection.path, selection.rowLabelPath, [])
+  // A table has no single concept, so the field-level answer would sit there
+  // contradicting the rows and be sent as an entry claiming all of them.
+  if (selection.rowLabelPath) {
+    selection.conceptId = null
+    selection.spineConceptId = null
+  }
+}
+
+// The wordings only arrive once the sample's extracted data does, and the rows
+// are built before that. Rebuilt rather than patched: `mergeRowWordings` keeps
+// every answer already given, so this can only ever add the rows nobody had
+// seen yet.
+watch(sampleFields, () => {
+  for (const selection of selections.value) {
+    selection.rows = rowsFor(selection.path, selection.rowLabelPath, selection.rows)
+  }
+})
 
 watch(documentType, syncDetailsForm, { immediate: true })
 // Also keyed on the schema, so a save that trimmed fields rebuilds the rows
@@ -719,18 +793,34 @@ const sections = computed(() =>
  * the heading without moving these onto the rows would have quietly deleted
  * the only warning that a total is being built out of mismatched parts.
  */
-const spineFactsByPath = computed(() => {
+const spineFactsByKey = computed(() => {
   const facts = new Map<string, { summed: number, mixed: boolean }>()
   for (const group of groupBySpineConcept(selections.value)) {
-    for (const path of group.paths) {
-      facts.set(path, {
-        summed: group.summed ? group.paths.length : 0,
+    for (const key of group.keys) {
+      facts.set(key, {
+        summed: group.summed ? group.keys.length : 0,
         mixed: group.mixedComparison
       })
     }
   }
   return facts
 })
+
+/** What the spine grouping says about one answer — a plain field, or one row of
+ * a table. */
+function spineFactsFor(path: string, rowLabel: string | null = null) {
+  return spineFactsByKey.value.get(selectionKey(path, rowLabel))
+}
+
+/** Whether this field feeds a line of the base report at all — through its own
+ * answer, or through any row of its table. Gates the comparison controls, which
+ * are a decision about the block either way. */
+function answersALine(selection: FieldSelection): boolean {
+  if (selection.rowLabelPath) {
+    return selection.rows.some(row => Boolean(row.conceptId && row.spineConceptId))
+  }
+  return Boolean(selection.conceptId && selection.spineConceptId)
+}
 
 /** Whole blocks are kept or dropped together: a certificate's useless half is
  * usually a block of it, and ticking twelve boxes to say so is the screen's
@@ -1476,7 +1566,90 @@ watch(
                     </div>
                   </div>
 
-                  <div class="grid gap-3 sm:grid-cols-2 sm:pl-8">
+                  <!--
+                    Asked only where it can be true: a field inside a repeated
+                    block, with siblings that could name each row. Answering it
+                    is what turns one concept box into one per line of the
+                    table — an employment certificate states sixteen different
+                    figures under `ingresos[].valor`, and a single answer files
+                    all sixteen under one concept.
+                  -->
+                  <UFormField
+                    v-if="selections[index]!.kept && rowLabelItems(selections[index]!.path).length > 1"
+                    :label="t('documentTypes.edit.fields.rows.question')"
+                    :help="t('documentTypes.edit.fields.rows.hint')"
+                    class="sm:pl-8"
+                  >
+                    <UInputMenu
+                      :model-value="selectValue(selections[index]!.rowLabelPath)"
+                      :items="rowLabelItems(selections[index]!.path)"
+                      value-key="value"
+                      data-testid="row-label-path"
+                      :placeholder="t('documentTypes.edit.fields.searchField')"
+                      class="w-full sm:w-96"
+                      @update:model-value="setRowLabelPath(selections[index]!, $event as string)"
+                    />
+                  </UFormField>
+
+                  <!-- One question per row of the table. -->
+                  <div
+                    v-if="selections[index]!.rowLabelPath"
+                    class="flex flex-col gap-3 sm:pl-8"
+                    data-testid="table-rows"
+                  >
+                    <p
+                      v-if="selections[index]!.rows.length === 0"
+                      class="text-muted text-xs"
+                    >
+                      {{ t('documentTypes.edit.fields.rows.empty') }}
+                    </p>
+                    <div
+                      v-for="row in selections[index]!.rows"
+                      :key="row.label"
+                      class="border-default flex flex-col gap-2 rounded-md border border-dashed p-3"
+                    >
+                      <p class="text-highlighted text-sm font-medium">
+                        {{ row.label }}
+                      </p>
+                      <div class="grid gap-3 sm:grid-cols-2">
+                        <UFormField :label="t('documentTypes.edit.fields.conceptQuestion')">
+                          <UInputMenu
+                            :model-value="row.conceptId ?? UNMAPPED"
+                            :items="conceptItems"
+                            value-key="value"
+                            :placeholder="t('documentTypes.edit.fields.searchConcept')"
+                            class="w-full"
+                            @update:model-value="row.conceptId = toPath($event as string)"
+                          />
+                        </UFormField>
+                        <UFormField :label="t('documentTypes.edit.fields.spineQuestion')">
+                          <UInputMenu
+                            :model-value="row.spineConceptId ?? UNMAPPED"
+                            :items="spineItems"
+                            value-key="value"
+                            :disabled="!row.conceptId"
+                            :placeholder="t('documentTypes.edit.fields.searchSpine')"
+                            class="w-full"
+                            @update:model-value="row.spineConceptId = toPath($event as string)"
+                          />
+                        </UFormField>
+                      </div>
+                      <p
+                        v-if="spineFactsFor(selections[index]!.path, row.label)?.summed"
+                        class="text-primary text-xs"
+                        data-testid="summed-note"
+                      >
+                        {{ t('documentTypes.edit.fields.summed', {
+                          count: spineFactsFor(selections[index]!.path, row.label)!.summed
+                        }) }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    v-else
+                    class="grid gap-3 sm:grid-cols-2 sm:pl-8"
+                  >
                     <UFormField
                       :label="t('documentTypes.edit.fields.conceptQuestion')"
                       :help="t('documentTypes.edit.fields.conceptHint')"
@@ -1514,16 +1687,16 @@ watch(
                     and that the sum is being built out of mismatched parts.
                   -->
                   <p
-                    v-if="spineFactsByPath.get(selections[index]!.path)?.summed"
+                    v-if="!selections[index]!.rowLabelPath && spineFactsFor(selections[index]!.path)?.summed"
                     class="text-primary text-xs sm:pl-8"
                     data-testid="summed-note"
                   >
                     {{ t('documentTypes.edit.fields.summed', {
-                      count: spineFactsByPath.get(selections[index]!.path)!.summed
+                      count: spineFactsFor(selections[index]!.path)!.summed
                     }) }}
                   </p>
                   <p
-                    v-if="spineFactsByPath.get(selections[index]!.path)?.mixed"
+                    v-if="spineFactsFor(selections[index]!.path)?.mixed"
                     class="text-warning text-xs sm:pl-8"
                     data-testid="mixed-comparison"
                   >
@@ -1531,7 +1704,7 @@ watch(
                   </p>
 
                   <div
-                    v-if="selections[index]!.kept && selections[index]!.conceptId && selections[index]!.spineConceptId"
+                    v-if="selections[index]!.kept && answersALine(selections[index]!)"
                     class="flex flex-col gap-3 sm:pl-8"
                   >
                     <UFormField :label="t('documentTypes.edit.fields.comparison.question')">

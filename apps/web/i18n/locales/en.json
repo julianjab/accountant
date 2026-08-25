@@ -303,7 +303,13 @@
         "searchConcept": "Search for the concept…",
         "searchSpine": "Search for the line…",
         "searchField": "Search for the field…",
-        "notExtracted": "Not extracted — tick it and save to start extracting it"
+        "notExtracted": "Not extracted — tick it and save to start extracting it",
+        "rows": {
+          "question": "Does each row say what it is?",
+          "hint": "When the document prints a table, the concept changes row by row. Pick the field naming each row to answer them one at a time.",
+          "notATable": "No, every row is the same thing",
+          "empty": "No rows were read from the sample document yet. Read the document again to bring them in."
+        }
       },
       "mappingChanges": {
         "title": "What happened to the mappings",
