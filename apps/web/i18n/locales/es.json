@@ -340,9 +340,8 @@
         "hint": "Los campos de abajo se sacaron de este papel. Comparalos contra él para confirmar que se está leyendo lo correcto."
       },
       "recover": {
-        "title": "Recuperar nombres, bloques y valores de la muestra",
-        "hint": "A algunos campos de abajo les falta el nombre del papel, el bloque o el valor que traía la muestra. Se puede volver a leer «{file}» para completarlos. No cambia el prompt, el esquema ni las asignaciones, y lo que ya tenga nombre propio se respeta.",
-        "action": "Volver a leer el documento",
+        "hint": "A algunos campos de abajo les falta el nombre del papel, el bloque o el valor de la muestra. Eso se puede completar sin tocar el prompt ni el esquema.",
+        "action": "Solo recuperar nombres y valores",
         "failed": "No se pudo leer el documento. Intentá de nuevo.",
         "done": "Se completaron {named} campos, de {total}. El documento quedó guardado con el tipo.",
         "nothing": "No se pudo completar ningún campo: al releer «{file}» el modelo no encontró en el papel ninguno de los campos que este tipo declara. Puede que sea otro documento, o que la página no los indique. No se borró nada; el documento quedó guardado con el tipo."
@@ -359,8 +358,8 @@
         "failed": "No se pudo eliminar el tipo. Intentá de nuevo."
       },
       "regenerate": {
-        "title": "Regenerar la configuración desde la muestra",
-        "hint": "Volver a leer «{file}» para que el modelo proponga de nuevo el prompt y el esquema. Los campos que ya existen conservan su ruta, así que las asignaciones no se pierden. Es la única forma de agregar un campo que el tipo nunca pidió.",
+        "title": "Volver a leer la muestra",
+        "hint": "Relee «{file}» para que el modelo proponga de nuevo el prompt y el esquema. Los campos que ya existen conservan su ruta, así que las asignaciones no se pierden. Es la única forma de agregar un campo que el tipo nunca pidió.",
         "guidance": "¿Qué le faltó a la lectura anterior?",
         "guidancePlaceholder": "Ej.: la tabla «Obligaciones a Cargo» tiene una fila por obligación (cartera y tarjeta de crédito). Extraé cada fila con su nombre, capital, interés y otros conceptos.",
         "action": "Regenerar con estas indicaciones",

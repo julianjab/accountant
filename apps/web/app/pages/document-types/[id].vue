@@ -1326,42 +1326,6 @@ watch(
             </div>
           </template>
 
-          <!--
-          Types configured before descriptions were stored show dotted paths
-          and no blocks. Re-reading the paper recovers the names without
-          reopening the prompt, the schema or the mappings.
-        -->
-          <section
-            v-if="documentToReadAgain && !recovered && missingDescriptions > 0"
-            class="border-default mb-6 flex flex-col gap-3 rounded-lg border p-3"
-            data-testid="recover-descriptions"
-          >
-            <div>
-              <h3 class="text-sm font-medium">
-                {{ t('documentTypes.edit.recover.title') }}
-              </h3>
-              <p class="text-muted text-xs">
-                {{ t('documentTypes.edit.recover.hint', { file: documentToReadAgain.fileName }) }}
-              </p>
-            </div>
-            <UAlert
-              v-if="recoveryFailed"
-              color="error"
-              variant="soft"
-              :description="t('documentTypes.edit.recover.failed')"
-            />
-            <UButton
-              :loading="recovering"
-              :disabled="recovering"
-              variant="outline"
-              size="sm"
-              class="w-fit"
-              @click="recoverDescriptions"
-            >
-              {{ t('documentTypes.edit.recover.action') }}
-            </UButton>
-          </section>
-
           <UAlert
             v-if="recovered"
             class="mb-6"
@@ -1389,6 +1353,20 @@ watch(
               </h3>
               <p class="text-muted text-xs">
                 {{ t('documentTypes.edit.regenerate.hint', { file: documentToReadAgain.fileName }) }}
+              </p>
+              <!--
+                Said here rather than in a card of its own. Both actions re-read
+                the same paper for overlapping reasons, and two panels that open
+                with the same sentence read as the same thing offered twice —
+                which is how someone reaching for a missing label ends up
+                replacing the schema.
+              -->
+              <p
+                v-if="missingDescriptions > 0 && !recovered"
+                class="text-toned mt-1 text-xs"
+                data-testid="recover-descriptions"
+              >
+                {{ t('documentTypes.edit.recover.hint', { file: documentToReadAgain.fileName }) }}
               </p>
             </div>
 
@@ -1419,17 +1397,46 @@ watch(
               :description="t('documentTypes.edit.regenerate.failed')"
             />
 
-            <UButton
+            <UAlert
+              v-if="recoveryFailed"
+              color="error"
+              variant="soft"
+              :description="t('documentTypes.edit.recover.failed')"
+            />
+
+            <div
               v-if="!regenerated"
-              :loading="regenerating"
-              :disabled="regenerating"
-              variant="outline"
-              size="sm"
-              class="w-fit"
-              @click="regenerate"
+              class="flex flex-wrap items-center gap-2"
             >
-              {{ t('documentTypes.edit.regenerate.action') }}
-            </UButton>
+              <UButton
+                :loading="regenerating"
+                :disabled="regenerating"
+                variant="outline"
+                size="sm"
+                @click="regenerate"
+              >
+                {{ t('documentTypes.edit.regenerate.action') }}
+              </UButton>
+              <!--
+                The cheap half of the same errand, kept because it is not the
+                same risk: it only ever answers about paths the type already
+                has, so the prompt, the schema and every concept mapping come
+                out untouched. Regenerating can rename a path, and a renamed
+                path takes its mapping with it.
+              -->
+              <UButton
+                v-if="missingDescriptions > 0 && !recovered"
+                :loading="recovering"
+                :disabled="recovering || regenerating"
+                variant="ghost"
+                color="neutral"
+                size="sm"
+                data-testid="recover-action"
+                @click="recoverDescriptions"
+              >
+                {{ t('documentTypes.edit.recover.action') }}
+              </UButton>
+            </div>
 
             <!--
             Shown before anything is written: applying this replaces the schema

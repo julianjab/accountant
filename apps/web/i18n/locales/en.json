@@ -340,9 +340,8 @@
         "hint": "The fields below were taken from this paper. Check them against it to confirm the right things are being read."
       },
       "recover": {
-        "title": "Recover names, blocks and the sample's values",
-        "hint": "Some fields below are missing the paper's own name for them, their block, or the value the sample carried. «{file}» can be read again to fill those in. The prompt, the schema and the mappings are left alone, and anything already named by hand is kept.",
-        "action": "Read the document again",
+        "hint": "Some fields below are missing the paper's name for them, their block, or the sample's value. That can be filled in without touching the prompt or the schema.",
+        "action": "Only recover names and values",
         "failed": "The document could not be read. Try again.",
         "done": "Filled in {named} fields, out of {total}. The document was saved with the type.",
         "nothing": "No field could be filled in: reading «{file}» again, the model found none of the fields this type declares on the paper. It may be a different document, or the page may not state them. Nothing was deleted; the document was saved with the type."
@@ -359,11 +358,11 @@
         "failed": "The type could not be deleted. Try again."
       },
       "regenerate": {
-        "title": "Regenerate the configuration from the sample",
-        "hint": "Read «{file}» again so the model proposes the prompt and the schema afresh. Fields that already exist keep their path, so the mappings survive. This is the only way to add a field the type never asked for.",
+        "title": "Read the sample again",
+        "hint": "Re-read «{file}» so the model proposes the prompt and the schema afresh. Fields that already exist keep their path, so the mappings survive. It is the only way to add a field the type never asked for.",
         "guidance": "What did the last reading miss?",
         "guidancePlaceholder": "E.g.: the «Obligaciones a Cargo» table has one row per obligation (loan and credit card). Extract every row with its name, capital, interest and other charges.",
-        "action": "Regenerate with these instructions",
+        "action": "Regenerate with these notes",
         "failed": "The type could not be regenerated. Try again.",
         "added": "{count} new fields",
         "removed": "{count} fields that would stop being extracted",
