@@ -323,6 +323,13 @@
             "done": "The sample was extracted. Whatever rows it brought are listed below.",
             "failed": "The sample could not be extracted. You can add the rows by hand."
           }
+        },
+        "thisDocument": "From this document",
+        "otherConcepts": "Rest of the catalogue",
+        "answeredByThis": "What this value backs",
+        "pair": {
+          "undeclared": "No rule compares this concept against a line, so the value is extracted but validates nothing.",
+          "mismatched": "This concept is not declared as backing that line. It will save, but it will not reconcile."
         }
       },
       "mappingChanges": {

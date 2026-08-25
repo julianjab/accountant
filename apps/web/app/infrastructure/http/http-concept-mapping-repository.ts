@@ -19,6 +19,7 @@ interface KindDto {
   period_granularity: string
   spine_concepts: ConceptDto[]
   evidence_concepts: ConceptDto[]
+  answers?: Record<string, string[]>
 }
 
 interface MappingEntryDto {
@@ -54,7 +55,10 @@ function toKind(dto: KindDto): ReconciliationKind {
     label: dto.label,
     periodGranularity: dto.period_granularity,
     spineConcepts: dto.spine_concepts.map(toConcept),
-    evidenceConcepts: dto.evidence_concepts.map(toConcept)
+    evidenceConcepts: dto.evidence_concepts.map(toConcept),
+    // Absent from a server that predates this, which reads as "no guidance" —
+    // every question asked the way it always was.
+    answers: dto.answers ?? {}
   }
 }
 

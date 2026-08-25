@@ -138,3 +138,66 @@ def test_an_uncurated_wording_becomes_its_own_concept_rather_than_vanishing():
 def test_an_empty_wording_still_yields_a_usable_concept(detail):
     assert concept_id_for(detail).startswith("dian:x-")
     assert normalize(detail) in ("", "")
+
+
+# --- What a configuration screen can stop asking -----------------------------
+
+
+def test_the_rules_say_which_claim_each_piece_of_evidence_backs():
+    """The mapping screen asks two questions per figure, and the second one is
+    already written down: a rule asserts that its two sides mean the same
+    thing."""
+    from server.reconciliation.core.rules import spine_concepts_answered_by
+    from server.reconciliation.kinds.exogena import ExogenaReconciliation
+
+    answered = spine_concepts_answered_by(ExogenaReconciliation().rules())
+
+    assert answered["payroll:cert_pagos_salarios"] == frozenset({"dian:pagos-salarios"})
+    # Severance is the case the screen must keep asking about: the same
+    # certificate line answers either exogena wording.
+    assert answered["payroll:cert_cesantias_consignadas"] == frozenset(
+        {"dian:cesantias-abonadas", "dian:cesantias-consignadas"}
+    )
+
+
+def test_evidence_no_rule_covers_is_absent_rather_than_empty():
+    """Absent means "nothing declared", which the screen says out loud. An
+    empty set would read the same as "backs nothing", and the difference is
+    whether the accountant is looking at a gap or at a decision."""
+    from server.reconciliation.core.rules import (
+        ReconciliationRule,
+        Term,
+        spine_concepts_answered_by,
+    )
+
+    rule = ReconciliationRule(
+        id="r",
+        label="R",
+        spine=(Term(frozenset({"s:one"})),),
+        evidence=(Term(frozenset({"e:one"})),),
+    )
+
+    answered = spine_concepts_answered_by([rule])
+
+    assert answered == {"e:one": frozenset({"s:one"})}
+    assert "e:two" not in answered
+
+
+def test_evidence_named_by_two_rules_answers_both():
+    from server.reconciliation.core.rules import (
+        ReconciliationRule,
+        Term,
+        spine_concepts_answered_by,
+    )
+
+    rules = [
+        ReconciliationRule(
+            id=f"r{i}",
+            label="R",
+            spine=(Term(frozenset({f"s:{i}"})),),
+            evidence=(Term(frozenset({"e:one"})),),
+        )
+        for i in (1, 2)
+    ]
+
+    assert spine_concepts_answered_by(rules) == {"e:one": frozenset({"s:1", "s:2"})}

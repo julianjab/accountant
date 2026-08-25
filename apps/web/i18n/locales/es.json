@@ -323,6 +323,13 @@
             "done": "Se extrajo la muestra. Las filas que trajo ya están abajo.",
             "failed": "No se pudo extraer la muestra. Podés agregar las filas a mano."
           }
+        },
+        "thisDocument": "De este documento",
+        "otherConcepts": "Resto del catálogo",
+        "answeredByThis": "Lo que este valor respalda",
+        "pair": {
+          "undeclared": "Ninguna regla compara este concepto contra un renglón, así que el valor se extrae pero no valida nada.",
+          "mismatched": "Este concepto no está declarado como respaldo de ese renglón. Se va a guardar, pero no va a conciliar."
         }
       },
       "mappingChanges": {

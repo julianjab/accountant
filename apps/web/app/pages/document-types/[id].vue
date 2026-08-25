@@ -29,6 +29,14 @@ import {
   writeSource
 } from '~/domain/document-type-configuration'
 import { isRepeatedPath, listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
+import {
+  derivedSpineFor,
+  isPairDeclared,
+  namespacesInUse,
+  rankConcepts,
+  rankSpineConcepts,
+  spineAnsweredBy
+} from '~/domain/concept-guidance'
 import { distinctRowWordings, listPrefixOf } from '~/domain/table-rows'
 import { changesNothing, compareSchemaPaths } from '~/domain/schema-revision'
 import type { SchemaRevision } from '~/domain/schema-revision'
@@ -823,21 +831,98 @@ const optionalFieldItems = computed(() => [
   ...keptFieldItems.value
 ])
 
-const conceptItems = computed(() => [
-  { label: t('documentTypes.edit.fields.unmapped'), value: UNMAPPED },
-  ...(selectedKind.value?.evidenceConcepts ?? []).map(concept => ({
-    label: concept.label,
-    value: concept.id
-  }))
-])
+/**
+ * What this paper has already been said to be.
+ *
+ * Concepts are namespaced by the document that certifies them, and a document
+ * is one kind of paper. So the first figure someone names is chosen from all
+ * thirty, and every one after that is chosen from the nine that belong to the
+ * same certificate — without anything being configured, and without anything
+ * being taken away.
+ */
+const namespacesUsed = computed(() =>
+  namespacesInUse(selections.value.map(selection => selection.conceptId))
+)
 
-const spineItems = computed(() => [
-  { label: t('documentTypes.edit.fields.noSpine'), value: UNMAPPED },
-  ...(selectedKind.value?.spineConcepts ?? []).map(concept => ({
-    label: concept.label,
-    value: concept.id
-  }))
-])
+/** A row of either dropdown: a choosable concept, or a heading between two
+ * runs of them. */
+type ConceptItem = { label: string, value?: string, type?: 'label' }
+
+function toItems(concepts: readonly { id: string, label: string }[]): ConceptItem[] {
+  return concepts.map(concept => ({ label: concept.label, value: concept.id }))
+}
+
+/** A heading only earns its place when there is something under it and
+ * something below it; otherwise it is a label on the whole list. */
+function ranked(
+  likely: readonly { id: string, label: string }[],
+  rest: readonly { id: string, label: string }[],
+  heading: string
+): ConceptItem[] {
+  if (likely.length === 0 || rest.length === 0) return toItems([...likely, ...rest])
+  return [
+    { label: t(heading), type: 'label' as const },
+    ...toItems(likely),
+    { label: t('documentTypes.edit.fields.otherConcepts'), type: 'label' as const },
+    ...toItems(rest)
+  ]
+}
+
+const conceptItems = computed<ConceptItem[]>(() => {
+  const split = rankConcepts(selectedKind.value?.evidenceConcepts ?? [], namespacesUsed.value)
+  return [
+    { label: t('documentTypes.edit.fields.unmapped'), value: UNMAPPED },
+    ...ranked(split.likely, split.rest, 'documentTypes.edit.fields.thisDocument')
+  ]
+})
+
+/**
+ * The lines of the base report, with the ones this figure is declared to
+ * answer first.
+ *
+ * Ranked per row rather than once for the screen, because the answer depends on
+ * what the row was just said to be. Ranked and not filtered: a correspondence
+ * that turns out to be wired wrong has to be correctable from here.
+ */
+function spineItemsFor(conceptId: string | null): ConceptItem[] {
+  const split = rankSpineConcepts(
+    selectedKind.value?.spineConcepts ?? [],
+    spineAnsweredBy(selectedKind.value, conceptId)
+  )
+  return [
+    { label: t('documentTypes.edit.fields.noSpine'), value: UNMAPPED },
+    ...ranked(split.likely, split.rest, 'documentTypes.edit.fields.answeredByThis')
+  ]
+}
+
+/**
+ * Naming a figure, and filling in the line it answers when the rules leave
+ * only one.
+ *
+ * The second question is the same question for most concepts — the rule pack
+ * declares which claim a piece of evidence backs — and asking it again, from a
+ * list of thirty, once per row of a sixteen-row table, is asking someone to
+ * re-derive a table that is already written down. Where the rules declare more
+ * than one, it stays unanswered and the choices are floated to the top.
+ *
+ * It overwrites the line already there, and that is deliberate: the previous
+ * answer described whatever the figure used to be called.
+ */
+function chooseConcept(selection: FieldSelection, value: string) {
+  selection.conceptId = toPath(value)
+  selection.spineConceptId = derivedSpineFor(selectedKind.value, selection.conceptId)
+}
+
+/** A pair no rule compares. It stores fine and reconciles against nothing,
+ * which is the quietest way this screen can be wrong, so it is said out loud
+ * rather than refused — the wiring may be what needs fixing. */
+function pairWarningFor(selection: FieldSelection): 'undeclared' | 'mismatched' | null {
+  if (!selection.conceptId) return null
+  if (spineAnsweredBy(selectedKind.value, selection.conceptId).length === 0) return 'undeclared'
+  return isPairDeclared(selectedKind.value, selection.conceptId, selection.spineConceptId)
+    ? null
+    : 'mismatched'
+}
 
 const kindItems = computed(() => kinds.value.map(kind => ({ label: kind.label, value: kind.id })))
 
@@ -1868,7 +1953,7 @@ watch(
                         :disabled="!selections[index]!.kept"
                         :placeholder="t('documentTypes.edit.fields.searchConcept')"
                         class="w-full"
-                        @update:model-value="selections[index]!.conceptId = toPath($event as string)"
+                        @update:model-value="chooseConcept(selections[index]!, $event as string)"
                       />
                     </UFormField>
 
@@ -1878,7 +1963,7 @@ watch(
                     >
                       <UInputMenu
                         :model-value="selections[index]!.spineConceptId ?? UNMAPPED"
-                        :items="spineItems"
+                        :items="spineItemsFor(selections[index]!.conceptId)"
                         value-key="value"
                         :disabled="!selections[index]!.kept || !selections[index]!.conceptId"
                         :placeholder="t('documentTypes.edit.fields.searchSpine')"
@@ -1886,6 +1971,14 @@ watch(
                         @update:model-value="selections[index]!.spineConceptId = toPath($event as string)"
                       />
                     </UFormField>
+
+                    <p
+                      v-if="pairWarningFor(selections[index]!)"
+                      class="text-warning text-xs sm:col-span-2"
+                      data-testid="pair-warning"
+                    >
+                      {{ t(`documentTypes.edit.fields.pair.${pairWarningFor(selections[index]!)}`) }}
+                    </p>
                   </div>
 
                   <!--

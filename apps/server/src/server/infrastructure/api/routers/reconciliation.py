@@ -45,6 +45,7 @@ from server.reconciliation.application import (
 from server.reconciliation.core.findings import ReconciliationFinding, ReconciliationReport
 from server.reconciliation.core.projection import ConceptMapping, ConceptMappingEntry
 from server.reconciliation.core.registry import KindRegistry, UnknownReconciliationKind
+from server.reconciliation.core.rules import spine_concepts_answered_by
 from server.shared import FinancialFact, Period
 
 router = APIRouter(
@@ -200,12 +201,16 @@ def _entry_from_payload(payload: ConceptMappingEntryPayload) -> ConceptMappingEn
 
 def _to_kind_response(kind) -> ReconciliationKindResponse:
     catalog = kind.concept_catalog()
+    answered = spine_concepts_answered_by(kind.rules())
     return ReconciliationKindResponse(
         id=kind.id,
         label=kind.label,
         period_granularity=kind.period_granularity.value,
         spine_concepts=[_to_concept_response(c) for c in catalog.spine_concepts],
         evidence_concepts=[_to_concept_response(c) for c in catalog.evidence_concepts],
+        # Sorted so the same kind serialises the same way twice, which is what
+        # keeps a response diffable and a test readable.
+        answers={concept: sorted(spine) for concept, spine in sorted(answered.items())},
     )
 
 

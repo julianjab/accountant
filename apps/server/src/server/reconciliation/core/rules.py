@@ -121,3 +121,27 @@ def terms(*groups: str | Iterable[str]) -> tuple[Term, ...]:
 def minus(*groups: str | Iterable[str]) -> tuple[Term, ...]:
     """Build a negative side, for rules where a component is subtracted."""
     return tuple(Term(frozenset([g] if isinstance(g, str) else g), sign=-1) for g in groups)
+
+
+def spine_concepts_answered_by(
+    rules: Iterable[ReconciliationRule],
+) -> dict[str, frozenset[str]]:
+    """Which claims each piece of evidence is declared to back.
+
+    A rule is an assertion that its two sides mean the same thing, so the rule
+    pack already answers "which line of the base report does this certified
+    figure belong to" — for most concepts, with exactly one line. Asking the
+    person configuring a document type to answer it again is asking them to
+    re-derive a table that is already written down, from a list of thirty, once
+    per row of a table.
+
+    Derived from the rules rather than from a kind's own correspondence table
+    so this stays kind-agnostic: any model that declares rules gets the same
+    guidance without `core` learning what its concepts mean.
+    """
+    answered: dict[str, set[str]] = {}
+    for rule in rules:
+        spine = rule.spine_concepts
+        for concept_id in rule.evidence_concepts:
+            answered.setdefault(concept_id, set()).update(spine)
+    return {concept_id: frozenset(spine) for concept_id, spine in answered.items()}

@@ -34,6 +34,7 @@ const KIND: ReconciliationKind = {
   id: 'exogena_dian',
   label: 'Exógena',
   periodGranularity: 'year',
+  answers: {},
   spineConcepts: [
     { id: 'dian:saldo-cuentas', label: 'Saldo de cuentas bancarias', role: 'spine', description: '' }
   ],

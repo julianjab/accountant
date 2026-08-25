@@ -239,6 +239,14 @@ class ReconciliationKindResponse(BaseModel):
     period_granularity: str
     spine_concepts: list[ReconciliationConceptResponse]
     evidence_concepts: list[ReconciliationConceptResponse]
+    #: For each evidence concept, the claims the rule pack declares it backs.
+    #:
+    #: Sent so a configuration screen can stop asking a question the model has
+    #: already answered: pick what a figure is, and which line of the base
+    #: report it answers usually follows. Absent for a concept no rule covers,
+    #: which is exactly the case where the screen has nothing to offer and must
+    #: say so rather than guess.
+    answers: dict[str, list[str]] = {}
 
 
 class ReconciliationFactResponse(BaseModel):

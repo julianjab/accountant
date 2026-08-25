@@ -37,6 +37,7 @@ from server.reconciliation.core.rules import (
     Term,
     Tolerance,
     minus,
+    spine_concepts_answered_by,
     terms,
 )
 
@@ -66,5 +67,6 @@ __all__ = [
     "UnknownReconciliationKind",
     "minus",
     "project_facts",
+    "spine_concepts_answered_by",
     "terms",
 ]

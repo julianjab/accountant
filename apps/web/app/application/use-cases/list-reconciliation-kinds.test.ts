@@ -8,6 +8,7 @@ const KIND: ReconciliationKind = {
   id: 'exogena_dian',
   label: 'Exógena DIAN',
   periodGranularity: 'year',
+  answers: {},
   spineConcepts: [],
   evidenceConcepts: [
     {
