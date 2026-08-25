@@ -24,9 +24,27 @@ const TYPE = {
       base_gravable: { type: 'number' }
     }
   },
+  // Everything the reading identified — `direccion` among it, which the
+  // accountant left unticked when the type was configured.
+  candidate_schema: {
+    type: 'object',
+    properties: {
+      nit_entidad: { type: 'string' },
+      gmf: { type: 'number' },
+      base_gravable: { type: 'number' },
+      direccion: { type: 'string' }
+    }
+  },
   active: true,
   created_at: '2026-01-01T00:00:00Z',
   fields: [
+    {
+      path: 'direccion',
+      label: 'Dirección de la entidad',
+      role: 'context',
+      section: 'Datos de la entidad',
+      sample_value: 'CALLE 50 # 51-66'
+    },
     {
       path: 'nit_entidad',
       label: 'NIT de la entidad',
@@ -297,5 +315,18 @@ test.describe('Regenerar un tipo de documento', () => {
       'base_gravable'
     ])
     expect(selection.dropped).toEqual([])
+  })
+
+  test('offers a field the type identified but does not extract', async ({ page, baseURL }) => {
+    // Un-ticking used to be destructive: the field was gone from the schema
+    // and only another reading of the same paper could bring it back — one
+    // free to name it differently and take its concept mapping with it.
+    await stubServer(page, baseURL!, [])
+    await page.goto('/document-types/type-1')
+    await page.waitForLoadState('networkidle')
+
+    const rows = page.getByTestId('field-rows')
+    await expect(rows).toContainText('Dirección de la entidad')
+    await expect(rows).toContainText('No se extrae')
   })
 })

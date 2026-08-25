@@ -18,6 +18,7 @@ const DOCUMENT_TYPE: DocumentType = {
   sampleDocumentId: null,
   extractionPrompt: 'Extract the certificate fields',
   extractionSchema: { properties: { balance: { type: 'string' } } },
+  candidateSchema: null,
   active: true,
   createdAt: '2026-01-01'
 }

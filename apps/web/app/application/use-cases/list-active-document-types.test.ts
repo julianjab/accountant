@@ -53,6 +53,7 @@ describe('ListActiveDocumentTypes', () => {
         sampleDocumentId: null,
         extractionPrompt: 'Extract the fields',
         extractionSchema: {},
+        candidateSchema: null,
         active: true,
         createdAt: '2026-01-01T00:00:00Z'
       }

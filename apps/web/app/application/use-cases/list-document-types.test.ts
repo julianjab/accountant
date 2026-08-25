@@ -53,6 +53,7 @@ describe('ListDocumentTypes', () => {
         sampleDocumentId: null,
         extractionPrompt: 'Extract the statement fields',
         extractionSchema: { properties: { balance: { type: 'number' } } },
+        candidateSchema: null,
         active: true,
         createdAt: '2026-01-01'
       }

@@ -249,6 +249,7 @@ describe('HttpDocumentTypeRepository.create', () => {
       description: 'Certificado de GMF',
       extractionPrompt: 'Extrae los campos del certificado',
       extractionSchema: { type: 'object', properties: {} },
+      candidateSchema: { type: 'object', properties: { direccion: { type: 'string' } } },
       fieldMappings: [
         { fieldPath: 'gmf[].valor', conceptId: 'bank:gmf', accountPath: null, sign: -1 }
       ],
@@ -281,6 +282,9 @@ describe('HttpDocumentTypeRepository.create', () => {
         description: 'Certificado de GMF',
         extraction_prompt: 'Extrae los campos del certificado',
         extraction_schema: { type: 'object', properties: {} },
+        // The whole reading travels with the trimmed schema: without it, a
+        // field left unticked is gone and only another reading brings it back.
+        candidate_schema: { type: 'object', properties: { direccion: { type: 'string' } } },
         field_mappings: [
           { field_path: 'gmf[].valor', concept_id: 'bank:gmf', account_path: null, sign: -1 }
         ],

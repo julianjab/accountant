@@ -519,7 +519,7 @@ describe('toDocumentTypeFields', () => {
   it('stores the label, role, section and sample value of the fields kept', () => {
     const rows = buildProposalRows(PROPOSAL, [])
 
-    expect(toDocumentTypeFields(rows)).toEqual([
+    expect(toDocumentTypeFields(rows, { keptOnly: true })).toEqual([
       {
         path: 'nit',
         label: 'NIT',
@@ -542,13 +542,26 @@ describe('toDocumentTypeFields', () => {
       row.path === 'pie_de_pagina' ? { ...row, kept: true } : row
     )
 
-    expect(toDocumentTypeFields(rows)).toContainEqual({
+    expect(toDocumentTypeFields(rows, { keptOnly: true })).toContainEqual({
       path: 'pie_de_pagina',
       label: 'PIE_DE_PAGINA',
       role: 'context',
       section: '',
       sampleValue: '1'
     })
+  })
+
+  it('describes every field the reading identified, ticked or not', () => {
+    // The unticked ones stay in the type's candidate schema so they can be
+    // ticked back later, and a field can only be offered to someone by name.
+    const rows = buildProposalRows(PROPOSAL, [])
+
+    const described = toDocumentTypeFields(rows).map(field => field.path)
+
+    expect(described).toEqual(rows.map(row => row.path))
+    expect(described.length).toBeGreaterThan(
+      toDocumentTypeFields(rows, { keptOnly: true }).length
+    )
   })
 })
 
