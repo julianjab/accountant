@@ -60,6 +60,7 @@ const documentTypeId = route.params.id as string
 const getDocumentType = useGetDocumentTypeUseCase()
 const getDocument = useGetDocumentUseCase()
 const getDocumentExtractedData = useGetDocumentExtractedDataUseCase()
+const reprocessDocument = useReprocessDocumentUseCase()
 const deleteDocumentType = useDeleteDocumentTypeUseCase()
 const describeDocumentTypeFields = useDescribeDocumentTypeFieldsUseCase()
 const proposeDocumentType = useProposeDocumentTypeUseCase()
@@ -149,7 +150,7 @@ const documentToReadAgain = computed(() => offeredDocument.value ?? sampleDocume
  * fifteen others. Absent for a type with no sample, which is what makes the
  * table controls fall back to whatever the mapping already curates.
  */
-const { data: sampleFields } = await useAsyncData<Record<string, unknown>>(
+const { data: sampleFields, refresh: refreshSampleFields } = await useAsyncData<Record<string, unknown>>(
   `document-type-sample-fields-${documentTypeId}`,
   async () => {
     const id = documentType.value?.sampleDocumentId
@@ -708,6 +709,40 @@ function setBlockRowLabelPath(indices: readonly number[], rowLabelPath: string |
 const labelPaths = computed(() => blockLabelPaths(selections.value))
 
 const newRowLabel = reactive<Record<string, string>>({})
+
+const readingSample = ref(false)
+const sampleReadFailed = ref(false)
+
+/**
+ * Reading the sample document again — the extraction, not the configurator.
+ *
+ * The two actions at the top of this screen both call the model that *proposes*
+ * a configuration, and neither stores an extraction. The rows of a table come
+ * from an extraction and nothing else, so a type whose sample was never run
+ * through one had no way, from here, to produce what this screen reads. That
+ * left the only route through the document's own page, with nothing here saying
+ * so.
+ *
+ * It re-runs the type as it stands today, so it is also the honest thing to do
+ * after editing one: the stored reading is what the accountant will approve.
+ */
+async function readSampleAgain() {
+  const id = sampleDocument.value?.id
+  if (!id || readingSample.value) return
+  readingSample.value = true
+  sampleReadFailed.value = false
+  try {
+    await reprocessDocument.execute(id)
+    await refreshSampleFields()
+    // Merged rather than rebuilt, like every other arrival of the sample's
+    // reading: whatever rows were typed by hand meanwhile stay answered.
+    selections.value = withRowWordings(selections.value, wordingsFor)
+  } catch {
+    sampleReadFailed.value = true
+  } finally {
+    readingSample.value = false
+  }
+}
 
 function addTableRow(path: string) {
   selections.value = addRow(selections.value, path, newRowLabel[path] ?? '')
@@ -1764,12 +1799,32 @@ watch(
                     class="flex flex-col gap-2 sm:pl-8"
                     data-testid="table-row-adder"
                   >
-                    <p
+                    <div
                       v-if="rowCountFor(selections[index]!.path) === 0"
-                      class="text-warning text-xs"
+                      class="flex flex-col items-start gap-2"
                     >
-                      {{ t('documentTypes.edit.fields.rows.empty') }}
-                    </p>
+                      <p class="text-warning text-xs">
+                        {{ t('documentTypes.edit.fields.rows.empty') }}
+                      </p>
+                      <UButton
+                        v-if="sampleDocument"
+                        size="xs"
+                        color="neutral"
+                        variant="subtle"
+                        icon="i-lucide-scan-text"
+                        :loading="readingSample"
+                        data-testid="read-sample-again"
+                        @click="readSampleAgain()"
+                      >
+                        {{ t('documentTypes.edit.fields.rows.reread.action') }}
+                      </UButton>
+                      <p
+                        v-if="sampleReadFailed"
+                        class="text-error text-xs"
+                      >
+                        {{ t('documentTypes.edit.fields.rows.reread.failed') }}
+                      </p>
+                    </div>
                     <div class="flex items-center gap-2">
                       <UInput
                         v-model="newRowLabel[selections[index]!.path]"

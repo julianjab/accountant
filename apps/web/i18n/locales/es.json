@@ -314,10 +314,15 @@
           "labelFieldHint": "La columna con la que se distingue una fila de otra. Ese campo deja de mapearse por sí solo.",
           "rowOf": "fila de {field}",
           "isTheLabel": "Esta columna nombra las filas del bloque — se extrae, pero no se mapea por sí sola.",
-          "empty": "No se leyó ninguna fila del documento de muestra. Agregalas abajo, o volvé a leer el documento.",
+          "empty": "No se leyó ninguna fila del documento de muestra. Las filas salen de la extracción, no de la propuesta: si nunca se extrajo, no hay de dónde sacarlas.",
           "add": "Agregar fila",
           "addPlaceholder": "La redacción tal como la imprime el papel",
-          "remove": "Quitar esta fila"
+          "remove": "Quitar esta fila",
+          "reread": {
+            "action": "Extraer la muestra de nuevo",
+            "done": "Se extrajo la muestra. Las filas que trajo ya están abajo.",
+            "failed": "No se pudo extraer la muestra. Podés agregar las filas a mano."
+          }
         }
       },
       "mappingChanges": {
