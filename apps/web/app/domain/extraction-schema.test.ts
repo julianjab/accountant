@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
+import { isRepeatedPath, listSchemaFields, pruneSchema } from '~/domain/extraction-schema'
 
 const SCHEMA: Record<string, unknown> = {
   type: 'object',
@@ -87,5 +87,15 @@ describe('pruneSchema', () => {
     const pruned = pruneSchema(SCHEMA, new Set(['period']))
 
     expect(pruned.required).toEqual([])
+  })
+})
+
+describe('isRepeatedPath', () => {
+  it('knows a column of a table from a single figure', () => {
+    // `obligaciones_a_cargo[].capital` is not one value: the certificate
+    // prints one per row, and a screen showing a lone figure under it reads as
+    // an extraction that found a single row.
+    expect(isRepeatedPath('obligaciones_a_cargo[].capital')).toBe(true)
+    expect(isRepeatedPath('componente_inflacionario.porcentaje')).toBe(false)
   })
 })
