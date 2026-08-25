@@ -28,7 +28,12 @@ import DocumentViewer from '~/components/documents/DocumentViewer.vue'
 import ProposalFieldPicker from '~/components/document-types/ProposalFieldPicker.vue'
 import { formatSampleValue } from '~/utils/extraction-field-display'
 import type { SectionNotes } from '~/domain/proposal-loop'
-import { carryChoices, rowsForRemovedPaths, toFieldSelection } from '~/domain/proposal-loop'
+import {
+  carryChoices,
+  rowsForRemovedPaths,
+  rowsForStoredPaths,
+  toFieldSelection
+} from '~/domain/proposal-loop'
 import { matchesFieldQuery } from '~/domain/field-search'
 import {
   descriptionsForKnownPaths,
@@ -290,6 +295,15 @@ function annotateSection(section: string, note: string) {
   sectionNotes.value = { ...sectionNotes.value, [section]: note }
 }
 
+/** What the type extracts today, in the shape a round's answer takes. */
+function storedRows(): ProposalFieldRow[] {
+  return rowsForStoredPaths(
+    schemaFields.value.map(field => field.path),
+    path => fieldName(path),
+    path => sectionByPath.value.get(path) || null
+  )
+}
+
 /**
  * The fields this regeneration would stop extracting, named.
  *
@@ -323,7 +337,12 @@ async function regenerate() {
   regenerationFailed.value = false
 
   try {
-    const previous = regeneratedRows.value
+    // The first press has no round behind it, so what the type declares today
+    // stands in as the answer: those fields are named as kept, which is the
+    // same instruction every later round sends and a good deal harder to
+    // forget than the sentence in the revision text that used to be the only
+    // thing protecting them.
+    const previous = regeneratedRows.value.length ? regeneratedRows.value : storedRows()
     const proposal = await proposeDocumentType.execute({
       name: documentType.value.name,
       documentId: paper.id,
@@ -335,7 +354,7 @@ async function regenerate() {
       guidance: regenerationGuidance.value,
       // The answer to the last round, which is this round's instruction. Empty
       // on the first press, where there is no answer behind it yet.
-      selection: previous.length ? toFieldSelection(previous, sectionNotes.value) : null
+      selection: toFieldSelection(previous, sectionNotes.value)
     })
     regenerated.value = proposal
     readRows(

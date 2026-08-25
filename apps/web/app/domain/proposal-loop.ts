@@ -156,18 +156,49 @@ export function rowsForRemovedPaths(
   labelFor: (path: string) => string,
   sectionFor: (path: string) => string | null = () => null
 ): ProposalFieldRow[] {
-  return removed.map(path => ({
+  // Unticked on purpose: this reading did not produce the field, so leaving it
+  // ticked would report as kept something no schema currently declares.
+  return rowsForPaths(removed, labelFor, sectionFor, false)
+}
+
+/**
+ * The fields a type declares today, as an answer to send with the first
+ * reading of it.
+ *
+ * Until this, the first regeneration of an existing type sent no selection at
+ * all: the only thing standing between it and a lost field was the sentence in
+ * the revision instructions telling the model not to drop what the schema
+ * already declares. That sentence is prose, and a long certificate is enough
+ * to make a model forget it — the fields it quietly stopped declaring were the
+ * whole reason the diff had to be read so carefully.
+ *
+ * Naming them as kept says the same thing as data, in the same shape every
+ * later round uses, and it costs nothing: the type is on the screen already.
+ */
+export function rowsForStoredPaths(
+  paths: readonly string[],
+  labelFor: (path: string) => string,
+  sectionFor: (path: string) => string | null = () => null
+): ProposalFieldRow[] {
+  return rowsForPaths(paths, labelFor, sectionFor, true)
+}
+
+function rowsForPaths(
+  paths: readonly string[],
+  labelFor: (path: string) => string,
+  sectionFor: (path: string) => string | null,
+  kept: boolean
+): ProposalFieldRow[] {
+  return paths.map(path => ({
     path,
     label: labelFor(path),
     sampleValue: '',
-    // The block the type recorded for it, so a field about to be lost is read
-    // among the neighbours it belongs with rather than in a bin at the end —
-    // which is where the eye goes past it.
+    // The block the type recorded for it, so a field is read among the
+    // neighbours it belongs with rather than in a bin at the end — which is
+    // where the eye goes past it.
     section: sectionFor(path),
     role: 'context' as const,
-    // Unticked on purpose: this reading did not produce the field, so leaving
-    // it ticked would report as kept something no schema currently declares.
-    kept: false,
+    kept,
     renamedLabel: null,
     note: '',
     conceptId: null,
